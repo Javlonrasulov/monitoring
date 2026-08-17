@@ -1,0 +1,82 @@
+package com.monitor.device
+
+import android.content.Context
+import android.os.Bundle
+import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
+import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
+import com.monitor.device.settings.AppSettings
+import com.monitor.device.settings.ThemeMode
+import com.monitor.device.ui.navigation.MonitorNavHost
+import com.monitor.device.ui.theme.MonitorTheme
+
+class MainActivity : ComponentActivity() {
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(AppSettings.applyLanguage(newBase))
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
+        val app = application as MonitorApp
+
+        setContent {
+            var themeMode by remember { mutableStateOf(AppSettings.themeMode(this)) }
+            val darkTheme = themeMode.resolveDark()
+
+            // Keep status/navigation icon contrast in sync with the in-app theme,
+            // which may differ from the system setting.
+            DisposableEffect(darkTheme) {
+                val transparent = Color.Transparent.toArgb()
+                enableEdgeToEdge(
+                    statusBarStyle = SystemBarStyle.auto(transparent, transparent) { darkTheme },
+                    navigationBarStyle = SystemBarStyle.auto(transparent, transparent) { darkTheme },
+                )
+                onDispose {}
+            }
+
+            MonitorTheme(darkTheme = darkTheme) {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background,
+                ) {
+                    MonitorNavHost(
+                        tokenStore = app.tokenStore,
+                        apiClient = app.apiClient,
+                        themeMode = themeMode,
+                        isDarkTheme = darkTheme,
+                        onThemeChange = { mode ->
+                            themeMode = mode
+                            AppSettings.setThemeMode(this, mode)
+                        },
+                        onLanguageChange = { language ->
+                            AppSettings.setLanguage(this, language)
+                            recreate()
+                        },
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ThemeMode.resolveDark(): Boolean = when (this) {
+    ThemeMode.SYSTEM -> isSystemInDarkTheme()
+    ThemeMode.LIGHT -> false
+    ThemeMode.DARK -> true
+}

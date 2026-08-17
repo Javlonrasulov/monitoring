@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Default locale: Uzbek (Latin) -->
+<resources>
+    <string name="app_name">Monitor</string>
+    <string name="brand_tagline">Shaffof qurilma monitoringi</string>
+
+    <!-- Common -->
+    <string name="common_continue">Davom etish</string>
+    <string name="common_cancel">Bekor qilish</string>
+    <string name="common_retry">Qayta urinish</string>
+    <string name="common_close">Yopish</string>
+    <string name="common_loading">Yuklanmoqda…</string>
+
+    <!-- Settings -->
+    <string name="settings_language">Til</string>
+    <string name="settings_theme">Mavzu</string>
+    <string name="language_uz">Oʻzbekcha</string>
+    <string name="language_ru">Русский</string>
+    <string name="language_en">English</string>
+    <string name="theme_system">Tizim</string>
+    <string name="theme_light">Yorugʻ</string>
+    <string name="theme_dark">Qorongʻi</string>
+    <string name="cd_change_language">Tilni oʻzgartirish</string>
+    <string name="cd_change_theme">Mavzuni oʻzgartirish</string>
+
+    <!-- Setup / permissions -->
+    <string name="setup_title">Ilova sozlanmoqda</string>
+    <string name="setup_subtitle">Monitoring ishlashi uchun bir nechta ruxsat kerak. Har birini navbat bilan tasdiqlang.</string>
+    <string name="setup_permission_camera">Kamera</string>
+    <string name="setup_permission_microphone">Mikrofon</string>
+    <string name="setup_permission_notifications">Bildirishnomalar</string>
+    <string name="setup_progress">%1$d / %2$d</string>
+    <string name="setup_requesting">Ruxsat soʻralmoqda…</string>
+    <string name="setup_denied_title">Ruxsat berilmadi</string>
+    <string name="setup_denied_message">Kamera va mikrofonsiz kuzatuv ishlamaydi. Sozlamalarni ochib, ruxsatlarni yoqing va shu yerga qayting.</string>
+    <string name="setup_open_settings">Sozlamalarni ochish</string>
+
+    <!-- Pairing -->
+    <string name="pair_title">Qurilmani ulash</string>
+    <string name="pair_subtitle">Admin paneldan olingan ulanish kodini kiriting va bu qurilmaga nom bering.</string>
+    <string name="pair_section_title">Ulanish maʼlumotlari</string>
+    <string name="pair_code_label">Ulanish kodi</string>
+    <string name="pair_code_placeholder">Masalan: A1B2C3</string>
+    <string name="pair_code_helper">Kod admin panelida koʻrsatiladi</string>
+    <string name="pair_device_name_label">Qurilma nomi</string>
+    <string name="pair_device_name_placeholder">Masalan: Qabulxona telefoni</string>
+    <string name="pair_device_name_helper">Bu nom admin panelida koʻrinadi</string>
+    <string name="pair_button">Ulash</string>
+    <string name="pair_failed">Ulanib boʻlmadi. Kodni tekshirib, qayta urinib koʻring.</string>
+    <string name="pair_error_title">Xatolik</string>
+    <string name="pair_footer_hint">Qurilma faqat siz ruxsat bergan tashkilotga ulanadi.</string>
+
+    <!-- Home -->
+    <string name="home_device_fallback">Qurilma</string>
+    <string name="home_status_label">Holat</string>
+    <string name="home_status_active">Monitoring faol</string>
+    <string name="home_status_idle">Kutish rejimi</string>
+    <string name="home_badge_live">EFIRDA</string>
+    <string name="home_badge_idle">KUTISH</string>
+    <string name="home_hint_active">Kamera va mikrofon ishlayotganda doimiy bildirishnoma koʻrinib turadi. Istalgan vaqtda toʻxtatishingiz mumkin.</string>
+    <string name="home_hint_idle">Shaffof translyatsiyani boshlash uchun quyidagi tugmani bosing.</string>
+    <string name="home_section_device">Qurilma maʼlumotlari</string>
+    <string name="home_field_name">Nomi</string>
+    <string name="home_field_id">Identifikator</string>
+    <string name="home_field_model">Model</string>
+    <string name="home_field_android">Android</string>
+    <string name="home_field_app_version">Ilova versiyasi</string>
+    <string name="home_start_monitoring">Monitoringni boshlash</string>
+    <string name="home_stop_monitoring">Monitoringni toʻxtatish</string>
+    <string name="home_unpair">Qurilmani uzish</string>
+    <string name="home_unpair_title">Qurilma uzilsinmi?</string>
+    <string name="home_unpair_message">Ulanish maʼlumotlari oʻchiriladi va monitoring toʻxtaydi. Qayta ulash uchun yangi kod kerak boʻladi.</string>
+    <string name="home_unpair_confirm">Uzish</string>
+    <string name="home_transparency_note">Hech narsa yashirincha ishlamaydi — monitoring vaqtida bildirishnoma doim koʻrinadi.</string>
+</resources>

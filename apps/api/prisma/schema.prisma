@@ -1,0 +1,189 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  VIEWER
+}
+
+enum DeviceStatus {
+  ONLINE
+  OFFLINE
+  CONNECTING
+  STREAMING
+  ERROR
+}
+
+enum StreamSessionStatus {
+  STARTING
+  ACTIVE
+  ENDED
+  FAILED
+}
+
+enum NetworkType {
+  WIFI
+  MOBILE
+  UNKNOWN
+}
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  branches Branch[]
+  users    User[]
+  devices  Device[]
+  snapshots Snapshot[]
+  auditLogs AuditLog[]
+  streamSessions StreamSession[]
+}
+
+model Branch {
+  id             String   @id @default(cuid())
+  name           String
+  organizationId String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  devices      Device[]
+  snapshots    Snapshot[]
+  pairingCodes DevicePairingCode[]
+
+  @@index([organizationId])
+}
+
+model User {
+  id             String   @id @default(cuid())
+  email          String
+  passwordHash   String
+  name           String
+  role           UserRole @default(ADMIN)
+  organizationId String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  snapshots    Snapshot[]
+  auditLogs    AuditLog[]
+
+  @@unique([organizationId, email])
+  @@index([organizationId])
+}
+
+model Device {
+  id               String       @id @default(cuid())
+  name             String
+  organizationId   String
+  branchId         String
+  status           DeviceStatus @default(OFFLINE)
+  lastSeen         DateTime?
+  credentialsHash  String?
+  apiKeyHash       String?
+  capabilitiesJson Json?
+  batteryPercent   Int?
+  charging         Boolean?
+  batterySaver     Boolean?
+  thermalState     String?
+  networkType      NetworkType?
+  networkQuality   Int?
+  errorCode        String?
+  errorMessage     String?
+  appVersion       String?
+  androidVersion   String?
+  deviceModel      String?
+  disabled         Boolean      @default(false)
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  organization   Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branch         Branch             @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  pairingCodes   DevicePairingCode[]
+  streamSessions StreamSession[]
+  snapshots      Snapshot[]
+
+  @@index([organizationId])
+  @@index([branchId])
+  @@index([status])
+}
+
+model DevicePairingCode {
+  id             String    @id @default(cuid())
+  code           String    @unique
+  organizationId String
+  branchId       String
+  deviceId       String?
+  deviceNameHint String?
+  expiresAt      DateTime
+  usedAt         DateTime?
+  createdAt      DateTime  @default(now())
+
+  branch Branch  @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  device Device? @relation(fields: [deviceId], references: [id], onDelete: SetNull)
+
+  @@index([code])
+  @@index([branchId])
+}
+
+model StreamSession {
+  id             String              @id @default(cuid())
+  deviceId       String
+  organizationId String
+  status         StreamSessionStatus @default(STARTING)
+  quality        String?
+  startedAt      DateTime            @default(now())
+  endedAt        DateTime?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  device       Device       @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([deviceId])
+  @@index([organizationId])
+}
+
+model Snapshot {
+  id             String   @id @default(cuid())
+  deviceId       String
+  organizationId String
+  branchId       String
+  userId         String
+  path           String
+  createdAt      DateTime @default(now())
+
+  device       Device       @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branch       Branch       @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([deviceId])
+  @@index([organizationId])
+}
+
+model AuditLog {
+  id             String   @id @default(cuid())
+  organizationId String
+  userId         String?
+  action         String
+  resourceType   String
+  resourceId     String?
+  metadataJson   Json?
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([createdAt])
+}

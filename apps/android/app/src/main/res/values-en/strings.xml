@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Monitor</string>
+    <string name="brand_tagline">Transparent device monitoring</string>
+
+    <!-- Common -->
+    <string name="common_continue">Continue</string>
+    <string name="common_cancel">Cancel</string>
+    <string name="common_retry">Try again</string>
+    <string name="common_close">Close</string>
+    <string name="common_loading">Loading…</string>
+
+    <!-- Settings -->
+    <string name="settings_language">Language</string>
+    <string name="settings_theme">Theme</string>
+    <string name="language_uz">Oʻzbekcha</string>
+    <string name="language_ru">Русский</string>
+    <string name="language_en">English</string>
+    <string name="theme_system">System</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_dark">Dark</string>
+    <string name="cd_change_language">Change language</string>
+    <string name="cd_change_theme">Change theme</string>
+
+    <!-- Setup / permissions -->
+    <string name="setup_title">Setting things up</string>
+    <string name="setup_subtitle">Monitoring needs a few permissions. Approve each one as it appears.</string>
+    <string name="setup_permission_camera">Camera</string>
+    <string name="setup_permission_microphone">Microphone</string>
+    <string name="setup_permission_notifications">Notifications</string>
+    <string name="setup_progress">%1$d of %2$d</string>
+    <string name="setup_requesting">Requesting permission…</string>
+    <string name="setup_denied_title">Permission not granted</string>
+    <string name="setup_denied_message">Monitoring cannot run without the camera and microphone. Open settings, enable them, and come back here.</string>
+    <string name="setup_open_settings">Open settings</string>
+
+    <!-- Pairing -->
+    <string name="pair_title">Pair device</string>
+    <string name="pair_subtitle">Enter the pairing code from the admin console and give this device a name.</string>
+    <string name="pair_section_title">Pairing details</string>
+    <string name="pair_code_label">Pairing code</string>
+    <string name="pair_code_placeholder">For example: A1B2C3</string>
+    <string name="pair_code_helper">The code is shown in the admin console</string>
+    <string name="pair_device_name_label">Device name</string>
+    <string name="pair_device_name_placeholder">For example: Reception phone</string>
+    <string name="pair_device_name_helper">This name appears in the admin console</string>
+    <string name="pair_button">Pair device</string>
+    <string name="pair_failed">Pairing failed. Check the code and try again.</string>
+    <string name="pair_error_title">Something went wrong</string>
+    <string name="pair_footer_hint">This device only connects to the organization you approve.</string>
+
+    <!-- Home -->
+    <string name="home_device_fallback">Device</string>
+    <string name="home_status_label">Status</string>
+    <string name="home_status_active">Monitoring active</string>
+    <string name="home_status_idle">Idle</string>
+    <string name="home_badge_live">LIVE</string>
+    <string name="home_badge_idle">IDLE</string>
+    <string name="home_hint_active">A persistent notification stays visible while the camera and microphone are in use. You can stop anytime.</string>
+    <string name="home_hint_idle">Tap the button below to begin transparent streaming.</string>
+    <string name="home_section_device">Device details</string>
+    <string name="home_field_name">Name</string>
+    <string name="home_field_id">Identifier</string>
+    <string name="home_field_model">Model</string>
+    <string name="home_field_android">Android</string>
+    <string name="home_field_app_version">App version</string>
+    <string name="home_start_monitoring">Start monitoring</string>
+    <string name="home_stop_monitoring">Stop monitoring</string>
+    <string name="home_unpair">Unpair device</string>
+    <string name="home_unpair_title">Unpair this device?</string>
+    <string name="home_unpair_message">Pairing details will be erased and monitoring will stop. You will need a new code to pair again.</string>
+    <string name="home_unpair_confirm">Unpair</string>
+    <string name="home_transparency_note">Nothing runs in secret — a notification is always visible while monitoring.</string>
+</resources>

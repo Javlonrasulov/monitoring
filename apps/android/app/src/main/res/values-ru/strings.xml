@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Monitor</string>
+    <string name="brand_tagline">Прозрачный мониторинг</string>
+
+    <!-- Common -->
+    <string name="common_continue">Продолжить</string>
+    <string name="common_cancel">Отмена</string>
+    <string name="common_retry">Повторить</string>
+    <string name="common_close">Закрыть</string>
+    <string name="common_loading">Загрузка…</string>
+
+    <!-- Settings -->
+    <string name="settings_language">Язык</string>
+    <string name="settings_theme">Тема</string>
+    <string name="language_uz">Oʻzbekcha</string>
+    <string name="language_ru">Русский</string>
+    <string name="language_en">English</string>
+    <string name="theme_system">Системная</string>
+    <string name="theme_light">Светлая</string>
+    <string name="theme_dark">Тёмная</string>
+    <string name="cd_change_language">Сменить язык</string>
+    <string name="cd_change_theme">Сменить тему</string>
+
+    <!-- Setup / permissions -->
+    <string name="setup_title">Настройка приложения</string>
+    <string name="setup_subtitle">Для мониторинга нужно несколько разрешений. Подтвердите каждое по очереди.</string>
+    <string name="setup_permission_camera">Камера</string>
+    <string name="setup_permission_microphone">Микрофон</string>
+    <string name="setup_permission_notifications">Уведомления</string>
+    <string name="setup_progress">%1$d из %2$d</string>
+    <string name="setup_requesting">Запрос разрешения…</string>
+    <string name="setup_denied_title">Разрешение не выдано</string>
+    <string name="setup_denied_message">Без камеры и микрофона мониторинг не работает. Откройте настройки, включите разрешения и вернитесь сюда.</string>
+    <string name="setup_open_settings">Открыть настройки</string>
+
+    <!-- Pairing -->
+    <string name="pair_title">Привязка устройства</string>
+    <string name="pair_subtitle">Введите код привязки из админ-панели и укажите имя этого устройства.</string>
+    <string name="pair_section_title">Данные привязки</string>
+    <string name="pair_code_label">Код привязки</string>
+    <string name="pair_code_placeholder">Например: A1B2C3</string>
+    <string name="pair_code_helper">Код показан в админ-панели</string>
+    <string name="pair_device_name_label">Имя устройства</string>
+    <string name="pair_device_name_placeholder">Например: Телефон ресепшн</string>
+    <string name="pair_device_name_helper">Это имя отображается в админ-панели</string>
+    <string name="pair_button">Привязать</string>
+    <string name="pair_failed">Не удалось привязать. Проверьте код и попробуйте снова.</string>
+    <string name="pair_error_title">Произошла ошибка</string>
+    <string name="pair_footer_hint">Устройство подключается только к той организации, которую вы подтвердили.</string>
+
+    <!-- Home -->
+    <string name="home_device_fallback">Устройство</string>
+    <string name="home_status_label">Статус</string>
+    <string name="home_status_active">Мониторинг активен</string>
+    <string name="home_status_idle">Ожидание</string>
+    <string name="home_badge_live">ЭФИР</string>
+    <string name="home_badge_idle">ПАУЗА</string>
+    <string name="home_hint_active">Пока используются камера и микрофон, постоянное уведомление остаётся видимым. Остановить можно в любой момент.</string>
+    <string name="home_hint_idle">Нажмите кнопку ниже, чтобы начать прозрачную трансляцию.</string>
+    <string name="home_section_device">Данные устройства</string>
+    <string name="home_field_name">Название</string>
+    <string name="home_field_id">Идентификатор</string>
+    <string name="home_field_model">Модель</string>
+    <string name="home_field_android">Android</string>
+    <string name="home_field_app_version">Версия приложения</string>
+    <string name="home_start_monitoring">Начать мониторинг</string>
+    <string name="home_stop_monitoring">Остановить мониторинг</string>
+    <string name="home_unpair">Отвязать устройство</string>
+    <string name="home_unpair_title">Отвязать устройство?</string>
+    <string name="home_unpair_message">Данные привязки будут удалены, мониторинг остановится. Для повторной привязки понадобится новый код.</string>
+    <string name="home_unpair_confirm">Отвязать</string>
+    <string name="home_transparency_note">Ничего не работает скрытно — во время мониторинга уведомление всегда видно.</string>
+</resources>

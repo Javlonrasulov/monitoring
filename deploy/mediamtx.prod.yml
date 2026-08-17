@@ -1,0 +1,29 @@
+logLevel: info
+
+api: no
+metrics: no
+pprof: no
+playback: no
+
+rtsp: no
+rtmp: no
+hls: no
+srt: no
+
+webrtc: yes
+webrtcAddress: :8889
+webrtcLocalUDPAddress: :8189
+webrtcLocalTCPAddress: ''
+webrtcICEServers2:
+  - url: stun:stun.l.google.com:19302
+
+# Every publish/read is authorized by the API against short-lived stream tokens.
+authMethod: http
+authHTTPAddress: http://api:3001/api/v1/streaming/mediamtx-auth
+
+pathDefaults:
+  source: publisher
+
+# Device paths are dynamic (device/<uuid>), so any path name must be accepted.
+paths:
+  all_others:

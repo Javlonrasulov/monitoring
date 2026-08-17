@@ -1,0 +1,20 @@
+logLevel: info
+api: yes
+apiAddress: :9997
+
+rtsp: yes
+rtspAddress: :8554
+
+webrtc: yes
+webrtcAddress: :8889
+webrtcICEServers2:
+  - url: stun:stun.l.google.com:19302
+
+# Paths are created dynamically: device/{deviceId}
+# Auth is enforced via external HTTP (NestJS) when configured.
+authMethod: http
+authHTTPAddress: http://host.docker.internal:3001/api/v1/streaming/mediamtx-auth
+
+pathDefaults:
+  # WHIP publish from devices, WHEP play from admin
+  source: publisher

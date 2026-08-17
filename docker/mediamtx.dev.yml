@@ -1,0 +1,27 @@
+logLevel: info
+api: yes
+apiAddress: :9997
+
+rtsp: yes
+rtspAddress: :8554
+
+webrtc: yes
+webrtcAddress: :8889
+webrtcICEServers2:
+  - url: stun:stun.l.google.com:19302
+
+# Local/dev: open publish/read. Use mediamtx.yml + API auth in production-like setups.
+authMethod: internal
+authInternalUsers:
+  - user: any
+    pass: ""
+    permissions:
+      - action: publish
+      - action: read
+      - action: playback
+
+pathDefaults:
+  source: publisher
+
+paths:
+  all_others:

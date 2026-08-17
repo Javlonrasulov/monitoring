@@ -1,0 +1,16 @@
+{
+  "name": "monitor",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev:api": "npm run start:dev --prefix apps/api",
+    "dev:admin": "npm run dev --prefix apps/admin-web",
+    "build:api": "npm run build --prefix apps/api",
+    "build:admin": "npm run build --prefix apps/admin-web",
+    "db:generate": "npm run prisma:generate --prefix apps/api",
+    "db:migrate": "npm run prisma:migrate --prefix apps/api",
+    "db:seed": "npm run prisma:seed --prefix apps/api",
+    "docker:up": "docker compose -f docker/docker-compose.yml up -d",
+    "docker:down": "docker compose -f docker/docker-compose.yml down"
+  }
+}

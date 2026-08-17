@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Default locale: Uzbek (Latin) -->
+<resources>
+    <string name="monitoring_channel_name">Monitoring</string>
+    <string name="monitoring_channel_desc">Monitor kamera va mikrofonni ishlatayotganda koʻrsatiladi.</string>
+    <string name="monitoring_notification_title">Monitoring faol</string>
+    <string name="monitoring_notification_text">Kamera va mikrofon faol</string>
+    <string name="monitoring_action_stop">Toʻxtatish</string>
+    <string name="monitoring_action_open">Ilovani ochish</string>
+</resources>
