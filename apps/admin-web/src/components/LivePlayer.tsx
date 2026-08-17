@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
-import type { Device, StreamQuality } from "@/lib/types";
+import type { CameraFacing, Device, StreamQuality } from "@/lib/types";
 import { FormattedDate } from "./FormattedDate";
 import { StatusBadge } from "./StatusBadge";
 import { VideoPlayer } from "./VideoPlayer";
@@ -24,6 +24,17 @@ export function LivePlayer({ device }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [snapshotBusy, setSnapshotBusy] = useState(false);
   const [snapshotMsg, setSnapshotMsg] = useState<string | null>(null);
+  const [cameraFacing, setCameraFacing] = useState<CameraFacing>(
+    device.cameraFacing ?? "BACK",
+  );
+  const [cameraBusy, setCameraBusy] = useState(false);
+  const [cameraMsg, setCameraMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (device.cameraFacing) {
+      setCameraFacing(device.cameraFacing);
+    }
+  }, [device.cameraFacing]);
 
   // Phone already publishing → open the viewer automatically.
   useEffect(() => {
@@ -82,6 +93,25 @@ export function LivePlayer({ device }: Props) {
       setSnapshotMsg(err instanceof Error ? err.message : t("deviceSnapshotError"));
     } finally {
       setSnapshotBusy(false);
+    }
+  }
+
+  async function setCamera(facing: CameraFacing) {
+    if (cameraBusy || facing === cameraFacing) return;
+    setCameraBusy(true);
+    setCameraMsg(null);
+    try {
+      const updated = await api.post<Device>(`/devices/${device.id}/camera`, {
+        facing,
+      });
+      setCameraFacing(updated.cameraFacing ?? facing);
+      setCameraMsg(t("deviceCameraHint"));
+    } catch (err) {
+      setCameraMsg(
+        err instanceof Error ? err.message : t("deviceCameraError"),
+      );
+    } finally {
+      setCameraBusy(false);
     }
   }
 
@@ -158,6 +188,29 @@ export function LivePlayer({ device }: Props) {
           {snapshotBusy ? t("deviceSnapshotBusy") : t("deviceSnapshot")}
         </button>
 
+        <div className="camera-toggle" role="group" aria-label="Kamera">
+          <button
+            type="button"
+            className={`btn btn-secondary${cameraFacing === "FRONT" ? " btn-active" : ""}`}
+            disabled={cameraBusy}
+            onClick={() => void setCamera("FRONT")}
+          >
+            {cameraBusy && cameraFacing !== "FRONT"
+              ? t("deviceCameraBusy")
+              : t("deviceCameraFront")}
+          </button>
+          <button
+            type="button"
+            className={`btn btn-secondary${cameraFacing === "BACK" ? " btn-active" : ""}`}
+            disabled={cameraBusy}
+            onClick={() => void setCamera("BACK")}
+          >
+            {cameraBusy && cameraFacing !== "BACK"
+              ? t("deviceCameraBusy")
+              : t("deviceCameraBack")}
+          </button>
+        </div>
+
         <label className="field inline-field">
           <span>{t("deviceQuality")}</span>
           <select
@@ -173,6 +226,11 @@ export function LivePlayer({ device }: Props) {
 
       {error && <p className="form-error">{error}</p>}
       {snapshotMsg && <p className="form-hint">{snapshotMsg}</p>}
+      {cameraMsg && (
+        <p className={cameraMsg === t("deviceCameraHint") ? "form-hint" : "form-error"}>
+          {cameraMsg}
+        </p>
+      )}
     </div>
   );
 }

@@ -226,6 +226,18 @@ select {
   border-color: var(--teal-100);
 }
 
+.btn-active {
+  background: var(--teal-50);
+  border-color: var(--teal-600);
+  color: var(--teal-700);
+  font-weight: 700;
+}
+
+.camera-toggle {
+  display: inline-flex;
+  gap: 0.4rem;
+}
+
 .btn-ghost {
   background: transparent;
   color: var(--muted);

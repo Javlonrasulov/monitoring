@@ -66,6 +66,11 @@ const uz = {
   deviceCanvasUnavailable: "Canvas mavjud emas",
   deviceSnapshotSaved: "Snapshot saqlandi",
   deviceSnapshotError: "Snapshot xatosi",
+  deviceCameraFront: "Oldi",
+  deviceCameraBack: "Orqa",
+  deviceCameraBusy: "Kamera…",
+  deviceCameraError: "Kamera almashtirilmadi",
+  deviceCameraHint: "Telefon 2–5 soniyada kamerani almashtiradi",
 
   videoConnecting: "Stream ulanmoqda…",
   videoIdle: "Tomosha qilinmayapti",
@@ -136,6 +141,11 @@ const ru: { [K in keyof typeof uz]: string } = {
   deviceCanvasUnavailable: "Canvas недоступен",
   deviceSnapshotSaved: "Снимок сохранён",
   deviceSnapshotError: "Ошибка снимка",
+  deviceCameraFront: "Передняя",
+  deviceCameraBack: "Задняя",
+  deviceCameraBusy: "Камера…",
+  deviceCameraError: "Не удалось сменить камеру",
+  deviceCameraHint: "Телефон сменит камеру за 2–5 секунд",
 
   videoConnecting: "Подключение к эфиру…",
   videoIdle: "Просмотр не начат",
