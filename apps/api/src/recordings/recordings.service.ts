@@ -419,8 +419,8 @@ export class RecordingsService implements OnModuleDestroy {
       throw new NotFoundException('Recording file missing');
     }
 
-    const filename = `${row.deviceName}-${row.cameraFacing}-${row.startedAt.toISOString().replace(/[:.]/g, '-')}.mp4`;
-    res.setHeader('Content-Type', 'video/mp4');
+    const filename = `${row.deviceName}-${row.cameraFacing}-${row.startedAt.toISOString().replace(/[:.]/g, '-')}.webm`;
+    res.setHeader('Content-Type', 'video/webm');
     res.setHeader('Accept-Ranges', 'bytes');
     if (download) {
       res.setHeader(
@@ -471,7 +471,7 @@ export class RecordingsService implements OnModuleDestroy {
     const files = rows
       .map((row) => ({
         diskPath: recordingsRootJoin(this.recordingsDir(), row.storagePath),
-        name: `${row.startedAt.toISOString().replace(/[:.]/g, '-')}_${row.cameraFacing}.mp4`,
+        name: `${row.startedAt.toISOString().replace(/[:.]/g, '-')}_${row.cameraFacing}.webm`,
         row,
       }))
       .filter((file) => existsSync(file.diskPath));
@@ -541,7 +541,7 @@ export class RecordingsService implements OnModuleDestroy {
     const storagePath = join(
       job.organizationId,
       job.deviceId,
-      `${id}.mp4`,
+      `${id}.webm`,
     ).replace(/\\/g, '/');
     const fullPath = recordingsRootJoin(this.recordingsDir(), storagePath);
     await ensureParentDir(fullPath);
@@ -597,7 +597,7 @@ export class RecordingsService implements OnModuleDestroy {
 
     if (size < MIN_SEGMENT_BYTES) {
       this.logger.warn(
-        `Dropping short segment ${row.id} exit=${code} size=${size} ${stderr.join('').slice(-200)}`,
+        `Dropping short segment ${row.id} exit=${code} size=${size} ${stderr.join('').slice(-500)}`,
       );
       await removeIfExists(fullPath);
       await this.prisma.recordingSegment.delete({ where: { id: row.id } }).catch(() => undefined);

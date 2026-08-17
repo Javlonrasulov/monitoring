@@ -128,6 +128,9 @@ class MonitoringForegroundService : LifecycleService() {
             context = this,
             apiClient = api,
             tokenStore = tokenStore,
+            appVersion = runCatching {
+                packageManager.getPackageInfo(packageName, 0).versionName
+            }.getOrNull() ?: "1.0.3",
             onFatal = {
                 serviceScope.launch {
                     runCatching { engine?.stop() }

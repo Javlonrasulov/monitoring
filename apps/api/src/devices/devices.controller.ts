@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
@@ -114,6 +115,21 @@ export class DevicesController {
     @Param('id') id: string,
   ) {
     return this.devicesService.disableDevice(
+      user.organizationId,
+      user.userId,
+      id,
+    );
+  }
+
+  @Delete(':id')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, AdminRoleGuard)
+  @ApiOperation({ summary: 'Delete device' })
+  remove(
+    @CurrentUser() user: { organizationId: string; userId: string },
+    @Param('id') id: string,
+  ) {
+    return this.devicesService.deleteDevice(
       user.organizationId,
       user.userId,
       id,

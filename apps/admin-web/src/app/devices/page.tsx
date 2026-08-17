@@ -133,7 +133,13 @@ export default function DevicesPage() {
       {!loading && devices.length > 0 && (
         <div className="device-grid">
           {devices.map((device) => (
-            <DeviceCard key={device.id} device={device} />
+            <DeviceCard
+              key={device.id}
+              device={device}
+              onDeleted={(deviceId) =>
+                setDevices((list) => list.filter((item) => item.id !== deviceId))
+              }
+            />
           ))}
         </div>
       )}

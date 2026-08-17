@@ -78,4 +78,26 @@ class CameraCapabilityProbe(context: Context) {
                 ?: 0L
         }
     }
+
+    /**
+     * Returns a camera id for [facing] only — never falls back to the other lens.
+     * Smallest numeric id is the physical sensor on Samsung (0 back, 1 front).
+     */
+    fun pickCameraId(facing: LensFacing): String? {
+        val cameras = discoverCameras().filter { it.lensFacing == facing }
+        if (cameras.isEmpty()) {
+            android.util.Log.w(TAG, "No $facing camera reported by CameraManager")
+            return null
+        }
+        val chosen = cameras.minByOrNull { it.cameraId.toIntOrNull() ?: Int.MAX_VALUE }
+        android.util.Log.i(
+            TAG,
+            "Picked camera id=${chosen?.cameraId} facing=$facing from ${cameras.map { it.cameraId }}",
+        )
+        return chosen?.cameraId
+    }
+
+    companion object {
+        private const val TAG = "CameraProbe"
+    }
 }

@@ -70,6 +70,12 @@ class MonitoringEngine(
     @Volatile
     private var desiredFacing: CameraFacing = CameraFacing.BACK
 
+    @Volatile
+    private var skipFacingUntilMs: Long = 0L
+
+    @Volatile
+    private var skippedFacing: CameraFacing? = null
+
     fun isRunning(): Boolean = running.get()
 
     suspend fun start(
@@ -133,6 +139,29 @@ class MonitoringEngine(
         audio.setMuted(muted)
     }
 
+    private suspend fun startPublisher(whipUrl: String, bearerToken: String) {
+        try {
+            whipPublisher.start(
+                whipUrl = whipUrl,
+                bearerToken = bearerToken,
+                quality = adaptive.quality,
+                facing = desiredFacing,
+            )
+            skippedFacing = null
+        } catch (error: Throwable) {
+            if (desiredFacing != CameraFacing.FRONT) throw error
+            Log.w(TAG, "FRONT camera failed (${error.message}), publishing BACK")
+            skippedFacing = CameraFacing.FRONT
+            skipFacingUntilMs = System.currentTimeMillis() + 60_000
+            whipPublisher.start(
+                whipUrl = whipUrl,
+                bearerToken = bearerToken,
+                quality = adaptive.quality,
+                facing = CameraFacing.BACK,
+            )
+        }
+    }
+
     fun isStreaming(): Boolean =
         running.get() && lastStatus == ConnectionStatus.STREAMING && whipPublisher.isActive()
 
@@ -142,11 +171,9 @@ class MonitoringEngine(
                 try {
                     val token = apiClient.publisherToken()
                     sessionId = token.sessionId
-                    whipPublisher.start(
+                    startPublisher(
                         whipUrl = token.whipUrl,
                         bearerToken = token.token,
-                        quality = adaptive.quality,
-                        facing = desiredFacing,
                     )
                     if (!whipPublisher.isActive()) {
                         reconnect.awaitNext("whip-inactive")
@@ -155,6 +182,7 @@ class MonitoringEngine(
                     reconnect.reset()
                     lastStatus = ConnectionStatus.STREAMING
                     lastError = null
+                    runCatching { reportStatus(ConnectionStatus.STREAMING.name) }
                     // Keep publisher "alive"; real PeerConnection would stay open.
                     while (isActive && running.get() && whipPublisher.isActive()) {
                         val snap = statusCollector.collect()
@@ -166,25 +194,25 @@ class MonitoringEngine(
                         val interactive = pm.isInteractive
                         val restriction = restrictionDetector.detectCameraBackgroundRestriction(interactive)
                         if (restriction != null) {
-                            lastError = restriction.message
-                            runCatching {
-                                reportStatus(
-                                    status = ConnectionStatus.ERROR.name,
-                                    errorCode = restriction.code,
-                                    errorMessage = restriction.message,
-                                )
-                            }
+                            // Log only: Samsung FGS still publishes with battery
+                            // optimization on. Reporting ERROR here made 51 look
+                            // dead in admin while the app was open and streaming.
+                            Log.w(TAG, restriction.message)
                         }
                         delay(5_000)
                     }
 
                     if (isActive && running.get()) {
-                        // Loop above only exits early when the peer connection
-                        // died; clean up and republish with a fresh token.
-                        Log.w(TAG, "Stream dropped, republishing")
+                        val switchCamera = whipPublisher.currentFacing() != desiredFacing
+                        Log.w(TAG, "Stream dropped, republishing camera=$desiredFacing")
                         lastStatus = ConnectionStatus.CONNECTING
                         runCatching { whipPublisher.stop() }
-                        reconnect.awaitNext("stream-dropped")
+                        if (switchCamera) {
+                            reconnect.reset()
+                            delay(500)
+                        } else {
+                            reconnect.awaitNext("stream-dropped")
+                        }
                     }
                 } catch (unpaired: DeviceApiClient.Unpaired) {
                     handleUnpaired(unpaired)
@@ -276,6 +304,12 @@ class MonitoringEngine(
     }
 
     private fun applyDesiredFacing() {
+        if (
+            skippedFacing == desiredFacing &&
+            System.currentTimeMillis() < skipFacingUntilMs
+        ) {
+            return
+        }
         if (whipPublisher.isActive()) {
             whipPublisher.setFacing(desiredFacing)
         }

@@ -338,6 +338,33 @@ export class DevicesService {
     return updated;
   }
 
+  async deleteDevice(
+    organizationId: string,
+    userId: string,
+    deviceId: string,
+  ) {
+    const device = await this.getForOrg(organizationId, deviceId);
+
+    await this.prisma.device.delete({
+      where: { id: device.id },
+    });
+
+    await this.audit.log({
+      organizationId,
+      userId,
+      action: 'device.deleted',
+      resourceType: 'Device',
+      resourceId: device.id,
+      metadata: { name: device.name },
+    });
+
+    this.events.emitToOrg(organizationId, 'device.deleted', {
+      deviceId: device.id,
+    });
+
+    return { ok: true };
+  }
+
   async markStaleDevicesOffline() {
     const cutoff = new Date(Date.now() - 45_000);
     const stale = await this.prisma.device.findMany({

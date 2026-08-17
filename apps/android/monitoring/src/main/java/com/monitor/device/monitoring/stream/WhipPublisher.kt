@@ -15,7 +15,9 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.webrtc.AudioSource
 import org.webrtc.AudioTrack
+import org.webrtc.Camera1Enumerator
 import org.webrtc.Camera2Enumerator
+import org.webrtc.CameraVideoCapturer
 import org.webrtc.DataChannel
 import org.webrtc.DefaultVideoDecoderFactory
 import org.webrtc.DefaultVideoEncoderFactory
@@ -93,6 +95,8 @@ class WhipPublisherImpl(
     @Volatile
     private var switchingCamera: Boolean = false
 
+    private val publishReady = AtomicBoolean(false)
+
     private var captureWidth: Int = StreamQuality.MEDIUM.width
     private var captureHeight: Int = StreamQuality.MEDIUM.height
     private var captureFps: Int = StreamQuality.MEDIUM.fps
@@ -134,14 +138,14 @@ class WhipPublisherImpl(
             peerConnection = pc
 
             val capturer = createCameraCapturer(facing)
-                ?: error("No camera available")
+                ?: error("No $facing camera available")
             videoCapturer = capturer
 
             val helper = SurfaceTextureHelper.create("MonitorCapture", eglBase!!.eglBaseContext)
             surfaceHelper = helper
             videoSource = pcFactory.createVideoSource(capturer.isScreencast)
             capturer.initialize(helper, appContext, videoSource!!.capturerObserver)
-            capturer.startCapture(quality.width, quality.height, quality.fps)
+            startCaptureWithFallback(capturer)
 
             videoTrack = pcFactory.createVideoTrack("monitor_video", videoSource).apply {
                 setEnabled(true)
@@ -168,9 +172,11 @@ class WhipPublisherImpl(
                 SessionDescription(SessionDescription.Type.ANSWER, answerSdp),
             )
             applyBitrate(currentBitrateBps)
-            Log.i(TAG, "WHIP publish started path=$whipUrl")
+            publishReady.set(true)
+            Log.i(TAG, "WHIP publish started path=$whipUrl facing=$currentFacing")
         } catch (t: Throwable) {
             Log.e(TAG, "WHIP start failed: ${t.message}", t)
+            publishReady.set(false)
             active.set(false)
             releasePeer()
             throw t
@@ -181,6 +187,7 @@ class WhipPublisherImpl(
         // Not guarded by compareAndSet: the ICE observer may have already
         // flipped `active` to false, and the natives still need releasing.
         active.set(false)
+        publishReady.set(false)
         val url = resourceUrl
         val token = sessionToken
         resourceUrl = null
@@ -213,19 +220,20 @@ class WhipPublisherImpl(
 
     override fun setFacing(facing: CameraFacing) {
         mainHandler.post {
-            if (!active.get()) {
-                currentFacing = facing
+            if (!publishReady.get() || !active.get()) {
                 return@post
             }
             if (currentFacing == facing || switchingCamera) {
                 return@post
             }
+            // In-place Camera2 swap on Samsung keeps the back sensor while
+            // reporting FRONT. Drop the peer connection so MonitoringEngine
+            // republishes with a fresh capturer for the requested lens.
             switchingCamera = true
-            try {
-                replaceCapturer(facing)
-            } finally {
-                switchingCamera = false
-            }
+            Log.i(TAG, "Camera switch $currentFacing → $facing; republishing")
+            active.set(false)
+            publishReady.set(false)
+            switchingCamera = false
         }
     }
 
@@ -255,111 +263,111 @@ class WhipPublisherImpl(
     }
 
     /**
-     * Samsung Camera2 `switchCamera()` is a toggle and often reports the wrong
-     * facing. Recreate the capturer for the requested lens instead.
+     * Samsung Camera2 in-place switch often keeps the back sensor. Always open
+     * the requested lens by id, never falling back to the other camera.
      */
-    private fun replaceCapturer(facing: CameraFacing) {
-        val enumerator = Camera2Enumerator(appContext)
-        val targetName = pickCameraName(enumerator, facing)
-        if (targetName == null) {
-            Log.w(TAG, "No camera available for $facing")
-            return
-        }
-        val helper = surfaceHelper
-        val source = videoSource
-        if (helper == null || source == null) {
-            Log.w(TAG, "Cannot switch camera: capture pipeline not ready")
-            return
-        }
-
-        val previousFacing = currentFacing
-        val old = videoCapturer
-        Log.i(TAG, "Replacing capturer $previousFacing → $facing ($targetName)")
-        runCatching { old?.stopCapture() }
-        runCatching { old?.dispose() }
-        videoCapturer = null
-
-        val created = enumerator.createCapturer(targetName, null)
-        if (created == null) {
-            Log.w(TAG, "Failed to create capturer $targetName")
-            restoreCapturer(enumerator, previousFacing, helper, source)
-            return
-        }
-
-        try {
-            created.initialize(helper, appContext, source.capturerObserver)
-            created.startCapture(captureWidth, captureHeight, captureFps)
-            videoCapturer = created
-            currentFacing = facingOf(enumerator, targetName, facing)
-            Log.i(TAG, "Camera facing now $currentFacing")
-        } catch (t: Throwable) {
-            Log.e(TAG, "Camera start after switch failed", t)
-            runCatching { created.stopCapture() }
-            runCatching { created.dispose() }
-            restoreCapturer(enumerator, previousFacing, helper, source)
-        }
-    }
-
-    private fun restoreCapturer(
-        enumerator: Camera2Enumerator,
-        facing: CameraFacing,
-        helper: SurfaceTextureHelper,
-        source: VideoSource,
-    ) {
-        val fallbackName = pickCameraName(enumerator, facing) ?: return
-        val restored = enumerator.createCapturer(fallbackName, null) ?: return
-        runCatching {
-            restored.initialize(helper, appContext, source.capturerObserver)
-            restored.startCapture(captureWidth, captureHeight, captureFps)
-            videoCapturer = restored
-            currentFacing = facing
-            Log.i(TAG, "Restored camera $fallbackName facing=$facing")
-        }.onFailure { error ->
-            runCatching { restored.dispose() }
-            Log.e(TAG, "Could not restore camera after failed switch", error)
-        }
-    }
-
     private fun createCameraCapturer(facing: CameraFacing): VideoCapturer? {
-        val enumerator = Camera2Enumerator(appContext)
-        val chosen = pickCameraName(enumerator, facing) ?: return null
-        currentFacing = facingOf(enumerator, chosen, facing)
-        Log.i(TAG, "Starting camera $chosen facing=$currentFacing requested=$facing")
-        return enumerator.createCapturer(chosen, null)
+        logCameraInventory()
+        createCamera1Capturer(facing)?.let { return it }
+        createCamera2Capturer(facing)?.let { return it }
+        Log.e(TAG, "No capturer available for $facing")
+        return null
     }
 
-    private fun pickCameraName(
-        enumerator: Camera2Enumerator,
-        facing: CameraFacing,
-    ): String? {
-        val want = if (facing == CameraFacing.FRONT) {
+    private fun createCamera1Capturer(facing: CameraFacing): VideoCapturer? {
+        val enumerator = Camera1Enumerator(true)
+        val names = enumerator.deviceNames
+        val match = names.firstOrNull { name ->
+            if (facing == CameraFacing.FRONT) enumerator.isFrontFacing(name)
+            else enumerator.isBackFacing(name)
+        } ?: return null
+        val capturer = enumerator.createCapturer(match, cameraEvents()) ?: return null
+        currentFacing = facing
+        Log.i(TAG, "Camera1 capturer $match facing=$facing")
+        return capturer
+    }
+
+    private fun createCamera2Capturer(facing: CameraFacing): VideoCapturer? {
+        val enumerator = Camera2Enumerator(appContext)
+        val probeFacing = if (facing == CameraFacing.FRONT) {
             CameraCapabilityProbe.LensFacing.FRONT
         } else {
             CameraCapabilityProbe.LensFacing.BACK
         }
-        val probed = cameraProbe.selectBestCamera(preferFacing = want)
-        if (probed != null && probed.lensFacing == want) {
-            val names = enumerator.deviceNames
-            if (names.contains(probed.cameraId)) return probed.cameraId
-        }
-        val match = enumerator.deviceNames.firstOrNull { name ->
-            if (facing == CameraFacing.FRONT) {
-                enumerator.isFrontFacing(name)
-            } else {
-                enumerator.isBackFacing(name)
-            }
-        }
-        return match ?: enumerator.deviceNames.firstOrNull()
+        val id = cameraProbe.pickCameraId(probeFacing) ?: enumerator.deviceNames.firstOrNull { name ->
+            if (facing == CameraFacing.FRONT) enumerator.isFrontFacing(name)
+            else enumerator.isBackFacing(name)
+        } ?: return null
+        val capturer = enumerator.createCapturer(id, cameraEvents()) ?: return null
+        currentFacing = facing
+        Log.i(TAG, "Camera2 capturer $id facing=$facing")
+        return capturer
     }
 
-    private fun facingOf(
-        enumerator: Camera2Enumerator,
-        cameraName: String,
-        requested: CameraFacing,
-    ): CameraFacing = when {
-        enumerator.isFrontFacing(cameraName) -> CameraFacing.FRONT
-        enumerator.isBackFacing(cameraName) -> CameraFacing.BACK
-        else -> requested
+    private fun startCaptureWithFallback(capturer: VideoCapturer) {
+        val attempts = listOf(
+            Triple(captureWidth, captureHeight, captureFps),
+            Triple(1280, 720, 24),
+            Triple(960, 720, 20),
+            Triple(640, 480, 15),
+        ).distinct()
+        var lastError: Throwable? = null
+        for ((width, height, fps) in attempts) {
+            try {
+                capturer.startCapture(width, height, fps)
+                Log.i(TAG, "Capture started ${width}x${height}@$fps facing=$currentFacing")
+                return
+            } catch (error: Throwable) {
+                lastError = error
+                Log.w(TAG, "startCapture ${width}x${height}@$fps failed: ${error.message}")
+            }
+        }
+        throw lastError ?: IllegalStateException("startCapture failed")
+    }
+
+    private fun logCameraInventory() {
+        val enumerator = Camera2Enumerator(appContext)
+        val summary = enumerator.deviceNames.joinToString { name ->
+            val facing = when {
+                enumerator.isFrontFacing(name) -> "FRONT"
+                enumerator.isBackFacing(name) -> "BACK"
+                else -> "OTHER"
+            }
+            "$name:$facing"
+        }
+        Log.i(TAG, "Camera2 devices: $summary")
+    }
+
+    private fun cameraEvents() = object : CameraVideoCapturer.CameraEventsHandler {
+        override fun onCameraError(errorDescription: String?) {
+            Log.e(TAG, "Camera error: $errorDescription")
+            if (active.compareAndSet(true, false)) {
+                publishReady.set(false)
+            }
+        }
+
+        override fun onCameraDisconnected() {
+            Log.w(TAG, "Camera disconnected")
+            if (active.compareAndSet(true, false)) {
+                publishReady.set(false)
+            }
+        }
+
+        override fun onCameraFreezed(errorDescription: String?) {
+            Log.w(TAG, "Camera frozen: $errorDescription")
+        }
+
+        override fun onCameraOpening(cameraName: String?) {
+            Log.i(TAG, "Camera opening $cameraName")
+        }
+
+        override fun onFirstFrameAvailable() {
+            Log.i(TAG, "First camera frame facing=$currentFacing")
+        }
+
+        override fun onCameraClosed() {
+            Log.i(TAG, "Camera closed")
+        }
     }
 
     private suspend fun postWhip(

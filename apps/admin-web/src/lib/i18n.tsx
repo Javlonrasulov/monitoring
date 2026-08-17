@@ -85,6 +85,11 @@ const uz = {
   cardCharging: "zaryadlanmoqda",
   cardLastSeen: "Oxirgi ko‘rinish",
   cardWatchLive: "Jonli ko‘rish",
+  deviceDelete: "O‘chirish",
+  deviceConfirmDelete:
+    "Bu qurilma ro‘yxatdan o‘chirilsinmi? Qayta ulash uchun yangi juftlash kodi kerak bo‘ladi.",
+  deviceDeleteError: "Qurilma o‘chirilmadi",
+  deviceDeleting: "O‘chirilmoqda…",
 
   statusONLINE: "ONLAYN",
   statusOFFLINE: "OFLAYN",
@@ -206,6 +211,11 @@ const ru: { [K in keyof typeof uz]: string } = {
   cardCharging: "заряжается",
   cardLastSeen: "Последняя активность",
   cardWatchLive: "Смотреть эфир",
+  deviceDelete: "Удалить",
+  deviceConfirmDelete:
+    "Удалить это устройство из списка? Для повторной привязки понадобится новый код.",
+  deviceDeleteError: "Не удалось удалить устройство",
+  deviceDeleting: "Удаление…",
 
   statusONLINE: "ОНЛАЙН",
   statusOFFLINE: "ОФЛАЙН",
