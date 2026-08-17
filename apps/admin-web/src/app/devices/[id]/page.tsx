@@ -116,7 +116,7 @@ export default function DeviceLivePage() {
 
   return (
     <AdminShell>
-      <div style={{ marginBottom: "1rem" }}>
+      <div className="back-link">
         <Link href="/devices" className="muted">
           {t("deviceBack")}
         </Link>

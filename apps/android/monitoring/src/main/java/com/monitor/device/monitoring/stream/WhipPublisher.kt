@@ -16,7 +16,6 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import org.webrtc.AudioSource
 import org.webrtc.AudioTrack
 import org.webrtc.Camera2Enumerator
-import org.webrtc.CameraVideoCapturer
 import org.webrtc.DataChannel
 import org.webrtc.DefaultVideoDecoderFactory
 import org.webrtc.DefaultVideoEncoderFactory
@@ -35,6 +34,7 @@ import org.webrtc.VideoCapturer
 import org.webrtc.VideoSource
 import org.webrtc.VideoTrack
 import com.monitor.device.core.model.CameraFacing
+import com.monitor.device.monitoring.camera.CameraCapabilityProbe
 import java.net.URI
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
@@ -93,6 +93,11 @@ class WhipPublisherImpl(
     @Volatile
     private var switchingCamera: Boolean = false
 
+    private var captureWidth: Int = StreamQuality.MEDIUM.width
+    private var captureHeight: Int = StreamQuality.MEDIUM.height
+    private var captureFps: Int = StreamQuality.MEDIUM.fps
+    private val cameraProbe = CameraCapabilityProbe(appContext)
+
     override suspend fun start(
         whipUrl: String,
         bearerToken: String,
@@ -104,6 +109,9 @@ class WhipPublisherImpl(
             return@withContext
         }
         currentBitrateBps = quality.targetBitrateBps
+        captureWidth = quality.width
+        captureHeight = quality.height
+        captureFps = quality.fps
         sessionToken = bearerToken
         // A previous session may have died on its own (ICE failure); never leak its natives.
         releasePeer()
@@ -205,27 +213,19 @@ class WhipPublisherImpl(
 
     override fun setFacing(facing: CameraFacing) {
         mainHandler.post {
-            if (!active.get() || currentFacing == facing || switchingCamera) {
+            if (!active.get()) {
+                currentFacing = facing
                 return@post
             }
-            val capturer = videoCapturer as? CameraVideoCapturer
-            if (capturer == null) {
-                Log.w(TAG, "Camera switch skipped: capturer is not CameraVideoCapturer")
+            if (currentFacing == facing || switchingCamera) {
                 return@post
             }
             switchingCamera = true
-            capturer.switchCamera(object : CameraVideoCapturer.CameraSwitchHandler {
-                override fun onCameraSwitchDone(isFrontCamera: Boolean) {
-                    currentFacing = if (isFrontCamera) CameraFacing.FRONT else CameraFacing.BACK
-                    switchingCamera = false
-                    Log.i(TAG, "Camera facing now $currentFacing")
-                }
-
-                override fun onCameraSwitchError(errorDescription: String?) {
-                    switchingCamera = false
-                    Log.w(TAG, "Camera switch failed: $errorDescription")
-                }
-            })
+            try {
+                replaceCapturer(facing)
+            } finally {
+                switchingCamera = false
+            }
         }
     }
 
@@ -254,25 +254,112 @@ class WhipPublisherImpl(
             .createPeerConnectionFactory()
     }
 
+    /**
+     * Samsung Camera2 `switchCamera()` is a toggle and often reports the wrong
+     * facing. Recreate the capturer for the requested lens instead.
+     */
+    private fun replaceCapturer(facing: CameraFacing) {
+        val enumerator = Camera2Enumerator(appContext)
+        val targetName = pickCameraName(enumerator, facing)
+        if (targetName == null) {
+            Log.w(TAG, "No camera available for $facing")
+            return
+        }
+        val helper = surfaceHelper
+        val source = videoSource
+        if (helper == null || source == null) {
+            Log.w(TAG, "Cannot switch camera: capture pipeline not ready")
+            return
+        }
+
+        val previousFacing = currentFacing
+        val old = videoCapturer
+        Log.i(TAG, "Replacing capturer $previousFacing → $facing ($targetName)")
+        runCatching { old?.stopCapture() }
+        runCatching { old?.dispose() }
+        videoCapturer = null
+
+        val created = enumerator.createCapturer(targetName, null)
+        if (created == null) {
+            Log.w(TAG, "Failed to create capturer $targetName")
+            restoreCapturer(enumerator, previousFacing, helper, source)
+            return
+        }
+
+        try {
+            created.initialize(helper, appContext, source.capturerObserver)
+            created.startCapture(captureWidth, captureHeight, captureFps)
+            videoCapturer = created
+            currentFacing = facingOf(enumerator, targetName, facing)
+            Log.i(TAG, "Camera facing now $currentFacing")
+        } catch (t: Throwable) {
+            Log.e(TAG, "Camera start after switch failed", t)
+            runCatching { created.stopCapture() }
+            runCatching { created.dispose() }
+            restoreCapturer(enumerator, previousFacing, helper, source)
+        }
+    }
+
+    private fun restoreCapturer(
+        enumerator: Camera2Enumerator,
+        facing: CameraFacing,
+        helper: SurfaceTextureHelper,
+        source: VideoSource,
+    ) {
+        val fallbackName = pickCameraName(enumerator, facing) ?: return
+        val restored = enumerator.createCapturer(fallbackName, null) ?: return
+        runCatching {
+            restored.initialize(helper, appContext, source.capturerObserver)
+            restored.startCapture(captureWidth, captureHeight, captureFps)
+            videoCapturer = restored
+            currentFacing = facing
+            Log.i(TAG, "Restored camera $fallbackName facing=$facing")
+        }.onFailure { error ->
+            runCatching { restored.dispose() }
+            Log.e(TAG, "Could not restore camera after failed switch", error)
+        }
+    }
+
     private fun createCameraCapturer(facing: CameraFacing): VideoCapturer? {
         val enumerator = Camera2Enumerator(appContext)
-        val deviceNames = enumerator.deviceNames
-        val back = deviceNames.firstOrNull { enumerator.isBackFacing(it) }
-        val front = deviceNames.firstOrNull { enumerator.isFrontFacing(it) }
-        val preferred = if (facing == CameraFacing.FRONT) {
-            front ?: back
-        } else {
-            back ?: front
-        }
-        val chosen = preferred ?: deviceNames.firstOrNull() ?: return null
-        currentFacing = when {
-            front != null && chosen == front -> CameraFacing.FRONT
-            back != null && chosen == back -> CameraFacing.BACK
-            enumerator.isFrontFacing(chosen) -> CameraFacing.FRONT
-            else -> CameraFacing.BACK
-        }
+        val chosen = pickCameraName(enumerator, facing) ?: return null
+        currentFacing = facingOf(enumerator, chosen, facing)
         Log.i(TAG, "Starting camera $chosen facing=$currentFacing requested=$facing")
         return enumerator.createCapturer(chosen, null)
+    }
+
+    private fun pickCameraName(
+        enumerator: Camera2Enumerator,
+        facing: CameraFacing,
+    ): String? {
+        val want = if (facing == CameraFacing.FRONT) {
+            CameraCapabilityProbe.LensFacing.FRONT
+        } else {
+            CameraCapabilityProbe.LensFacing.BACK
+        }
+        val probed = cameraProbe.selectBestCamera(preferFacing = want)
+        if (probed != null && probed.lensFacing == want) {
+            val names = enumerator.deviceNames
+            if (names.contains(probed.cameraId)) return probed.cameraId
+        }
+        val match = enumerator.deviceNames.firstOrNull { name ->
+            if (facing == CameraFacing.FRONT) {
+                enumerator.isFrontFacing(name)
+            } else {
+                enumerator.isBackFacing(name)
+            }
+        }
+        return match ?: enumerator.deviceNames.firstOrNull()
+    }
+
+    private fun facingOf(
+        enumerator: Camera2Enumerator,
+        cameraName: String,
+        requested: CameraFacing,
+    ): CameraFacing = when {
+        enumerator.isFrontFacing(cameraName) -> CameraFacing.FRONT
+        enumerator.isBackFacing(cameraName) -> CameraFacing.BACK
+        else -> requested
     }
 
     private suspend fun postWhip(

@@ -1,23 +1,49 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
-import { logout, getUser } from "@/lib/auth";
+import { getUser, logout, type AuthUser } from "@/lib/auth";
 import { useI18n } from "@/lib/i18n";
 import { disconnectSocket } from "@/lib/socket";
 
 export function AdminShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const user = getUser();
   const { t } = useI18n();
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  useEffect(() => {
+    setUser(getUser());
+  }, []);
+
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMenuOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = "";
+    };
+  }, [menuOpen]);
 
   function handleLogout() {
     disconnectSocket();
     logout();
     router.replace("/login");
   }
+
+  const devicesActive = pathname.startsWith("/devices");
+  const archiveActive = pathname.startsWith("/archive");
 
   return (
     <div className="admin-shell">
@@ -26,29 +52,52 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
           <Link href="/devices" className="brand">
             Monitor
           </Link>
-          <nav className="admin-nav">
-            <Link
-              href="/devices"
-              className={pathname.startsWith("/devices") ? "nav-active" : undefined}
-            >
-              {t("navDevices")}
-            </Link>
-            <Link
-              href="/archive"
-              className={pathname.startsWith("/archive") ? "nav-active" : undefined}
-            >
-              {t("navArchive")}
-            </Link>
-          </nav>
-          <div className="admin-header-right">
-            <LanguageSwitcher />
-            {user && <span className="user-chip">{user.name || user.email}</span>}
-            <button type="button" className="btn btn-ghost btn-sm" onClick={handleLogout}>
-              {t("navLogout")}
-            </button>
+
+          <button
+            type="button"
+            className={`nav-toggle${menuOpen ? " is-open" : ""}`}
+            aria-expanded={menuOpen}
+            aria-controls="admin-menu"
+            onClick={() => setMenuOpen((open) => !open)}
+          >
+            <span className="nav-toggle-bars" aria-hidden />
+            <span className="sr-only">{menuOpen ? t("navClose") : t("navMenu")}</span>
+          </button>
+
+          <div
+            id="admin-menu"
+            className={`admin-header-menus${menuOpen ? " is-open" : ""}`}
+          >
+            <nav className="admin-nav">
+              <Link href="/devices" className={devicesActive ? "nav-active" : undefined}>
+                {t("navDevices")}
+              </Link>
+              <Link href="/archive" className={archiveActive ? "nav-active" : undefined}>
+                {t("navArchive")}
+              </Link>
+            </nav>
+            <div className="admin-header-right">
+              <LanguageSwitcher />
+              {user && <span className="user-chip">{user.name || user.email}</span>}
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm nav-logout"
+                onClick={handleLogout}
+              >
+                {t("navLogout")}
+              </button>
+            </div>
           </div>
         </div>
       </header>
+      {menuOpen && (
+        <button
+          type="button"
+          className="nav-scrim"
+          aria-label={t("navClose")}
+          onClick={() => setMenuOpen(false)}
+        />
+      )}
       <main className="admin-main">{children}</main>
     </div>
   );

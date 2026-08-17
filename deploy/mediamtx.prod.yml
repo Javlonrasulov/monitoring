@@ -25,6 +25,9 @@ authHTTPAddress: http://api:3001/api/v1/streaming/mediamtx-auth
 
 pathDefaults:
   source: publisher
+  # After reboot / force-stop the old WHIP session can linger. Let the
+  # new publisher take the same device path instead of failing.
+  overridePublisher: true
 
 # Device paths are dynamic (device/<uuid>), so any path name must be accepted.
 paths:

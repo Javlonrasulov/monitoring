@@ -23,6 +23,8 @@ const uz = {
   navDevices: "Qurilmalar",
   navArchive: "Video arxiv",
   navLogout: "Chiqish",
+  navMenu: "Menyu",
+  navClose: "Yopish",
 
   loginSubtitle: "Admin paneliga kirish",
   loginEmail: "Email",
@@ -77,6 +79,7 @@ const uz = {
   videoIdle: "Tomosha qilinmayapti",
   videoWhepError: "WHEP xatosi",
   videoStreamFailed: "Stream ulanmadi",
+  videoWaitingPublisher: "Telefon efirga qayta ulanmoqda…",
 
   cardBranchRoom: "Filial / xona",
   cardCharging: "zaryadlanmoqda",
@@ -141,6 +144,8 @@ const ru: { [K in keyof typeof uz]: string } = {
   navDevices: "Устройства",
   navArchive: "Видеоархив",
   navLogout: "Выйти",
+  navMenu: "Меню",
+  navClose: "Закрыть",
 
   loginSubtitle: "Вход в админ-панель",
   loginEmail: "Email",
@@ -195,6 +200,7 @@ const ru: { [K in keyof typeof uz]: string } = {
   videoIdle: "Просмотр не начат",
   videoWhepError: "Ошибка WHEP",
   videoStreamFailed: "Не удалось подключить эфир",
+  videoWaitingPublisher: "Телефон снова выходит в эфир…",
 
   cardBranchRoom: "Филиал / комната",
   cardCharging: "заряжается",

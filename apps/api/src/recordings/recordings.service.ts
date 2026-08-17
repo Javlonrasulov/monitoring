@@ -20,7 +20,6 @@ import {
   RecordingStatus,
 } from '../generated/prisma';
 import { PrismaService } from '../prisma/prisma.service';
-import { StreamingService } from '../streaming/streaming.service';
 import { EventsGateway } from '../events/events.gateway';
 import { AuditService } from '../audit/audit.service';
 import {
@@ -53,7 +52,6 @@ export class RecordingsService implements OnModuleDestroy {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly streaming: StreamingService,
     private readonly events: EventsGateway,
     private readonly audit: AuditService,
     private readonly jwt: JwtService,
@@ -536,15 +534,8 @@ export class RecordingsService implements OnModuleDestroy {
       throw new Error('Disk full — recording paused');
     }
 
-    const token = await this.streaming.issueRecorderToken(
-      job.deviceId,
-      job.organizationId,
-    );
-    const rtspUrl = `${this.rtspBase()}/${token.path}`;
-    const authed = rtspUrl.replace(
-      'rtsp://',
-      `rtsp://monitor:${encodeURIComponent(token.token)}@`,
-    );
+    const path = `device/${job.deviceId}`;
+    const rtspUrl = `${this.rtspBase()}/${path}`;
 
     const id = randomUUID();
     const storagePath = join(
@@ -579,7 +570,7 @@ export class RecordingsService implements OnModuleDestroy {
     const stderr: string[] = [];
     const proc = spawnSegmentRecorder({
       ffmpegPath: this.ffmpegPath(),
-      rtspUrl: authed,
+      rtspUrl,
       outputPath: fullPath,
       quality: job.quality,
       durationSec,

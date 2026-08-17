@@ -9,7 +9,7 @@ import kotlinx.coroutines.delay
  */
 class ReconnectManager(
     private val initialDelayMs: Long = 1_000L,
-    private val maxDelayMs: Long = 60_000L,
+    private val maxDelayMs: Long = 8_000L,
     private val multiplier: Double = 2.0,
 ) {
     private var attempt = 0

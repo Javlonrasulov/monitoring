@@ -97,9 +97,19 @@ fun HomeScreen(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(lifecycleOwner) {
         while (tokenStore.isPaired()) {
-            monitoring = MonitoringForegroundService.isStarted()
+            val live = MonitoringForegroundService.isStarted()
+            monitoring = live
+            val inForeground = lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)
+            if (
+                !live &&
+                inForeground &&
+                tokenStore.isAutoStartEnabled() &&
+                hasCapturePermissions(context)
+            ) {
+                MonitoringForegroundService.start(context)
+            }
             delay(1_000)
         }
         onUnpaired()

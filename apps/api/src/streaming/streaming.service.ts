@@ -2,6 +2,7 @@ import {
   Injectable,
   ForbiddenException,
   NotFoundException,
+  Logger,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
@@ -11,6 +12,8 @@ import { AuditService } from '../audit/audit.service';
 
 @Injectable()
 export class StreamingService {
+  private readonly logger = new Logger(StreamingService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
@@ -181,9 +184,28 @@ export class StreamingService {
     action?: string;
     path?: string;
     protocol?: string;
+    ip?: string;
   }) {
+    const action = (body.action ?? '').toLowerCase();
+    const protocol = (body.protocol ?? '').toLowerCase();
+    const path = (body.path ?? '').replace(/^\//, '');
+
+    // RTSP is only reachable on the Docker network (port 8554 is not
+    // published). JWT passwords are too long for RTSP and MediaMTX
+    // returns 401, so the recorder is allowed by source IP instead.
+    if (
+      protocol === 'rtsp' &&
+      (action === 'read' || action === 'playback' || action === '') &&
+      this.isPrivateLanIp(body.ip)
+    ) {
+      return { ok: true };
+    }
+
     const token = body.token || body.password || body.user;
     if (!token) {
+      this.logger.warn(
+        `MediaMTX auth denied (no token) action=${action} protocol=${protocol} ip=${body.ip} path=${path}`,
+      );
       return { ok: false };
     }
 
@@ -203,21 +225,42 @@ export class StreamingService {
         return { ok: false };
       }
 
-      const requestedPath = body.path?.replace(/^\//, '');
-      if (requestedPath && payload.path !== requestedPath) {
+      if (path && payload.path !== path) {
         return { ok: false };
       }
 
-      if (body.action === 'publish' && payload.action !== 'publish') {
+      if (action === 'publish' && payload.action !== 'publish') {
         return { ok: false };
       }
-      if (body.action === 'read' && payload.action !== 'read') {
+      if (action === 'read' && payload.action !== 'read') {
         return { ok: false };
       }
 
       return { ok: true };
     } catch {
+      this.logger.warn(
+        `MediaMTX auth denied (bad token) action=${action} protocol=${protocol} ip=${body.ip} path=${path}`,
+      );
       return { ok: false };
     }
+  }
+
+  private isPrivateLanIp(ip?: string) {
+    if (!ip) {
+      return false;
+    }
+    const value = ip.replace(/^::ffff:/, '');
+    if (value === '127.0.0.1' || value === '::1') {
+      return true;
+    }
+    if (value.startsWith('10.') || value.startsWith('192.168.')) {
+      return true;
+    }
+    const match = /^172\.(\d+)\./.exec(value);
+    if (match) {
+      const second = Number(match[1]);
+      return second >= 16 && second <= 31;
+    }
+    return false;
   }
 }

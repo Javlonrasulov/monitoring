@@ -22,6 +22,7 @@ authInternalUsers:
 
 pathDefaults:
   source: publisher
+  overridePublisher: true
 
 paths:
   all_others:

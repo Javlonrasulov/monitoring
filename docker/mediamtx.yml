@@ -18,3 +18,4 @@ authHTTPAddress: http://host.docker.internal:3001/api/v1/streaming/mediamtx-auth
 pathDefaults:
   # WHIP publish from devices, WHEP play from admin
   source: publisher
+  overridePublisher: true

@@ -18,7 +18,11 @@ export function LivePlayer({ device }: Props) {
   const videoElRef = useRef<HTMLVideoElement | null>(null);
   const userPaused = useRef(false);
 
-  const [watching, setWatching] = useState(device.status === "STREAMING");
+  const [watching, setWatching] = useState(
+    device.status === "STREAMING" || device.status === "CONNECTING",
+  );
+  const [viewerEpoch, setViewerEpoch] = useState(0);
+  const wasStreaming = useRef(device.status === "STREAMING");
   const [muted, setMuted] = useState(true);
   const [quality, setQuality] = useState<StreamQuality>("MEDIUM");
   const [error, setError] = useState<string | null>(null);
@@ -49,16 +53,21 @@ export function LivePlayer({ device }: Props) {
     };
   }, [watching, device.id, quality]);
 
-  // Phone already publishing → open the viewer automatically.
+  // Keep the viewer open across phone reboot / Stop / stream drop so WHEP
+  // reconnects as soon as the device publishes again. Only the user can stop.
   useEffect(() => {
-    if (device.status === "STREAMING" && !userPaused.current) {
+    const streaming = device.status === "STREAMING";
+    if (streaming && !wasStreaming.current) {
+      setViewerEpoch((n) => n + 1);
+      if (!userPaused.current) setWatching(true);
+    }
+    if (
+      (streaming || device.status === "CONNECTING") &&
+      !userPaused.current
+    ) {
       setWatching(true);
-      return;
     }
-    if (device.status !== "STREAMING") {
-      userPaused.current = false;
-      setWatching(false);
-    }
+    wasStreaming.current = streaming;
   }, [device.status]);
 
   const handleReady = useCallback((video: HTMLVideoElement | null) => {
@@ -152,6 +161,7 @@ export function LivePlayer({ device }: Props) {
 
       <div className="live-stage" ref={containerRef}>
         <VideoPlayer
+          key={`${device.id}-${viewerEpoch}`}
           deviceId={device.id}
           active={watching}
           muted={muted}

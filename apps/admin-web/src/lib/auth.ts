@@ -1,6 +1,8 @@
 import { api } from "./api";
 import type { AuthUser, LoginResponse } from "./types";
 
+export type { AuthUser };
+
 const TOKEN_KEY = "monitor_token";
 const USER_KEY = "monitor_user";
 

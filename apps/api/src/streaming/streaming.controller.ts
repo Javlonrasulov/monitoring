@@ -64,8 +64,18 @@ export class StreamingController {
   @Post('mediamtx-auth')
   @HttpCode(200)
   @ApiOperation({ summary: 'MediaMTX external auth webhook' })
-  async mediamtxAuth(@Body() body: Record<string, string>) {
-    const result = await this.streamingService.validateMediaMtxAuth(body);
+  async mediamtxAuth(@Body() body: Record<string, unknown>) {
+    const text = (value: unknown) =>
+      typeof value === 'string' ? value : value != null ? String(value) : undefined;
+    const result = await this.streamingService.validateMediaMtxAuth({
+      user: text(body.user),
+      password: text(body.password),
+      token: text(body.token),
+      action: text(body.action),
+      path: text(body.path),
+      protocol: text(body.protocol),
+      ip: text(body.ip),
+    });
     if (!result.ok) {
       throw new ForbiddenException('Unauthorized stream access');
     }

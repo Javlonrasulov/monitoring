@@ -183,7 +183,6 @@ class MonitoringForegroundService : LifecycleService() {
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(strings.getString(R.string.monitoring_notification_title))
-            .setContentText(strings.getString(R.string.monitoring_notification_text))
             .setSmallIcon(R.drawable.ic_notification_monitor)
             .setColor(NOTIFICATION_ACCENT)
             .setColorized(false)

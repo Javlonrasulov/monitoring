@@ -21,6 +21,31 @@ function streamCredentials(streamToken: string): string {
   return `Basic ${btoa(`monitor:${streamToken}`)}`;
 }
 
+function whepErrorText(body: string, status: number, fallback: string): {
+  message: string;
+  waitingForPublisher: boolean;
+} {
+  const trimmed = body.trim();
+  if (trimmed.startsWith("{")) {
+    try {
+      const parsed = JSON.parse(trimmed) as { error?: string };
+      const error = parsed.error ?? "";
+      if (error.includes("no one is publishing")) {
+        return { message: fallback, waitingForPublisher: true };
+      }
+      if (error) {
+        return { message: error, waitingForPublisher: false };
+      }
+    } catch {
+      // fall through
+    }
+  }
+  return {
+    message: trimmed || `${fallback} (${status})`,
+    waitingForPublisher: false,
+  };
+}
+
 function waitForIceGathering(pc: RTCPeerConnection): Promise<void> {
   if (pc.iceGatheringState === "complete") {
     return Promise.resolve();
@@ -149,6 +174,17 @@ export function VideoPlayer({
           if (pc.connectionState === "failed") {
             scheduleRetry();
           }
+          if (pc.connectionState === "disconnected") {
+            retryTimer = setTimeout(() => {
+              if (cancelled || pc !== pcRef.current) return;
+              if (
+                pc.connectionState === "disconnected" ||
+                pc.connectionState === "failed"
+              ) {
+                scheduleRetry();
+              }
+            }, 2_500);
+          }
         };
 
         const offer = await pc.createOffer();
@@ -171,7 +207,12 @@ export function VideoPlayer({
 
         if (!res.ok) {
           const text = await res.text();
-          throw new Error(text || `${t("videoWhepError")} (${res.status})`);
+          const parsed = whepErrorText(text, res.status, t("videoWhepError"));
+          const error = new Error(parsed.message) as Error & {
+            waitingForPublisher?: boolean;
+          };
+          error.waitingForPublisher = parsed.waitingForPublisher;
+          throw error;
         }
 
         const location = res.headers.get("Location");
@@ -188,20 +229,28 @@ export function VideoPlayer({
         }
       } catch (err) {
         if (!cancelled) {
-          setConnecting(false);
+          const waiting =
+            err instanceof Error &&
+            "waitingForPublisher" in err &&
+            Boolean((err as { waitingForPublisher?: boolean }).waitingForPublisher);
+          setConnecting(waiting);
           onErrorRef.current?.(
-            err instanceof Error ? err.message : t("videoStreamFailed"),
+            waiting
+              ? t("videoWaitingPublisher")
+              : err instanceof Error
+                ? err.message
+                : t("videoStreamFailed"),
           );
-          scheduleRetry();
+          scheduleRetry(waiting ? 2_000 : undefined);
         }
       }
     }
 
-    function scheduleRetry() {
+    function scheduleRetry(delayMs?: number) {
       if (cancelled || !active) return;
       if (retryTimer) clearTimeout(retryTimer);
       void cleanup();
-      const delay = Math.min(15_000, 2_000 * 2 ** attempt);
+      const delay = delayMs ?? Math.min(8_000, 2_000 * 2 ** attempt);
       attempt += 1;
       retryTimer = setTimeout(() => {
         if (!cancelled && active) void start();
