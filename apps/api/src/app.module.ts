@@ -8,6 +8,7 @@ import { StreamingModule } from './streaming/streaming.module';
 import { SnapshotsModule } from './snapshots/snapshots.module';
 import { AuditModule } from './audit/audit.module';
 import { EventsModule } from './events/events.module';
+import { RecordingsModule } from './recordings/recordings.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -21,6 +22,7 @@ import { HealthController } from './health.controller';
     SnapshotsModule,
     AuditModule,
     EventsModule,
+    RecordingsModule,
   ],
   controllers: [HealthController],
 })

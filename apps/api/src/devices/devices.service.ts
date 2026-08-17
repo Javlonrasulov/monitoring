@@ -12,6 +12,7 @@ import { randomBytes } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { EventsGateway } from '../events/events.gateway';
 import { AuditService } from '../audit/audit.service';
+import { RecordingsService } from '../recordings/recordings.service';
 import {
   CreatePairingCodeDto,
   DeviceStatusDto,
@@ -26,6 +27,7 @@ export class DevicesService {
     private readonly config: ConfigService,
     private readonly events: EventsGateway,
     private readonly audit: AuditService,
+    private readonly recordings: RecordingsService,
   ) {}
 
   async listForOrg(organizationId: string) {
@@ -102,6 +104,7 @@ export class DevicesService {
       deviceId: updated.id,
       cameraFacing: facing,
     });
+    void this.recordings.rotateCamera(updated.id, facing);
 
     return this.withCameraFacing(updated);
   }

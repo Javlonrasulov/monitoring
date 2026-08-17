@@ -5,7 +5,9 @@ metrics: no
 pprof: no
 playback: no
 
-rtsp: no
+rtsp: yes
+rtspAddress: :8554
+rtspTransports: [tcp]
 rtmp: no
 hls: no
 srt: no

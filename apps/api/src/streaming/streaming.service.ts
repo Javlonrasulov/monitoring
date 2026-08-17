@@ -122,6 +122,34 @@ export class StreamingService {
     };
   }
 
+  async issueRecorderToken(deviceId: string, organizationId: string) {
+    const device = await this.prisma.device.findFirst({
+      where: { id: deviceId, organizationId },
+    });
+    if (!device || device.disabled) {
+      throw new ForbiddenException('Device not allowed');
+    }
+
+    const ttl = Number(this.config.get('RECORDER_TOKEN_TTL_SECONDS') ?? 720);
+    const path = this.streamPath(device.id);
+    const token = await this.jwt.signAsync(
+      {
+        sub: `recorder:${device.id}`,
+        organizationId: device.organizationId,
+        deviceId: device.id,
+        path,
+        action: 'read',
+        typ: 'stream',
+      },
+      {
+        secret: this.config.getOrThrow<string>('STREAM_TOKEN_SECRET'),
+        expiresIn: ttl,
+      },
+    );
+
+    return { token, expiresIn: ttl, path };
+  }
+
   async endSession(sessionId: string, organizationId: string, failed = false) {
     const session = await this.prisma.streamSession.findFirst({
       where: { id: sessionId, organizationId },

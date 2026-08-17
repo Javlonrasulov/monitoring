@@ -34,18 +34,36 @@ enum NetworkType {
   UNKNOWN
 }
 
+enum RecordingStatus {
+  RECORDING
+  PROCESSING
+  READY
+  FAILED
+  DELETED
+}
+
+enum CameraFacing {
+  FRONT
+  BACK
+}
+
 model Organization {
   id        String   @id @default(cuid())
   name      String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  branches Branch[]
-  users    User[]
-  devices  Device[]
-  snapshots Snapshot[]
-  auditLogs AuditLog[]
-  streamSessions StreamSession[]
+  recordingRetentionDays  Int     @default(7)
+  recordingAutoCleanup    Boolean @default(true)
+  recordingSegmentSeconds Int     @default(300)
+
+  branches         Branch[]
+  users            User[]
+  devices          Device[]
+  snapshots        Snapshot[]
+  auditLogs        AuditLog[]
+  streamSessions   StreamSession[]
+  recordingSegments RecordingSegment[]
 }
 
 model Branch {
@@ -108,9 +126,10 @@ model Device {
 
   organization   Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   branch         Branch             @relation(fields: [branchId], references: [id], onDelete: Cascade)
-  pairingCodes   DevicePairingCode[]
-  streamSessions StreamSession[]
-  snapshots      Snapshot[]
+  pairingCodes      DevicePairingCode[]
+  streamSessions    StreamSession[]
+  snapshots         Snapshot[]
+  recordingSegments RecordingSegment[]
 
   @@index([organizationId])
   @@index([branchId])
@@ -151,6 +170,33 @@ model StreamSession {
 
   @@index([deviceId])
   @@index([organizationId])
+}
+
+model RecordingSegment {
+  id             String          @id @default(cuid())
+  organizationId String
+  deviceId       String
+  deviceName     String
+  cameraFacing   CameraFacing    @default(BACK)
+  quality        String          @default("MEDIUM")
+  status         RecordingStatus @default(RECORDING)
+  startedAt      DateTime        @default(now())
+  endedAt        DateTime?
+  durationSec    Int?
+  fileSize       Int             @default(0)
+  storagePath    String
+  errorMessage   String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  device       Device       @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, startedAt])
+  @@index([deviceId, startedAt])
+  @@index([organizationId, cameraFacing, startedAt])
+  @@index([organizationId, status])
+  @@index([status, startedAt])
 }
 
 model Snapshot {

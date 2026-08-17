@@ -569,6 +569,272 @@ select {
   color: var(--muted);
 }
 
+.archive-page {
+  display: grid;
+  gap: 1rem;
+}
+
+.storage-card {
+  min-width: 240px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 0.75rem 1rem;
+}
+
+.storage-warning,
+.storage-card.storage-warning {
+  border-color: #f59e0b;
+}
+
+.storage-card.storage-critical,
+.storage-card.storage-cleanup {
+  border-color: var(--danger);
+}
+
+.storage-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.storage-value {
+  font-weight: 700;
+  margin: 0.2rem 0 0.45rem;
+}
+
+.storage-bar {
+  height: 6px;
+  background: #e8eef2;
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.storage-bar span {
+  display: block;
+  height: 100%;
+  background: var(--teal-600);
+}
+
+.storage-meta {
+  margin-top: 0.4rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.archive-filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.75rem;
+  align-items: end;
+}
+
+.preset-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  grid-column: 1 / -1;
+}
+
+.archive-layout {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.archive-player-card,
+.archive-timeline-card {
+  background: #0b1417;
+  color: #e2e8f0;
+  border-radius: 14px;
+  border: 1px solid var(--slate-800);
+  overflow: hidden;
+}
+
+.archive-video {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #000;
+  display: block;
+}
+
+.archive-player-empty {
+  min-height: 280px;
+  display: grid;
+  place-items: center;
+  color: #94a3b8;
+}
+
+.archive-player-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  padding: 0.65rem 0.75rem;
+  background: #111c20;
+}
+
+.archive-seek {
+  flex: 1;
+  min-width: 140px;
+}
+
+.archive-time {
+  font-variant-numeric: tabular-nums;
+  font-size: 0.85rem;
+  color: #cbd5e1;
+}
+
+.archive-now {
+  padding: 0 0.85rem 0.75rem;
+  font-size: 0.85rem;
+  color: #94a3b8;
+}
+
+.archive-timeline-card {
+  padding: 0.85rem 1rem 1rem;
+}
+
+.timeline-scale {
+  position: relative;
+  height: 1.1rem;
+  margin-bottom: 0.35rem;
+  color: #94a3b8;
+  font-size: 0.72rem;
+}
+
+.timeline-scale span {
+  position: absolute;
+  transform: translateX(-50%);
+}
+
+.timeline-track {
+  position: relative;
+  height: 42px;
+  background: repeating-linear-gradient(
+    90deg,
+    #152025 0,
+    #152025 1px,
+    #0f191d 1px,
+    #0f191d 8.333%
+  );
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.timeline-seg {
+  position: absolute;
+  top: 8px;
+  height: 26px;
+  border: 0;
+  border-radius: 4px;
+  background: var(--teal-600);
+  opacity: 0.92;
+  cursor: pointer;
+}
+
+.timeline-seg.timeline-recording {
+  background: #0284c7;
+}
+
+.timeline-seg.timeline-failed {
+  background: var(--error);
+}
+
+.timeline-seg.is-active {
+  outline: 2px solid white;
+}
+
+.timeline-legend {
+  display: flex;
+  gap: 1rem;
+  margin-top: 0.55rem;
+  font-size: 0.75rem;
+  color: #94a3b8;
+}
+
+.legend-ready::before,
+.legend-recording::before,
+.legend-gap::before {
+  content: "";
+  display: inline-block;
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 2px;
+  margin-right: 0.35rem;
+  vertical-align: -1px;
+}
+
+.legend-ready::before {
+  background: var(--teal-600);
+}
+
+.legend-recording::before {
+  background: #0284c7;
+}
+
+.legend-gap::before {
+  background: #152025;
+  border: 1px solid #334155;
+}
+
+.archive-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.archive-list {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.archive-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  gap: 0.55rem;
+  align-items: center;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.55rem 0.7rem;
+}
+
+.archive-row.is-active {
+  border-color: var(--teal-600);
+  background: var(--teal-50);
+}
+
+.archive-row-main {
+  display: grid;
+  grid-template-columns: 1.2fr 0.7fr 1.4fr 0.6fr 0.6fr 0.8fr;
+  gap: 0.5rem;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.rec-status {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.rec-ready {
+  color: var(--online);
+}
+
+.rec-recording {
+  color: var(--streaming);
+}
+
+.rec-failed {
+  color: var(--error);
+}
+
 @media (max-width: 640px) {
   .page-header {
     flex-direction: column;
@@ -582,5 +848,10 @@ select {
   .admin-header-right {
     width: 100%;
     justify-content: space-between;
+  }
+
+  .archive-row,
+  .archive-row-main {
+    grid-template-columns: 1fr;
   }
 }

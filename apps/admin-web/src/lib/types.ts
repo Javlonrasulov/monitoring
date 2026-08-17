@@ -41,6 +41,52 @@ export interface Device {
   room?: string | null;
 }
 
+export type RecordingStatus =
+  | "RECORDING"
+  | "PROCESSING"
+  | "READY"
+  | "FAILED"
+  | "DELETED";
+
+export interface RecordingSegment {
+  id: string;
+  organizationId: string;
+  deviceId: string;
+  deviceName: string;
+  cameraFacing: CameraFacing;
+  quality: StreamQuality | string;
+  status: RecordingStatus;
+  startedAt: string;
+  endedAt: string | null;
+  durationSec: number | null;
+  fileSize: number;
+  storagePath: string;
+  errorMessage: string | null;
+  createdAt: string;
+}
+
+export interface RecordingListResponse {
+  items: RecordingSegment[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+export interface RecordingStorage {
+  totalBytes: number;
+  usedBytes: number;
+  freeBytes: number;
+  recordingBytes: number;
+  usedRatio: number;
+  level: "ok" | "warning" | "critical" | "cleanup";
+}
+
+export interface RecordingSettings {
+  retentionDays: number;
+  autoCleanup: boolean;
+  segmentSeconds: number;
+}
+
 export interface AuthUser {
   id: string;
   email: string;

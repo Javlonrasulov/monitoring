@@ -36,6 +36,19 @@ export function LivePlayer({ device }: Props) {
     }
   }, [device.cameraFacing]);
 
+  useEffect(() => {
+    if (!watching) {
+      void api.post("/recordings/stop", { deviceId: device.id }).catch(() => undefined);
+      return;
+    }
+    void api
+      .post("/recordings/start", { deviceId: device.id, quality })
+      .catch(() => undefined);
+    return () => {
+      void api.post("/recordings/stop", { deviceId: device.id }).catch(() => undefined);
+    };
+  }, [watching, device.id, quality]);
+
   // Phone already publishing → open the viewer automatically.
   useEffect(() => {
     if (device.status === "STREAMING" && !userPaused.current) {
@@ -195,9 +208,7 @@ export function LivePlayer({ device }: Props) {
             disabled={cameraBusy}
             onClick={() => void setCamera("FRONT")}
           >
-            {cameraBusy && cameraFacing !== "FRONT"
-              ? t("deviceCameraBusy")
-              : t("deviceCameraFront")}
+            {t("deviceCameraFront")}
           </button>
           <button
             type="button"
@@ -205,9 +216,7 @@ export function LivePlayer({ device }: Props) {
             disabled={cameraBusy}
             onClick={() => void setCamera("BACK")}
           >
-            {cameraBusy && cameraFacing !== "BACK"
-              ? t("deviceCameraBusy")
-              : t("deviceCameraBack")}
+            {t("deviceCameraBack")}
           </button>
         </div>
 

@@ -33,6 +33,12 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
             >
               {t("navDevices")}
             </Link>
+            <Link
+              href="/archive"
+              className={pathname.startsWith("/archive") ? "nav-active" : undefined}
+            >
+              {t("navArchive")}
+            </Link>
           </nav>
           <div className="admin-header-right">
             <LanguageSwitcher />
