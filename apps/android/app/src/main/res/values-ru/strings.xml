@@ -136,6 +136,12 @@
     <string name="profile_set_photo">Установить фото</string>
     <string name="profile_change_photo">Изменить фото</string>
     <string name="profile_photo_failed">Не удалось обновить фото</string>
+    <string name="profile_name">Имя</string>
+    <string name="profile_phone">Телефон</string>
+    <string name="profile_edit">Изменить</string>
+    <string name="profile_save">Сохранить</string>
+    <string name="profile_update_failed">Не удалось обновить профиль</string>
+    <string name="profile_phone_missing">Не указан</string>
     <string name="limit_reached">Лимит устройств исчерпан. Отключите старое устройство и попробуйте снова.</string>
     <string name="settings_link_section">Подключение устройства</string>
     <string name="settings_share_hint">Создайте код и отправьте его на другой телефон. Кто введёт код, подключится к вам — чат и эфир бесплатны 24 часа.</string>
@@ -148,6 +154,8 @@
     <string name="settings_link_success">Устройство подключено</string>
     <string name="settings_linked_section">Подключённые устройства</string>
     <string name="settings_watch_live">Смотреть эфир</string>
+    <string name="settings_camera_front">Передняя</string>
+    <string name="settings_camera_back">Задняя</string>
     <string name="settings_watch_waiting">Ожидание эфира…</string>
     <string name="settings_watch_failed">Не удалось подключиться к эфиру</string>
     <string name="settings_watch_upgrade">24 часа истекли. Чтобы смотреть дальше, купите Pro или Pro+.</string>
@@ -158,5 +166,21 @@
     <string name="settings_plan_pro_body">Видеоэфир. Одна пара приложений.</string>
     <string name="settings_plan_pro_plus">Pro+</string>
     <string name="settings_plan_pro_plus_body">Видео + звук + записи. Можно связать два приложения.</string>
-    <string name="settings_buy">Купить</string>
+    <string name="settings_buy">Оплатить картой</string>
+    <string name="settings_pay_title">Оплата картой</string>
+    <string name="settings_pay_amount">К оплате: %1$s %2$s</string>
+    <string name="settings_pay_network">Сеть: %1$s</string>
+    <string name="settings_pay_timer">Осталось: %1$s</string>
+    <string name="settings_pay_waiting">Оплатите картой в браузере. Ждём поступление…</string>
+    <string name="settings_pay_confirming">Платёж найден, подтверждается…</string>
+    <string name="settings_pay_success">Платёж получен. Подписка включена.</string>
+    <string name="settings_pay_expired">Время вышло. Начните оплату заново.</string>
+    <string name="settings_pay_failed">Платёж не прошёл.</string>
+    <string name="settings_copy_address">Скопировать адрес</string>
+    <string name="settings_address_copied">Адрес USDT скопирован</string>
+    <string name="settings_pay_close">Закрыть</string>
+    <string name="settings_pay_visa">Продолжить картой</string>
+    <string name="settings_pay_hint">Откроется Visa/Mastercard. Выберите USD и платите картой. Адрес USDT не нужен.</string>
+    <string name="settings_pay_show_crypto">Оплатить криптой</string>
+    <string name="settings_pay_hide_crypto">Скрыть крипту</string>
 </resources>

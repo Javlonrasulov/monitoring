@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ContentCopy
+import androidx.compose.material.icons.rounded.CreditCard
 import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material.icons.rounded.QrCode2
 import androidx.compose.material.icons.rounded.Videocam
@@ -20,6 +21,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -33,6 +35,7 @@ import com.monitor.device.R
 import com.monitor.device.core.api.DeviceApiClient
 import com.monitor.device.core.model.LinkedDeviceDto
 import com.monitor.device.core.model.PairingCodeResponse
+import com.monitor.device.core.model.PaymentInvoiceDto
 import com.monitor.device.core.model.SubscriptionDto
 import com.monitor.device.ui.components.ErrorBanner
 import com.monitor.device.ui.components.MonitorCard
@@ -44,15 +47,17 @@ import com.monitor.device.ui.components.SectionHeader
 import com.monitor.device.ui.components.StatusBadge
 import com.monitor.device.ui.theme.MonitorTheme
 import com.monitor.device.ui.theme.Spacing
+import java.time.Duration
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @Composable
 fun SettingsScreen(
     apiClient: DeviceApiClient,
-    onWatchDevice: (String, String) -> Unit,
+    onWatchDevice: (String, String, String?) -> Unit,
 ) {
     val colors = MonitorTheme.colors
     val context = LocalContext.current
@@ -66,6 +71,9 @@ fun SettingsScreen(
     var loadingCode by remember { mutableStateOf(false) }
     var loadingLink by remember { mutableStateOf(false) }
     var buying by remember { mutableStateOf<String?>(null) }
+    var invoice by remember { mutableStateOf<PaymentInvoiceDto?>(null) }
+    var checkoutUrl by remember { mutableStateOf<String?>(null) }
+    var clock by remember { mutableLongStateOf(System.currentTimeMillis()) }
 
     fun reload() {
         scope.launch {
@@ -78,7 +86,36 @@ fun SettingsScreen(
 
     val failGeneric = stringResource(R.string.pair_failed)
     val copied = stringResource(R.string.settings_code_copied)
+    val addressCopied = stringResource(R.string.settings_address_copied)
     val linkedOk = stringResource(R.string.settings_link_success)
+    val paySuccess = stringResource(R.string.settings_pay_success)
+
+    LaunchedEffect(invoice?.id) {
+        val id = invoice?.id ?: return@LaunchedEffect
+        while (true) {
+            delay(1_000)
+            clock = System.currentTimeMillis()
+        }
+    }
+
+    LaunchedEffect(invoice?.id) {
+        val id = invoice?.id ?: return@LaunchedEffect
+        while (true) {
+            val latest = runCatching { apiClient.paymentInvoice(id) }.getOrNull()
+            if (latest != null) {
+                invoice = latest
+                val status = latest.status.orEmpty()
+                if (latest.paid || status == "FINISHED") {
+                    info = paySuccess
+                    checkoutUrl = null
+                    reload()
+                    break
+                }
+                if (status == "EXPIRED" || status == "FAILED") break
+            }
+            delay(4_000)
+        }
+    }
 
     ScreenContainer {
         Spacer(modifier = Modifier.size(Spacing.md))
@@ -198,7 +235,7 @@ fun SettingsScreen(
                     Spacer(modifier = Modifier.size(Spacing.sm))
                     PrimaryButton(
                         text = stringResource(R.string.settings_watch_live),
-                        onClick = { onWatchDevice(device.id, device.name) },
+                        onClick = { onWatchDevice(device.id, device.name, device.cameraFacing) },
                     )
                 }
                 Spacer(modifier = Modifier.size(Spacing.sm))
@@ -249,8 +286,12 @@ fun SettingsScreen(
                 buying = "PRO"
                 error = null
                 scope.launch {
-                    runCatching { apiClient.purchasePlan("PRO") }
-                        .onSuccess { sub = it }
+                    runCatching { apiClient.createPaymentInvoice("PRO") }
+                        .onSuccess {
+                            invoice = it
+                            checkoutUrl = it.checkoutUrl?.takeIf { url -> url.isNotBlank() }
+                                ?: it.guardarianUrl
+                        }
                         .onFailure { error = DeviceApiClient.errorMessage(it, failGeneric) }
                     buying = null
                 }
@@ -267,14 +308,43 @@ fun SettingsScreen(
                 buying = "PRO_PLUS"
                 error = null
                 scope.launch {
-                    runCatching { apiClient.purchasePlan("PRO_PLUS") }
-                        .onSuccess { sub = it }
+                    runCatching { apiClient.createPaymentInvoice("PRO_PLUS") }
+                        .onSuccess {
+                            invoice = it
+                            checkoutUrl = it.checkoutUrl?.takeIf { url -> url.isNotBlank() }
+                                ?: it.guardarianUrl
+                        }
                         .onFailure { error = DeviceApiClient.errorMessage(it, failGeneric) }
                     buying = null
                 }
             },
         )
+
+        invoice?.let { pay ->
+            Spacer(modifier = Modifier.size(Spacing.lg))
+            PaymentInvoiceCard(
+                invoice = pay,
+                clockMs = clock,
+                onCopy = {
+                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                    clipboard.setPrimaryClip(ClipData.newPlainText("usdt", pay.payAddress))
+                    info = addressCopied
+                },
+                onPayCard = {
+                    checkoutUrl = pay.checkoutUrl?.takeIf { it.isNotBlank() } ?: pay.guardarianUrl
+                },
+            )
+        }
         Spacer(modifier = Modifier.size(Spacing.xxl))
+    }
+
+    val payUrl = checkoutUrl
+    if (!payUrl.isNullOrBlank()) {
+        PaymentCheckoutSheet(
+            url = payUrl,
+            payAddress = invoice?.payAddress.orEmpty(),
+            onClose = { checkoutUrl = null },
+        )
     }
 }
 
@@ -306,8 +376,90 @@ private fun PlanCard(
             onClick = onBuy,
             enabled = enabled,
             loading = loading,
+            icon = Icons.Rounded.CreditCard,
         )
     }
+}
+
+@Composable
+private fun PaymentInvoiceCard(
+    invoice: PaymentInvoiceDto,
+    clockMs: Long,
+    onCopy: () -> Unit,
+    onPayCard: () -> Unit,
+) {
+    val colors = MonitorTheme.colors
+    val status = invoice.status.orEmpty()
+    val statusText = when {
+        invoice.paid || status == "FINISHED" -> stringResource(R.string.settings_pay_success)
+        status == "CONFIRMING" -> stringResource(R.string.settings_pay_confirming)
+        status == "EXPIRED" -> stringResource(R.string.settings_pay_expired)
+        status == "FAILED" -> stringResource(R.string.settings_pay_failed)
+        else -> stringResource(R.string.settings_pay_waiting)
+    }
+    var showCrypto by remember { mutableStateOf(false) }
+    val checkoutReady = !invoice.checkoutUrl.isNullOrBlank() || !invoice.guardarianUrl.isNullOrBlank()
+    MonitorCard {
+        Text(
+            text = stringResource(R.string.settings_pay_title),
+            style = MaterialTheme.typography.titleMedium,
+            color = colors.textPrimary,
+        )
+        Spacer(modifier = Modifier.size(Spacing.xs))
+        Text(
+            text = stringResource(R.string.settings_pay_hint),
+            style = MaterialTheme.typography.bodySmall,
+            color = colors.textMuted,
+        )
+        Spacer(modifier = Modifier.size(Spacing.sm))
+        Text(
+            text = stringResource(R.string.settings_pay_timer, formatRemaining(invoice.expiresAt, clockMs)),
+            style = MaterialTheme.typography.bodyMedium,
+            color = colors.warning,
+        )
+        Spacer(modifier = Modifier.size(Spacing.sm))
+        Text(text = statusText, style = MaterialTheme.typography.bodyMedium, color = colors.textSecondary)
+        Spacer(modifier = Modifier.size(Spacing.md))
+        PrimaryButton(
+            text = stringResource(R.string.settings_pay_visa),
+            icon = Icons.Rounded.CreditCard,
+            onClick = onPayCard,
+            enabled = checkoutReady && !invoice.paid && status != "EXPIRED" && status != "FAILED",
+        )
+        if (invoice.payAddress.isNotBlank()) {
+            Spacer(modifier = Modifier.size(Spacing.sm))
+            SecondaryButton(
+                text = stringResource(
+                    if (showCrypto) R.string.settings_pay_hide_crypto else R.string.settings_pay_show_crypto,
+                ),
+                onClick = { showCrypto = !showCrypto },
+            )
+            if (showCrypto) {
+                Spacer(modifier = Modifier.size(Spacing.sm))
+                Text(
+                    text = invoice.payAddress,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = colors.textPrimary,
+                )
+                Spacer(modifier = Modifier.size(Spacing.sm))
+                SecondaryButton(
+                    text = stringResource(R.string.settings_copy_address),
+                    icon = Icons.Rounded.ContentCopy,
+                    onClick = onCopy,
+                )
+            }
+        }
+    }
+}
+
+private fun formatRemaining(expiresAt: String?, clockMs: Long): String {
+    if (expiresAt.isNullOrBlank()) return "—"
+    val end = runCatching { Instant.parse(expiresAt) }.getOrNull() ?: return "—"
+    val left = Duration.between(Instant.ofEpochMilli(clockMs), end)
+    if (left.isNegative || left.isZero) return "00:00"
+    val minutes = left.toMinutes()
+    val seconds = left.seconds % 60
+    return "%02d:%02d".format(minutes, seconds)
 }
 
 private val subscriptionExpiryFormat: DateTimeFormatter =

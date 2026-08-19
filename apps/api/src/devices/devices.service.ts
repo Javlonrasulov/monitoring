@@ -101,13 +101,14 @@ export class DevicesService {
       throw new ForbiddenException('No user account for this device');
     }
 
-    const name = dto.name?.trim();
-    if (dto.name !== undefined && (!name || name.length < 1 || name.length > 80)) {
+    const name =
+      dto.name == null ? undefined : dto.name.trim();
+    if (name !== undefined && (name.length < 1 || name.length > 80)) {
       throw new BadRequestException('Name is required');
     }
 
     let phone: string | undefined;
-    if (dto.phone !== undefined) {
+    if (dto.phone != null && String(dto.phone).trim() !== '') {
       const normalized = this.normalizePhone(dto.phone);
       if (!normalized) {
         throw new BadRequestException('Enter a valid phone number');

@@ -20,10 +20,13 @@ import com.monitor.device.core.model.PairRequest
 import com.monitor.device.core.model.PairResponse
 import com.monitor.device.core.model.PairStatusResponse
 import com.monitor.device.core.model.PublisherTokenResponse
+import com.monitor.device.core.model.PaymentInvoiceDto
 import com.monitor.device.core.model.PurchasePlanRequest
 import com.monitor.device.core.model.ReactChatRequest
 import com.monitor.device.core.model.SendChatRequest
+import com.monitor.device.core.model.SetCameraFacingRequest
 import com.monitor.device.core.model.SubscriptionDto
+import com.monitor.device.core.model.UpdateProfileRequest
 import com.monitor.device.core.model.UploadAvatarRequest
 import com.monitor.device.core.model.ViewerTokenResponse
 import retrofit2.http.Body
@@ -47,6 +50,12 @@ interface DeviceApi {
     @GET("devices/me")
     suspend fun me(
         @Header("Authorization") authorization: String,
+    ): DeviceMeResponse
+
+    @PATCH("devices/me")
+    suspend fun updateProfile(
+        @Header("Authorization") authorization: String,
+        @Body body: UpdateProfileRequest,
     ): DeviceMeResponse
 
     @POST("devices/me/avatar")
@@ -82,6 +91,13 @@ interface DeviceApi {
         @Header("Authorization") authorization: String,
         @Path("id") id: String,
     ): ViewerTokenResponse
+
+    @POST("devices/me/linked/{id}/camera")
+    suspend fun setLinkedCamera(
+        @Header("Authorization") authorization: String,
+        @Path("id") id: String,
+        @Body body: SetCameraFacingRequest,
+    ): DeviceStatusResponse
 
     @PATCH("devices/me/status")
     suspend fun updateStatus(
@@ -183,9 +199,15 @@ interface DeviceApi {
         @Header("Authorization") authorization: String,
     ): SubscriptionDto
 
-    @POST("device-subscriptions/purchase")
-    suspend fun purchasePlan(
+    @POST("device-subscriptions/invoices")
+    suspend fun createPaymentInvoice(
         @Header("Authorization") authorization: String,
         @Body body: PurchasePlanRequest,
-    ): SubscriptionDto
+    ): PaymentInvoiceDto
+
+    @GET("device-subscriptions/invoices/{id}")
+    suspend fun paymentInvoice(
+        @Header("Authorization") authorization: String,
+        @Path("id") id: String,
+    ): PaymentInvoiceDto
 }

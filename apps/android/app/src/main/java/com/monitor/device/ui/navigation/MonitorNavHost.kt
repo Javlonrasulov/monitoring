@@ -69,6 +69,7 @@ fun MonitorNavHost(
     var chatTitle by remember { mutableStateOf("") }
     var watchDeviceId by remember { mutableStateOf<String?>(null) }
     var watchTitle by remember { mutableStateOf("") }
+    var watchFacing by remember { mutableStateOf<String?>(null) }
     val showTopBar = chatThreadId == null && watchDeviceId == null
 
     AppShell(
@@ -116,8 +117,13 @@ fun MonitorNavHost(
                 )
             }
             composable(Routes.Home) {
-                BackHandler(enabled = chatThreadId == null && watchDeviceId == null) {
-                    (context as? Activity)?.moveTaskToBack(true)
+                BackHandler {
+                    when {
+                        showSettings -> showSettings = false
+                        watchDeviceId != null -> watchDeviceId = null
+                        chatThreadId != null -> chatThreadId = null
+                        else -> (context as? Activity)?.moveTaskToBack(true)
+                    }
                 }
                 Box(modifier = Modifier.fillMaxSize()) {
                     MainTabsScreen(
@@ -136,8 +142,9 @@ fun MonitorNavHost(
                                 popUpTo(0) { inclusive = true }
                             }
                         },
-                        onWatchDevice = { id, title ->
-                            watchTitle = title
+                        onWatchDevice = { id, name, facing ->
+                            watchTitle = name
+                            watchFacing = facing
                             watchDeviceId = id
                         },
                     )
@@ -156,6 +163,7 @@ fun MonitorNavHost(
                             apiClient = apiClient,
                             deviceId = liveId,
                             title = watchTitle,
+                            initialFacing = watchFacing,
                             onBack = { watchDeviceId = null },
                         )
                     }

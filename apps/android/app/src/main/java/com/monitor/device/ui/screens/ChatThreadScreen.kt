@@ -266,13 +266,19 @@ fun ChatThreadScreen(
                     }
                 }
                 "chat.read" -> {
-                    messages = messages.map {
-                        if (it.mine && it.readAt == null) it.copy(readAt = java.time.Instant.now().toString()) else it
+                    val obj = runCatching { JSONObject(payload) }.getOrNull()
+                    if (obj?.optString("threadId") == threadId) {
+                        messages = messages.map {
+                            if (it.mine && it.readAt == null) it.copy(readAt = java.time.Instant.now().toString()) else it
+                        }
                     }
                 }
             }
         }
-        onDispose { realtime.disconnect() }
+        onDispose {
+            realtime.emitTyping(threadId, false)
+            realtime.disconnect()
+        }
     }
 
     LaunchedEffect(threadId) {
@@ -288,10 +294,19 @@ fun ChatThreadScreen(
     }
 
     LaunchedEffect(draft, threadId) {
-        if (draft.isBlank()) return@LaunchedEffect
+        if (draft.isBlank()) {
+            realtime.emitTyping(threadId, false)
+            return@LaunchedEffect
+        }
         realtime.emitTyping(threadId, true)
-        delay(1800)
+        delay(2000)
         realtime.emitTyping(threadId, false)
+    }
+
+    LaunchedEffect(typing) {
+        if (!typing) return@LaunchedEffect
+        delay(2500)
+        typing = false
     }
 
     LaunchedEffect(recording) {
@@ -848,6 +863,9 @@ fun ChatThreadScreen(
                 )
             }
             Text(thread?.counterpartName ?: title, modifier = Modifier.padding(16.dp), style = MaterialTheme.typography.titleLarge)
+            if (!thread?.counterpartPhone.isNullOrBlank()) {
+                Text(thread?.counterpartPhone.orEmpty(), modifier = Modifier.padding(horizontal = 16.dp), color = colors.textMuted)
+            }
             Text(formatLastSeen(context, thread?.lastSeenAt, thread?.online == true, false), modifier = Modifier.padding(horizontal = 16.dp), color = colors.textMuted)
             listOf("media" to R.string.chat_media, "files" to R.string.chat_files, "links" to R.string.chat_links, "voice" to R.string.chat_voice_tab).forEach { (kind, label) ->
                 TextButton(onClick = {

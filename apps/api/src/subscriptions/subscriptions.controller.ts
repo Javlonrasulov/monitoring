@@ -1,4 +1,13 @@
-import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Headers,
+  HttpCode,
+  Param,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiProperty, ApiTags } from '@nestjs/swagger';
 import { IsString } from 'class-validator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -38,6 +47,15 @@ export class SubscriptionsController {
   activate(@CurrentUser() user: { organizationId: string }) {
     return this.subscriptions.activateDemo(user.organizationId);
   }
+
+  @Post('nowpayments/ipn')
+  @HttpCode(200)
+  ipn(
+    @Headers('x-nowpayments-sig') signature: string | undefined,
+    @Body() body: Record<string, unknown>,
+  ) {
+    return this.subscriptions.handleNowPaymentsIpn(signature, body);
+  }
 }
 
 @ApiTags('subscriptions')
@@ -54,17 +72,27 @@ export class DeviceSubscriptionsController {
     return this.subscriptions.forOrganization(device.organizationId);
   }
 
-  @Post('purchase')
+  @Post('invoices')
   @ApiBearerAuth()
   @UseGuards(DeviceAuthGuard)
-  async purchase(
-    @CurrentDevice() device: { organizationId: string },
+  createInvoice(
+    @CurrentDevice() device: { organizationId: string; deviceId: string },
     @Body() dto: PurchasePlanDto,
   ) {
-    await this.subscriptions.purchase(
+    return this.subscriptions.createInvoice(
       device.organizationId,
       this.subscriptions.parsePlan(dto.plan),
+      device.deviceId,
     );
-    return this.subscriptions.forOrganization(device.organizationId);
+  }
+
+  @Get('invoices/:id')
+  @ApiBearerAuth()
+  @UseGuards(DeviceAuthGuard)
+  getInvoice(
+    @CurrentDevice() device: { organizationId: string },
+    @Param('id') id: string,
+  ) {
+    return this.subscriptions.getInvoice(device.organizationId, id);
   }
 }

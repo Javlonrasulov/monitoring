@@ -12,15 +12,17 @@ type Props = {
   device: Device;
 };
 
+function watchPrefKey(deviceId: string) {
+  return `monitor.watch.${deviceId}`;
+}
+
 export function LivePlayer({ device }: Props) {
   const { t } = useI18n();
   const containerRef = useRef<HTMLDivElement>(null);
   const videoElRef = useRef<HTMLVideoElement | null>(null);
-  const userPaused = useRef(false);
+  const userPaused = useRef(true);
 
-  const [watching, setWatching] = useState(
-    device.status === "STREAMING" || device.status === "CONNECTING",
-  );
+  const [watching, setWatching] = useState(false);
   const [viewerEpoch, setViewerEpoch] = useState(0);
   const wasStreaming = useRef(device.status === "STREAMING");
   const [muted, setMuted] = useState(true);
@@ -53,22 +55,49 @@ export function LivePlayer({ device }: Props) {
     };
   }, [watching, device.id, quality]);
 
-  // Keep the viewer open across phone reboot / Stop / stream drop so WHEP
-  // reconnects as soon as the device publishes again. Only the user can stop.
+  useEffect(() => {
+    const stored = sessionStorage.getItem(watchPrefKey(device.id));
+    if (stored === "0") {
+      userPaused.current = true;
+      setWatching(false);
+      return;
+    }
+    if (stored === "1") {
+      userPaused.current = false;
+      setWatching(true);
+      return;
+    }
+    const auto =
+      device.status === "STREAMING" || device.status === "CONNECTING";
+    userPaused.current = !auto;
+    setWatching(auto);
+  }, [device.id]);
+
+  // If the admin is still watching, reconnect after a phone reboot / stream drop.
+  // If they pressed stop, never auto-start until they press start again.
   useEffect(() => {
     const streaming = device.status === "STREAMING";
-    if (streaming && !wasStreaming.current) {
+    if (streaming && !wasStreaming.current && !userPaused.current) {
       setViewerEpoch((n) => n + 1);
-      if (!userPaused.current) setWatching(true);
-    }
-    if (
-      (streaming || device.status === "CONNECTING") &&
-      !userPaused.current
-    ) {
-      setWatching(true);
     }
     wasStreaming.current = streaming;
   }, [device.status]);
+
+  function stopWatching() {
+    userPaused.current = true;
+    sessionStorage.setItem(watchPrefKey(device.id), "0");
+    setError(null);
+    setWatching(false);
+    setViewerEpoch((n) => n + 1);
+  }
+
+  function startWatching() {
+    userPaused.current = false;
+    sessionStorage.setItem(watchPrefKey(device.id), "1");
+    setError(null);
+    setWatching(true);
+    setViewerEpoch((n) => n + 1);
+  }
 
   const handleReady = useCallback((video: HTMLVideoElement | null) => {
     videoElRef.current = video;
@@ -175,12 +204,8 @@ export function LivePlayer({ device }: Props) {
           type="button"
           className="btn btn-primary"
           onClick={() => {
-            setError(null);
-            setWatching((current) => {
-              const next = !current;
-              userPaused.current = !next;
-              return next;
-            });
+            if (watching) stopWatching();
+            else startWatching();
           }}
         >
           {watching ? t("deviceStopWatching") : t("deviceWatchLive")}

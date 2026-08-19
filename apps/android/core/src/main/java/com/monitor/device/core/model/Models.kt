@@ -64,6 +64,7 @@ data class DeviceMeResponse(
     val cameraFacing: String? = null,
     val userId: String? = null,
     val name: String? = null,
+    val phone: String? = null,
     val hasAvatar: Boolean = false,
     val avatarUpdatedAt: String? = null,
 )
@@ -71,6 +72,12 @@ data class DeviceMeResponse(
 @Serializable
 data class UploadAvatarRequest(
     val imageBase64: String,
+)
+
+@Serializable
+data class UpdateProfileRequest(
+    val name: String? = null,
+    val phone: String? = null,
 )
 
 enum class CameraFacing {
@@ -118,6 +125,7 @@ data class ChatPeer(
     val lastSeenAt: String? = null,
     val email: String? = null,
     val deviceId: String? = null,
+    val phone: String? = null,
     val hasAvatar: Boolean = false,
     val avatarUpdatedAt: String? = null,
 )
@@ -142,6 +150,7 @@ data class ChatThreadDto(
     val unreadCount: Int = 0,
     val counterpartName: String? = null,
     val counterpartUserId: String? = null,
+    val counterpartPhone: String? = null,
     val counterpartHasAvatar: Boolean = false,
     val counterpartAvatarUpdatedAt: String? = null,
     val online: Boolean = false,
@@ -324,6 +333,12 @@ data class LinkedDeviceDto(
     val status: String? = null,
     val lastSeen: String? = null,
     val deviceModel: String? = null,
+    val cameraFacing: String? = null,
+)
+
+@Serializable
+data class SetCameraFacingRequest(
+    val facing: String,
 )
 
 @Serializable
@@ -334,6 +349,23 @@ data class LinkDeviceRequest(
 @Serializable
 data class PurchasePlanRequest(
     val plan: String,
+)
+
+@Serializable
+data class PaymentInvoiceDto(
+    val id: String,
+    val plan: String? = null,
+    val status: String? = null,
+    val priceUsd: Int? = null,
+    val payAddress: String = "",
+    val payAmount: String = "",
+    val payCurrency: String = "",
+    val network: String? = null,
+    val expiresAt: String? = null,
+    val remainingSeconds: Int = 0,
+    val paid: Boolean = false,
+    val checkoutUrl: String? = null,
+    val guardarianUrl: String? = null,
 )
 
 @Serializable

@@ -1,5 +1,6 @@
 package com.monitor.device.ui.screens
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -33,7 +34,7 @@ fun MainTabsScreen(
     tokenStore: TokenStore,
     onOpenChat: (String, String) -> Unit,
     onUnpaired: () -> Unit,
-    onWatchDevice: (String, String) -> Unit,
+    onWatchDevice: (String, String, String?) -> Unit,
 ) {
     var tab by rememberSaveable { mutableIntStateOf(0) }
     var unread by rememberSaveable { mutableIntStateOf(0) }
@@ -46,6 +47,10 @@ fun MainTabsScreen(
         tokenStore = tokenStore,
         onUnpaired = onUnpaired,
     )
+
+    BackHandler(enabled = tab != 0) {
+        tab = 0
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Box(

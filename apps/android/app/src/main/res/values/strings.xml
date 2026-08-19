@@ -137,6 +137,12 @@
     <string name="profile_set_photo">Set profile photo</string>
     <string name="profile_change_photo">Change profile photo</string>
     <string name="profile_photo_failed">Could not update photo</string>
+    <string name="profile_name">Name</string>
+    <string name="profile_phone">Phone number</string>
+    <string name="profile_edit">Edit</string>
+    <string name="profile_save">Save</string>
+    <string name="profile_update_failed">Could not update profile</string>
+    <string name="profile_phone_missing">Not set</string>
     <string name="limit_reached">Device limit reached. Unpair an old device and try again.</string>
     <string name="settings_link_section">Link a device</string>
     <string name="settings_share_hint">Generate a code and send it to another phone. Whoever enters it is linked to you — chat and live video are free for 24 hours.</string>
@@ -149,6 +155,8 @@
     <string name="settings_link_success">Device linked</string>
     <string name="settings_linked_section">Linked devices</string>
     <string name="settings_watch_live">Watch live</string>
+    <string name="settings_camera_front">Oldi</string>
+    <string name="settings_camera_back">Orqa</string>
     <string name="settings_watch_waiting">Waiting for live stream…</string>
     <string name="settings_watch_failed">Could not join the live stream</string>
     <string name="settings_watch_upgrade">The 24-hour trial ended. Buy Pro or Pro+ to keep watching.</string>
@@ -159,5 +167,21 @@
     <string name="settings_plan_pro_body">Live video. One linked pair of apps.</string>
     <string name="settings_plan_pro_plus">Pro+</string>
     <string name="settings_plan_pro_plus_body">Video + ovoz + yozuvlar. Ikki ilovani ulash mumkin.</string>
-    <string name="settings_buy">Buy</string>
+    <string name="settings_buy">Kartadan to‘lash</string>
+    <string name="settings_pay_title">Karta orqali to‘lov</string>
+    <string name="settings_pay_amount">To‘lov: %1$s %2$s</string>
+    <string name="settings_pay_network">Tarmoq: %1$s</string>
+    <string name="settings_pay_timer">Qolgan vaqt: %1$s</string>
+    <string name="settings_pay_waiting">Kartadan to‘lang. Pul tushishi kutilmoqda…</string>
+    <string name="settings_pay_confirming">To‘lov topildi, tasdiqlanmoqda…</string>
+    <string name="settings_pay_success">To‘lov qabul qilindi. Obuna yoqildi.</string>
+    <string name="settings_pay_expired">Vaqt tugadi. Yangi to‘lov boshlang.</string>
+    <string name="settings_pay_failed">To‘lov amalga oshmadi.</string>
+    <string name="settings_copy_address">Manzilni nusxalash</string>
+    <string name="settings_address_copied">USDT manzili nusxalandi</string>
+    <string name="settings_pay_close">Yopish</string>
+    <string name="settings_pay_visa">Kartadan davom ettirish</string>
+    <string name="settings_pay_hint">Kartadan to‘lash oynasi ochiladi. USDT manzil avtomatik qo‘yiladi — kriptoni o‘zingiz yuborishingiz shart emas.</string>
+    <string name="settings_pay_show_crypto">Kripto bilan to‘lash</string>
+    <string name="settings_pay_hide_crypto">Kriptoni yashirish</string>
 </resources>

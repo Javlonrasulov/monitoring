@@ -28,6 +28,14 @@ enum SubscriptionPlan {
   PRO_PLUS
 }
 
+enum PaymentInvoiceStatus {
+  WAITING
+  CONFIRMING
+  FINISHED
+  EXPIRED
+  FAILED
+}
+
 enum ChatMessageType {
   TEXT
   IMAGE
@@ -94,6 +102,7 @@ model Organization {
   streamSessions    StreamSession[]
   recordingSegments RecordingSegment[]
   subscriptions     Subscription[]
+  paymentInvoices   PaymentInvoice[]
   chatThreads       ChatThread[]
 }
 
@@ -302,6 +311,33 @@ model Subscription {
 
   @@index([organizationId])
   @@index([status])
+}
+
+model PaymentInvoice {
+  id               String                @id @default(cuid())
+  organizationId   String
+  deviceId         String?
+  plan             SubscriptionPlan
+  status           PaymentInvoiceStatus  @default(WAITING)
+  priceUsd         Int
+  nowPaymentId     String                @unique
+  nowInvoiceId     String?               @unique
+  checkoutUrl      String?
+  payAddress       String
+  payAmount        String
+  payCurrency      String
+  network          String?
+  expiresAt        DateTime
+  paidAt           DateTime?
+  activatedAt      DateTime?
+  lastProviderStatus String?
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, status])
+  @@index([expiresAt])
 }
 
 model ChatThread {

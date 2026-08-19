@@ -37,6 +37,7 @@ type Thread = {
   id: string;
   counterpartName?: string;
   counterpartUserId?: string;
+  counterpartPhone?: string | null;
   counterpartHasAvatar?: boolean;
   counterpartAvatarUpdatedAt?: string | null;
   online?: boolean;
@@ -180,6 +181,9 @@ export default function ChatDetailPage() {
             />
             <div>
               <strong>{thread?.counterpartName || thread?.peer.name || t("chatMessages")}</strong>
+              {thread?.counterpartPhone ? (
+                <div className="muted small">{thread.counterpartPhone}</div>
+              ) : null}
               <div className="muted small">
                 {typing ? t("chatTyping") : thread?.online ? t("chatOnline") : t("chatOffline")}
               </div>

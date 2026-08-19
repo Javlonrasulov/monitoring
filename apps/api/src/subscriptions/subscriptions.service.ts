@@ -1,7 +1,34 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
-import { SubscriptionPlan, SubscriptionStatus } from '../generated/prisma';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import {
+  PaymentInvoiceStatus,
+  SubscriptionPlan,
+  SubscriptionStatus,
+} from '../generated/prisma';
 import { PrismaService } from '../prisma/prisma.service';
 import { seesAllOrganizations } from '../auth/platform-org';
+import { NowPaymentsService } from './nowpayments.service';
+
+export type PaymentInvoiceView = {
+  id: string;
+  plan: SubscriptionPlan;
+  status: PaymentInvoiceStatus;
+  priceUsd: number;
+  payAddress: string;
+  payAmount: string;
+  payCurrency: string;
+  network: string | null;
+  expiresAt: string;
+  remainingSeconds: number;
+  paid: boolean;
+  checkoutUrl: string | null;
+  guardarianUrl: string | null;
+};
 
 export type SubscriptionView = {
   id: string | null;
@@ -27,9 +54,20 @@ const PRO_PLUS_PRICE = 25;
 const TRIAL_HOURS = 24;
 const PAID_DAYS = 30;
 
+const PAID_PROVIDER_STATUSES = new Set([
+  'confirming',
+  'confirmed',
+  'sending',
+  'finished',
+]);
+
 @Injectable()
 export class SubscriptionsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly nowpayments: NowPaymentsService,
+    private readonly config: ConfigService,
+  ) {}
 
   async forOrganization(organizationId: string): Promise<SubscriptionView> {
     const [sub, deviceCount] = await Promise.all([
@@ -127,6 +165,361 @@ export class SubscriptionsService {
         expiresAt: new Date(now.getTime() + TRIAL_HOURS * 60 * 60 * 1000),
       },
     });
+  }
+
+  async createInvoice(
+    organizationId: string,
+    plan: 'PRO' | 'PRO_PLUS',
+    deviceId?: string,
+  ): Promise<PaymentInvoiceView> {
+    const nextPlan =
+      plan === 'PRO_PLUS' ? SubscriptionPlan.PRO_PLUS : SubscriptionPlan.PRO;
+    const priceUsd =
+      nextPlan === SubscriptionPlan.PRO_PLUS ? PRO_PLUS_PRICE : PRO_PRICE;
+
+    const existing = await this.prisma.paymentInvoice.findFirst({
+      where: {
+        organizationId,
+        plan: nextPlan,
+        status: {
+          in: [PaymentInvoiceStatus.WAITING, PaymentInvoiceStatus.CONFIRMING],
+        },
+        expiresAt: { gt: new Date() },
+        NOT: { payAddress: '' },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    if (existing) {
+      return this.presentInvoice(existing);
+    }
+
+    const pendingId = `invoice:${organizationId.slice(-8)}:${Date.now()}`;
+    const placeholder = await this.prisma.paymentInvoice.create({
+      data: {
+        organizationId,
+        deviceId: deviceId ?? null,
+        plan: nextPlan,
+        status: PaymentInvoiceStatus.WAITING,
+        priceUsd,
+        nowPaymentId: pendingId,
+        payAddress: '',
+        payAmount: String(priceUsd),
+        payCurrency: this.nowpayments.payCurrency(),
+        network: this.nowpayments.networkLabel(),
+        expiresAt: new Date(
+          Date.now() + this.nowpayments.invoiceTtlMinutes() * 60 * 1000,
+        ),
+        lastProviderStatus: 'waiting',
+      },
+    });
+
+    let payment;
+    try {
+      payment = await this.nowpayments.createPayment({
+        priceUsd,
+        orderId: placeholder.id,
+        description: `Monitor ${plan} subscription`,
+        ipnCallbackUrl: this.ipnCallbackUrl(),
+      });
+    } catch (err) {
+      await this.prisma.paymentInvoice.delete({ where: { id: placeholder.id } });
+      throw err;
+    }
+    if (!payment.pay_address) {
+      await this.prisma.paymentInvoice.delete({ where: { id: placeholder.id } });
+      throw new BadRequestException('NOWPayments did not return a deposit address');
+    }
+    const payCurrency = (
+      payment.pay_currency || this.nowpayments.payCurrency()
+    ).toLowerCase();
+    const payAddress = payment.pay_address ?? '';
+    const payAmount = String(payment.pay_amount ?? priceUsd);
+    const network =
+      payment.network || this.nowpayments.networkLabel(payCurrency);
+    const providerExpiry = payment.expiration_estimate_date
+      ? new Date(payment.expiration_estimate_date)
+      : null;
+    const expiresAt =
+      providerExpiry && !Number.isNaN(providerExpiry.getTime())
+        ? providerExpiry
+        : new Date(
+            Date.now() + this.nowpayments.invoiceTtlMinutes() * 60 * 1000,
+          );
+
+    const invoice = await this.prisma.paymentInvoice.update({
+      where: { id: placeholder.id },
+      data: {
+        nowPaymentId: String(payment.payment_id),
+        payAddress,
+        payAmount,
+        payCurrency,
+        network,
+        expiresAt,
+        lastProviderStatus: payment.payment_status ?? 'waiting',
+        checkoutUrl: this.guardarianUrl(payAddress, payAmount, network, priceUsd),
+      },
+    });
+    return this.presentInvoice(invoice);
+  }
+
+  async getInvoice(organizationId: string, invoiceId: string) {
+    const invoice = await this.prisma.paymentInvoice.findFirst({
+      where: { id: invoiceId, organizationId },
+    });
+    if (!invoice) throw new NotFoundException('Invoice not found');
+    return this.refreshInvoice(invoice.id);
+  }
+
+  async handleNowPaymentsIpn(signature: string | undefined, body: unknown) {
+    if (!this.nowpayments.verifyIpnSignature(body, signature)) {
+      throw new UnauthorizedException('Invalid NOWPayments signature');
+    }
+    const payload = (body ?? {}) as Record<string, unknown>;
+    const paymentId = String(payload.payment_id ?? '').trim();
+    const orderId = String(payload.order_id ?? '').trim();
+    const invoiceId = String(payload.invoice_id ?? '').trim();
+    if (!paymentId && !orderId && !invoiceId) {
+      throw new BadRequestException('payment_id required');
+    }
+    await this.applyProviderStatus(String(payload.payment_status ?? ''), {
+      paymentId: paymentId || undefined,
+      orderId: orderId || undefined,
+      invoiceId: invoiceId || undefined,
+    });
+    return { ok: true };
+  }
+
+  async refreshInvoice(invoiceId: string): Promise<PaymentInvoiceView> {
+    const invoice = await this.prisma.paymentInvoice.findUnique({
+      where: { id: invoiceId },
+    });
+    if (!invoice) throw new NotFoundException('Invoice not found');
+    if (
+      invoice.status === PaymentInvoiceStatus.WAITING ||
+      invoice.status === PaymentInvoiceStatus.CONFIRMING
+    ) {
+      try {
+        const payment = invoice.nowPaymentId.startsWith('invoice:')
+          ? await this.nowpayments.findPaymentByOrderId(invoice.id)
+          : await this.nowpayments.getPayment(invoice.nowPaymentId);
+        if (payment?.payment_id) {
+          await this.applyProviderStatus(String(payment.payment_status ?? ''), {
+            paymentId: String(payment.payment_id),
+            orderId: String(payment.order_id ?? invoice.id),
+            invoiceId: String(payment.invoice_id ?? invoice.nowInvoiceId ?? ''),
+            payAddress: payment.pay_address,
+            payAmount: payment.pay_amount,
+            payCurrency: payment.pay_currency,
+          });
+        }
+      } catch {
+        // Keep last known status if NOWPayments is briefly unreachable.
+      }
+    }
+    const fresh = await this.prisma.paymentInvoice.findUniqueOrThrow({
+      where: { id: invoiceId },
+    });
+    if (
+      fresh.status === PaymentInvoiceStatus.WAITING &&
+      !fresh.activatedAt &&
+      fresh.expiresAt <= new Date()
+    ) {
+      const expired = await this.prisma.paymentInvoice.update({
+        where: { id: fresh.id },
+        data: { status: PaymentInvoiceStatus.EXPIRED },
+      });
+      return this.presentInvoice(expired);
+    }
+    return this.presentInvoice(fresh);
+  }
+
+  private async applyProviderStatus(
+    providerStatus: string,
+    extras: {
+      paymentId?: string;
+      orderId?: string;
+      invoiceId?: string;
+      payAddress?: string;
+      payAmount?: number | string;
+      payCurrency?: string;
+    },
+  ) {
+    const invoice =
+      (extras.paymentId
+        ? await this.prisma.paymentInvoice.findUnique({
+            where: { nowPaymentId: extras.paymentId },
+          })
+        : null) ??
+      (extras.invoiceId
+        ? await this.prisma.paymentInvoice.findFirst({
+            where: { nowInvoiceId: extras.invoiceId },
+          })
+        : null) ??
+      (extras.orderId
+        ? await this.prisma.paymentInvoice.findUnique({
+            where: { id: extras.orderId },
+          })
+        : null);
+    if (!invoice) return;
+    if (extras.paymentId && extras.paymentId !== invoice.nowPaymentId) {
+      await this.prisma.paymentInvoice.update({
+        where: { id: invoice.id },
+        data: {
+          nowPaymentId: extras.paymentId,
+          payAddress: extras.payAddress || invoice.payAddress,
+          payAmount:
+            extras.payAmount != null
+              ? String(extras.payAmount)
+              : invoice.payAmount,
+          payCurrency: extras.payCurrency
+            ? String(extras.payCurrency).toLowerCase()
+            : invoice.payCurrency,
+        },
+      });
+    }
+    const status = providerStatus.toLowerCase();
+    if (invoice.activatedAt) {
+      await this.prisma.paymentInvoice.update({
+        where: { id: invoice.id },
+        data: { lastProviderStatus: status },
+      });
+      return;
+    }
+
+    if (status === 'expired' || status === 'failed' || status === 'refunded') {
+      await this.prisma.paymentInvoice.updateMany({
+        where: { id: invoice.id, activatedAt: null },
+        data: {
+          status:
+            status === 'expired'
+              ? PaymentInvoiceStatus.EXPIRED
+              : PaymentInvoiceStatus.FAILED,
+          lastProviderStatus: status,
+        },
+      });
+      return;
+    }
+
+    if (!PAID_PROVIDER_STATUSES.has(status)) {
+      await this.prisma.paymentInvoice.update({
+        where: { id: invoice.id },
+        data: { lastProviderStatus: status },
+      });
+      return;
+    }
+
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + PAID_DAYS * 24 * 60 * 60 * 1000);
+    const claimed = await this.prisma.paymentInvoice.updateMany({
+      where: { id: invoice.id, activatedAt: null },
+      data: {
+        status: PaymentInvoiceStatus.FINISHED,
+        lastProviderStatus: status,
+        paidAt: now,
+        activatedAt: now,
+      },
+    });
+    if (claimed.count === 0) return;
+    await this.prisma.subscription.create({
+      data: {
+        organizationId: invoice.organizationId,
+        status: SubscriptionStatus.ACTIVE,
+        plan: invoice.plan,
+        maxDevices: this.maxDevicesFor(invoice.plan),
+        startedAt: now,
+        expiresAt,
+      },
+    });
+  }
+
+  private presentInvoice(invoice: {
+    id: string;
+    plan: SubscriptionPlan;
+    status: PaymentInvoiceStatus;
+    priceUsd: number;
+    payAddress: string;
+    payAmount: string;
+    payCurrency: string;
+    network: string | null;
+    expiresAt: Date;
+    activatedAt: Date | null;
+    checkoutUrl?: string | null;
+  }): PaymentInvoiceView {
+    const remainingSeconds = Math.max(
+      0,
+      Math.floor((invoice.expiresAt.getTime() - Date.now()) / 1000),
+    );
+    const cardUrl = invoice.payAddress
+      ? this.guardarianUrl(
+          invoice.payAddress,
+          invoice.payAmount,
+          invoice.network,
+          invoice.priceUsd,
+        )
+      : invoice.checkoutUrl?.trim() || null;
+    return {
+      id: invoice.id,
+      plan: invoice.plan,
+      status: invoice.status,
+      priceUsd: invoice.priceUsd,
+      payAddress: invoice.payAddress,
+      payAmount: invoice.payAmount,
+      payCurrency: invoice.payCurrency,
+      network: invoice.network,
+      expiresAt: invoice.expiresAt.toISOString(),
+      remainingSeconds,
+      paid: Boolean(invoice.activatedAt) || invoice.status === PaymentInvoiceStatus.FINISHED,
+      checkoutUrl: cardUrl,
+      guardarianUrl: cardUrl,
+    };
+  }
+
+  private publicBaseUrl() {
+    return (this.config.get<string>('PUBLIC_BASE_URL') ?? '').replace(/\/$/, '');
+  }
+
+  private ipnCallbackUrl() {
+    const publicBase = this.publicBaseUrl();
+    if (!publicBase) return undefined;
+    return `${publicBase}/api/v1/subscriptions/nowpayments/ipn`;
+  }
+
+  private guardarianUrl(
+    address: string,
+    amount: string,
+    _network: string | null,
+    priceUsd?: number,
+  ) {
+    const widget =
+      this.config.get<string>('GUARDARIAN_WIDGET_URL')?.trim() ||
+      'https://guardarian.com/calculator/v1';
+    const token = this.config.get<string>('GUARDARIAN_PARTNER_TOKEN')?.trim();
+    const usdtTrc20 = JSON.stringify([{ ticker: 'USDT', network: 'TRC20' }]);
+    const params = new URLSearchParams({
+      locale: 'ru',
+      lang: 'ru',
+      language: 'ru',
+      default_crypto_currency: 'USDT',
+      to_network: 'TRC20',
+      default_fiat_currency: 'USD',
+      default_side: 'buy_crypto',
+      payout_address: address,
+      default_payout_address: address,
+      customer_payout_address: address,
+      skip_choose_payout_address: 'false',
+      switchable: 'false',
+      crypto_currencies_list: usdtTrc20,
+      theme: 'blue',
+      type: 'narrow',
+    });
+    if (priceUsd && priceUsd > 0) {
+      params.set('default_from_amount', String(priceUsd));
+      params.set('from_amount', String(priceUsd));
+    } else if (amount) {
+      params.set('to_amount', amount);
+    }
+    if (token) params.set('partner_api_token', token);
+    return `${widget}?${params.toString()}`;
   }
 
   async purchase(organizationId: string, plan: 'PRO' | 'PRO_PLUS') {

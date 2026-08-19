@@ -30,10 +30,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Description
+import androidx.compose.material.icons.rounded.Done
+import androidx.compose.material.icons.rounded.DoneAll
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.Videocam
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -180,8 +183,8 @@ fun MessageBubble(
                     }
                     Text(formatClock(message.createdAt), color = muted, fontSize = 11.sp)
                     if (mine) {
-                        Spacer(Modifier.width(4.dp))
-                        Text(statusTicks(message), color = muted, fontSize = 11.sp)
+                        Spacer(Modifier.width(2.dp))
+                        ReadReceipt(message, muted)
                     }
                 }
             }
@@ -487,10 +490,19 @@ private fun FileBubble(
     }
 }
 
-private fun statusTicks(message: ChatMessageDto): String = when {
-    message.readAt != null -> "✓✓"
-    message.deliveredAt != null -> "✓✓"
-    else -> "✓"
+@Composable
+private fun ReadReceipt(message: ChatMessageDto, muted: Color) {
+    val read = message.readAt != null
+    Icon(
+        imageVector = when {
+            message.localStatus == "sending" -> Icons.Rounded.Schedule
+            read -> Icons.Rounded.DoneAll
+            else -> Icons.Rounded.Done
+        },
+        contentDescription = null,
+        tint = if (read) Color(0xFF6EC9FF) else muted,
+        modifier = Modifier.size(16.dp),
+    )
 }
 
 @Composable

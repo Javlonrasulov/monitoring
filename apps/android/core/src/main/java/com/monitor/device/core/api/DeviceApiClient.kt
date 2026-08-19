@@ -22,10 +22,13 @@ import com.monitor.device.core.model.PairRequest
 import com.monitor.device.core.model.PairResponse
 import com.monitor.device.core.model.PairStatusResponse
 import com.monitor.device.core.model.PublisherTokenResponse
+import com.monitor.device.core.model.PaymentInvoiceDto
 import com.monitor.device.core.model.PurchasePlanRequest
 import com.monitor.device.core.model.ReactChatRequest
 import com.monitor.device.core.model.SendChatRequest
+import com.monitor.device.core.model.SetCameraFacingRequest
 import com.monitor.device.core.model.SubscriptionDto
+import com.monitor.device.core.model.UpdateProfileRequest
 import com.monitor.device.core.model.UploadAvatarRequest
 import com.monitor.device.core.model.ViewerTokenResponse
 import kotlinx.coroutines.Dispatchers
@@ -91,6 +94,16 @@ class DeviceApiClient(
     suspend fun me(): DeviceMeResponse {
         val me = authorized(unpairOnNotFound = false) { api.me(it) }
         me.userId?.let(tokenStore::saveUserId)
+        me.name?.takeIf { it.isNotBlank() }?.let(tokenStore::saveDeviceName)
+        return me
+    }
+
+    suspend fun updateProfile(name: String? = null, phone: String? = null): DeviceMeResponse {
+        val me = authorized(unpairOnFailure = false) {
+            api.updateProfile(it, UpdateProfileRequest(name = name, phone = phone))
+        }
+        me.userId?.let(tokenStore::saveUserId)
+        me.name?.takeIf { it.isNotBlank() }?.let(tokenStore::saveDeviceName)
         return me
     }
 
@@ -168,11 +181,21 @@ class DeviceApiClient(
     suspend fun linkDevice(code: String): OkResponse =
         authorized(unpairOnFailure = false) { api.linkDevice(it, LinkDeviceRequest(code)) }
 
-    suspend fun purchasePlan(plan: String): SubscriptionDto =
-        authorized(unpairOnFailure = false) { api.purchasePlan(it, PurchasePlanRequest(plan)) }
+    suspend fun createPaymentInvoice(plan: String): PaymentInvoiceDto =
+        authorized(unpairOnFailure = false) {
+            api.createPaymentInvoice(it, PurchasePlanRequest(plan))
+        }
+
+    suspend fun paymentInvoice(id: String): PaymentInvoiceDto =
+        authorized(unpairOnFailure = false) { api.paymentInvoice(it, id) }
 
     suspend fun deviceViewerToken(deviceId: String): ViewerTokenResponse =
         authorized(unpairOnFailure = false) { api.deviceViewerToken(it, deviceId) }
+
+    suspend fun setLinkedCamera(deviceId: String, facing: String): DeviceStatusResponse =
+        authorized(unpairOnFailure = false) {
+            api.setLinkedCamera(it, deviceId, SetCameraFacingRequest(facing))
+        }
 
     fun mediaUrl(threadId: String, messageId: String, thumb: Boolean = false, download: Boolean = false): String {
         val path = if (thumb) {

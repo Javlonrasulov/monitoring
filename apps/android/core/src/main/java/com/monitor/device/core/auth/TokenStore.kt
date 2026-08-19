@@ -38,6 +38,10 @@ class TokenStore(context: Context) {
         prefs.edit().putString(KEY_USER_ID, userId).apply()
     }
 
+    fun saveDeviceName(name: String) {
+        prefs.edit().putString(KEY_DEVICE_NAME, name).apply()
+    }
+
     fun saveSession(
         deviceId: String,
         deviceName: String,
