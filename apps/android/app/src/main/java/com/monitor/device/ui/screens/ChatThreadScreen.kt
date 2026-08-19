@@ -126,6 +126,7 @@ import com.monitor.device.ui.chat.formatLastSeen
 import com.monitor.device.ui.chat.mimeFor
 import com.monitor.device.ui.chat.videoDurationMs
 import com.monitor.device.ui.chat.videoThumbnail
+import com.monitor.device.ui.components.UserAvatar
 import com.monitor.device.ui.theme.MonitorTheme
 import com.monitor.device.ui.theme.Spacing
 import kotlinx.coroutines.Dispatchers
@@ -407,6 +408,13 @@ fun ChatThreadScreen(
             title = thread?.counterpartName ?: title,
             subtitle = formatLastSeen(context, thread?.lastSeenAt, thread?.online == true, typing),
             typing = typing,
+            avatarUrl = if (thread?.counterpartHasAvatar == true) {
+                apiClient.avatarUrl(thread.counterpartUserId, thread.counterpartAvatarUpdatedAt)
+            } else {
+                null
+            },
+            imageLoader = imageLoader,
+            online = thread?.online == true,
             onBack = onBack,
             onSearch = { searchOpen = !searchOpen },
             onProfile = { profileOpen = true },
@@ -792,6 +800,22 @@ fun ChatThreadScreen(
 
     if (profileOpen) {
         ModalBottomSheet(onDismissRequest = { profileOpen = false }) {
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                UserAvatar(
+                    name = thread?.counterpartName ?: title,
+                    imageUrl = if (thread?.counterpartHasAvatar == true) {
+                        apiClient.avatarUrl(thread.counterpartUserId, thread.counterpartAvatarUpdatedAt)
+                    } else {
+                        null
+                    },
+                    imageLoader = imageLoader,
+                    size = 96.dp,
+                    online = thread?.online == true,
+                )
+            }
             Text(thread?.counterpartName ?: title, modifier = Modifier.padding(16.dp), style = MaterialTheme.typography.titleLarge)
             Text(formatLastSeen(context, thread?.lastSeenAt, thread?.online == true, false), modifier = Modifier.padding(horizontal = 16.dp), color = colors.textMuted)
             listOf("media" to R.string.chat_media, "files" to R.string.chat_files, "links" to R.string.chat_links, "voice" to R.string.chat_voice_tab).forEach { (kind, label) ->
@@ -859,6 +883,9 @@ private fun ChatHeader(
     title: String,
     subtitle: String,
     typing: Boolean,
+    avatarUrl: String?,
+    imageLoader: ImageLoader,
+    online: Boolean,
     onBack: () -> Unit,
     onSearch: () -> Unit,
     onProfile: () -> Unit,
@@ -875,14 +902,15 @@ private fun ChatHeader(
             Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.common_close))
         }
         Box(
-            modifier = Modifier
-                .size(40.dp)
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.primary)
-                .combinedClickable(onClick = onProfile, onLongClick = onProfile),
-            contentAlignment = Alignment.Center,
+            modifier = Modifier.combinedClickable(onClick = onProfile, onLongClick = onProfile),
         ) {
-            Text(title.take(1).uppercase(), color = Color.White, fontWeight = FontWeight.Bold)
+            UserAvatar(
+                name = title,
+                imageUrl = avatarUrl,
+                imageLoader = imageLoader,
+                size = 40.dp,
+                online = online,
+            )
         }
         Column(modifier = Modifier.weight(1f).padding(horizontal = 10.dp).combinedClickable(onClick = onProfile, onLongClick = onProfile)) {
             Text(title, style = MaterialTheme.typography.titleMedium, color = colors.textPrimary, maxLines = 1)

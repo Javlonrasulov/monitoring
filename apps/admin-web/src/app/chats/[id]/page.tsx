@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { AdminShell } from "@/components/AdminShell";
+import { AuthAvatar } from "@/components/AuthAvatar";
 import { api, API_URL, authorizedMediaUrl } from "@/lib/api";
 import { getUser } from "@/lib/auth";
 import { useI18n } from "@/lib/i18n";
@@ -35,6 +36,9 @@ type Message = {
 type Thread = {
   id: string;
   counterpartName?: string;
+  counterpartUserId?: string;
+  counterpartHasAvatar?: boolean;
+  counterpartAvatarUpdatedAt?: string | null;
   online?: boolean;
   lastSeenAt?: string | null;
   viewerUserId?: string;
@@ -94,10 +98,15 @@ export default function ChatDetailPage() {
     socket.on("chat.message", onMessage);
     socket.on("chat.message.updated", onMessage);
     socket.on("chat.typing", onTyping);
+    const onProfile = () => {
+      api.get<Thread>(`/chats/${params.id}`).then(setThread).catch(() => undefined);
+    };
+    socket.on("chat.profile", onProfile);
     return () => {
       socket.off("chat.message", onMessage);
       socket.off("chat.message.updated", onMessage);
       socket.off("chat.typing", onTyping);
+      socket.off("chat.profile", onProfile);
     };
   }, [params.id, user?.id]);
 
@@ -162,9 +171,13 @@ export default function ChatDetailPage() {
         <header className="msg-top">
           <Link href="/chats">{t("chatsTitle")}</Link>
           <div className="msg-peer">
-            <span className={`msg-avatar${thread?.online ? " is-online" : ""}`}>
-              {(thread?.counterpartName || thread?.peer.name || "?").slice(0, 1).toUpperCase()}
-            </span>
+            <AuthAvatar
+              userId={thread?.counterpartUserId}
+              name={thread?.counterpartName || thread?.peer.name || "?"}
+              hasAvatar={thread?.counterpartHasAvatar}
+              updatedAt={thread?.counterpartAvatarUpdatedAt}
+              online={thread?.online}
+            />
             <div>
               <strong>{thread?.counterpartName || thread?.peer.name || t("chatMessages")}</strong>
               <div className="muted small">

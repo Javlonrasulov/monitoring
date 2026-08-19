@@ -19,6 +19,7 @@ import { AdminRoleGuard } from '../auth/admin-role.guard';
 import { DeviceAuthGuard } from '../auth/device-auth.guard';
 import { CurrentDevice, CurrentUser } from '../auth/decorators';
 import { ChatsService } from './chats.service';
+import { AvatarsService } from '../avatars/avatars.service';
 import {
   EditMessageDto,
   InitUploadDto,
@@ -42,11 +43,29 @@ type DeviceUser = {
 @UseGuards(JwtAuthGuard, AdminRoleGuard)
 @Controller('chats')
 export class ChatsController {
-  constructor(private readonly chats: ChatsService) {}
+  constructor(
+    private readonly chats: ChatsService,
+    private readonly avatars: AvatarsService,
+  ) {}
 
   @Get()
   list(@CurrentUser() user: AdminUser) {
     return this.chats.listForAdmin(user.organizationId, user.userId);
+  }
+
+  @Get('avatars/:userId')
+  avatar(
+    @CurrentUser() user: AdminUser,
+    @Param('userId') userId: string,
+    @Req() req: Request,
+    @Res() res: Response,
+  ) {
+    return this.avatars.streamForOrg(
+      req,
+      res,
+      user.organizationId,
+      userId,
+    );
   }
 
   @Get(':id/search')
@@ -301,13 +320,33 @@ export class ChatsController {
 @ApiTags('chats')
 @Controller('device-chats')
 export class DeviceChatsController {
-  constructor(private readonly chats: ChatsService) {}
+  constructor(
+    private readonly chats: ChatsService,
+    private readonly avatars: AvatarsService,
+  ) {}
 
   @Get()
   @ApiBearerAuth()
   @UseGuards(DeviceAuthGuard)
   list(@CurrentDevice() device: DeviceUser) {
     return this.chats.listForDevice(device.organizationId, device.deviceId);
+  }
+
+  @Get('avatars/:userId')
+  @ApiBearerAuth()
+  @UseGuards(DeviceAuthGuard)
+  avatar(
+    @CurrentDevice() device: DeviceUser,
+    @Param('userId') userId: string,
+    @Req() req: Request,
+    @Res() res: Response,
+  ) {
+    return this.avatars.streamForOrg(
+      req,
+      res,
+      device.organizationId,
+      userId,
+    );
   }
 
   @Get(':id/search')

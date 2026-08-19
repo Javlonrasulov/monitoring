@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { AdminShell } from "@/components/AdminShell";
+import { AuthAvatar } from "@/components/AuthAvatar";
 import { api } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
 import { getChatSocket } from "@/lib/chat-socket";
@@ -12,6 +13,9 @@ type Thread = {
   lastMessagePreview: string | null;
   lastMessageAt: string | null;
   counterpartName?: string;
+  counterpartUserId?: string;
+  counterpartHasAvatar?: boolean;
+  counterpartAvatarUpdatedAt?: string | null;
   unreadCount?: number;
   online?: boolean;
   owner: { name: string };
@@ -33,10 +37,12 @@ export default function ChatsPage() {
     socket.on("chat.message", refresh);
     socket.on("chat.read", refresh);
     socket.on("chat.presence", refresh);
+    socket.on("chat.profile", refresh);
     return () => {
       socket.off("chat.message", refresh);
       socket.off("chat.read", refresh);
       socket.off("chat.presence", refresh);
+      socket.off("chat.profile", refresh);
     };
   }, []);
 
@@ -55,9 +61,13 @@ export default function ChatsPage() {
               return (
                 <li key={row.id}>
                   <Link href={`/chats/${row.id}`} className="msg-thread-row">
-                    <span className={`msg-avatar${row.online ? " is-online" : ""}`}>
-                      {name.slice(0, 1).toUpperCase()}
-                    </span>
+                    <AuthAvatar
+                      userId={row.counterpartUserId}
+                      name={name}
+                      hasAvatar={row.counterpartHasAvatar}
+                      updatedAt={row.counterpartAvatarUpdatedAt}
+                      online={row.online}
+                    />
                     <span className="msg-thread-main">
                       <strong>{name}</strong>
                       <span className="muted small">{row.lastMessagePreview ?? "—"}</span>

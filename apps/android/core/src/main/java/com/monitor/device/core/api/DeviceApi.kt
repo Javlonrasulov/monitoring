@@ -42,6 +42,11 @@ interface DeviceApi {
         @Header("Authorization") authorization: String,
     ): DeviceMeResponse
 
+    @DELETE("devices/me/avatar")
+    suspend fun deleteAvatar(
+        @Header("Authorization") authorization: String,
+    ): DeviceMeResponse
+
     @GET("devices/me/linked")
     suspend fun linkedDevices(
         @Header("Authorization") authorization: String,

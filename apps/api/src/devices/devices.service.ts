@@ -64,10 +64,18 @@ export class DevicesService {
     if (device.disabled) {
       throw new ForbiddenException('Device disabled');
     }
+    const user = await this.prisma.user.findFirst({
+      where: { deviceId, organizationId },
+      select: { id: true, name: true, avatarKey: true, avatarUpdatedAt: true },
+    });
     return {
       id: device.id,
       status: device.status,
       cameraFacing: this.cameraFacingOf(device.capabilitiesJson),
+      userId: user?.id ?? null,
+      name: user?.name ?? device.name,
+      hasAvatar: Boolean(user?.avatarKey),
+      avatarUpdatedAt: user?.avatarUpdatedAt ?? null,
     };
   }
 

@@ -57,6 +57,10 @@ data class DeviceMeResponse(
     val id: String? = null,
     val status: String? = null,
     val cameraFacing: String? = null,
+    val userId: String? = null,
+    val name: String? = null,
+    val hasAvatar: Boolean = false,
+    val avatarUpdatedAt: String? = null,
 )
 
 enum class CameraFacing {
@@ -104,6 +108,8 @@ data class ChatPeer(
     val lastSeenAt: String? = null,
     val email: String? = null,
     val deviceId: String? = null,
+    val hasAvatar: Boolean = false,
+    val avatarUpdatedAt: String? = null,
 )
 
 @Serializable
@@ -126,6 +132,8 @@ data class ChatThreadDto(
     val unreadCount: Int = 0,
     val counterpartName: String? = null,
     val counterpartUserId: String? = null,
+    val counterpartHasAvatar: Boolean = false,
+    val counterpartAvatarUpdatedAt: String? = null,
     val online: Boolean = false,
     val lastSeenAt: String? = null,
 )

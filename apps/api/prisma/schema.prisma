@@ -122,10 +122,12 @@ model User {
   role           UserRole  @default(ADMIN)
   blocked        Boolean   @default(false)
   organizationId String
-  deviceId       String?   @unique
-  lastSeenAt     DateTime?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  deviceId         String?   @unique
+  lastSeenAt       DateTime?
+  avatarKey        String?
+  avatarUpdatedAt  DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   device       Device?      @relation(fields: [deviceId], references: [id], onDelete: SetNull)

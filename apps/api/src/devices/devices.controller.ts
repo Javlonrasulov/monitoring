@@ -6,8 +6,11 @@ import {
   Param,
   Patch,
   Post,
+  Put,
+  Req,
   UseGuards,
 } from '@nestjs/common';
+import type { Request } from 'express';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { DevicesService } from './devices.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -22,6 +25,7 @@ import {
   SetCameraFacingDto,
 } from './dto/devices.dto';
 import { AuditService } from '../audit/audit.service';
+import { AvatarsService } from '../avatars/avatars.service';
 
 @ApiTags('devices')
 @Controller('devices')
@@ -29,6 +33,7 @@ export class DevicesController {
   constructor(
     private readonly devicesService: DevicesService,
     private readonly audit: AuditService,
+    private readonly avatars: AvatarsService,
   ) {}
 
   @Get()
@@ -48,6 +53,33 @@ export class DevicesController {
     device: { deviceId: string; organizationId: string },
   ) {
     return this.devicesService.getMe(device.deviceId, device.organizationId);
+  }
+
+  @Put('me/avatar')
+  @ApiBearerAuth()
+  @UseGuards(DeviceAuthGuard)
+  @ApiOperation({ summary: 'Upload this user profile photo (JPEG)' })
+  uploadAvatar(
+    @CurrentDevice()
+    device: { deviceId: string; organizationId: string },
+    @Req() req: Request,
+  ) {
+    return this.avatars.saveForDevice(
+      device.organizationId,
+      device.deviceId,
+      req,
+    );
+  }
+
+  @Delete('me/avatar')
+  @ApiBearerAuth()
+  @UseGuards(DeviceAuthGuard)
+  @ApiOperation({ summary: 'Remove this user profile photo' })
+  deleteAvatar(
+    @CurrentDevice()
+    device: { deviceId: string; organizationId: string },
+  ) {
+    return this.avatars.deleteForDevice(device.organizationId, device.deviceId);
   }
 
   @Get('me/linked')

@@ -8,9 +8,10 @@ import { DevicePresenceService } from './device-presence.service';
 import { RecordingsModule } from '../recordings/recordings.module';
 import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
 import { ChatsModule } from '../chats/chats.module';
+import { AvatarsModule } from '../avatars/avatars.module';
 
 @Module({
-    imports: [AuthModule, EventsModule, AuditModule, RecordingsModule, SubscriptionsModule, ChatsModule],
+    imports: [AuthModule, EventsModule, AuditModule, RecordingsModule, SubscriptionsModule, ChatsModule, AvatarsModule],
   controllers: [DevicesController],
   providers: [DevicesService, DevicePresenceService],
   exports: [DevicesService],

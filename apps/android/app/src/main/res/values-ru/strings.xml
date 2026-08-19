@@ -79,7 +79,7 @@
     <string name="nav_profile">Профиль</string>
     <string name="chats_search">Поиск</string>
     <string name="chats_empty_title">Чатов пока нет</string>
-    <string name="chats_empty_message">Привязка устройства чат не создаёт. Диалог появится, когда оператор (админ) напишет вам.</string>
+    <string name="chats_empty_message">Пока никто не написал. Когда вам отправят сообщение, диалог появится здесь.</string>
     <string name="chats_untitled">Чат</string>
     <string name="chat_placeholder">Сообщение</string>
     <string name="chat_send">Отправить</string>
@@ -130,6 +130,9 @@
     <string name="profile_notifications">Уведомления</string>
     <string name="profile_connected">Подключённое устройство</string>
     <string name="profile_logout">Выйти / отвязать</string>
+    <string name="profile_set_photo">Установить фото</string>
+    <string name="profile_change_photo">Изменить фото</string>
+    <string name="profile_photo_failed">Не удалось обновить фото</string>
     <string name="limit_reached">Достигнут лимит устройств</string>
     <string name="settings_link_section">Подключение устройства</string>
     <string name="settings_share_hint">Создайте код и отправьте его на другой телефон. Кто введёт код, подключится к вам — чат и эфир бесплатны 24 часа.</string>

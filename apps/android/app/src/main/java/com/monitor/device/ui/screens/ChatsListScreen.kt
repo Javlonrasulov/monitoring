@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -44,6 +43,8 @@ import com.monitor.device.core.auth.TokenStore
 import com.monitor.device.core.model.ChatThreadDto
 import com.monitor.device.ui.chat.formatClock
 import com.monitor.device.ui.components.EmptyState
+import com.monitor.device.ui.components.UserAvatar
+import com.monitor.device.ui.components.rememberAuthImageLoader
 import com.monitor.device.ui.theme.MonitorTheme
 import com.monitor.device.ui.theme.Spacing
 import kotlinx.coroutines.delay
@@ -56,6 +57,7 @@ fun ChatsListScreen(
     onUnreadChange: (Int) -> Unit = {},
 ) {
     val colors = MonitorTheme.colors
+    val imageLoader = rememberAuthImageLoader(apiClient)
     var query by remember { mutableStateOf("") }
     var threads by remember { mutableStateOf<List<ChatThreadDto>>(emptyList()) }
 
@@ -109,27 +111,20 @@ fun ChatsListScreen(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Box(contentAlignment = Alignment.BottomEnd) {
-                            Box(
-                                modifier = Modifier
-                                    .size(52.dp)
-                                    .clip(CircleShape)
-                                    .background(MaterialTheme.colorScheme.primary),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Text(
-                                    title.take(1).uppercase(),
-                                    color = Color.White,
-                                    fontWeight = FontWeight.Bold,
-                                )
-                            }
-                            if (thread.online) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(12.dp)
-                                        .clip(CircleShape)
-                                        .background(Color(0xFF2DD4BF)),
-                                )
-                            }
+                            UserAvatar(
+                                name = title,
+                                imageUrl = if (thread.counterpartHasAvatar) {
+                                    apiClient.avatarUrl(
+                                        thread.counterpartUserId,
+                                        thread.counterpartAvatarUpdatedAt,
+                                    )
+                                } else {
+                                    null
+                                },
+                                imageLoader = imageLoader,
+                                size = 52.dp,
+                                online = thread.online,
+                            )
                         }
                         Spacer(Modifier.width(12.dp))
                         Column(modifier = Modifier.weight(1f)) {

@@ -119,6 +119,24 @@ fun copyUriToCache(context: Context, uri: Uri, nameHint: String? = null): File {
     return dest
 }
 
+fun compressAvatar(context: Context, uri: Uri, size: Int = 640, quality: Int = 85): File {
+    val original = context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it) }
+        ?: error("Cannot decode image")
+    val side = min(original.width, original.height).coerceAtLeast(1)
+    val x = (original.width - side) / 2
+    val y = (original.height - side) / 2
+    val cropped = Bitmap.createBitmap(original, x, y, side, side)
+    val scaled = if (side > size) Bitmap.createScaledBitmap(cropped, size, size, true) else cropped
+    val dest = File(context.cacheDir, "avatar-${UUID.randomUUID()}.jpg")
+    FileOutputStream(dest).use { out ->
+        scaled.compress(Bitmap.CompressFormat.JPEG, quality, out)
+    }
+    if (scaled !== cropped) scaled.recycle()
+    if (cropped !== original) cropped.recycle()
+    original.recycle()
+    return dest
+}
+
 fun compressImage(context: Context, uri: Uri, maxSide: Int = 1600, quality: Int = 82): Pair<File, Pair<Int, Int>> {
     val original = context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it) }
         ?: error("Cannot decode image")

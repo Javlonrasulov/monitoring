@@ -83,8 +83,13 @@ class DeviceApiClient(
     }
 
     suspend fun me(): DeviceMeResponse {
-        return authorized(unpairOnNotFound = false) { api.me(it) }
+        val me = authorized(unpairOnNotFound = false) { api.me(it) }
+        me.userId?.let(tokenStore::saveUserId)
+        return me
     }
+
+    suspend fun deleteAvatar(): DeviceMeResponse =
+        authorized(unpairOnFailure = false) { api.deleteAvatar(it) }
 
     suspend fun updateStatus(body: DeviceStatusUpdate): DeviceStatusResponse {
         return authorized { api.updateStatus(it, body) }
@@ -171,6 +176,27 @@ class DeviceApiClient(
         }
         val extra = if (download) "?download=1" else ""
         return apiBaseUrl + path + extra
+    }
+
+    fun avatarUrl(userId: String?, updatedAt: String? = null): String? {
+        if (userId.isNullOrBlank()) return null
+        val version = updatedAt?.takeIf { it.isNotBlank() }?.let { "?v=$it" }.orEmpty()
+        return "${apiBaseUrl}device-chats/avatars/$userId$version"
+    }
+
+    suspend fun uploadAvatar(file: File): DeviceMeResponse = withContext(Dispatchers.IO) {
+        val request = Request.Builder()
+            .url("${apiBaseUrl}devices/me/avatar")
+            .header("Authorization", bearer())
+            .put(RequestBody.create("image/jpeg".toMediaType(), file))
+            .build()
+        http.newCall(request).execute().use { response ->
+            val body = response.body?.string().orEmpty()
+            if (!response.isSuccessful) {
+                throw IllegalStateException("Avatar upload failed (${response.code})")
+            }
+            json.decodeFromString(DeviceMeResponse.serializer(), body)
+        }.also { it.userId?.let(tokenStore::saveUserId) }
     }
 
     fun authorizationHeader(): String = bearer()
