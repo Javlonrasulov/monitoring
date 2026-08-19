@@ -75,6 +75,8 @@ fun PairingScreen(
     val colors = MonitorTheme.colors
 
     val failureMessage = stringResource(R.string.pair_failed)
+    val limitMessage = stringResource(R.string.limit_reached)
+    val invalidCode = stringResource(R.string.pair_invalid_code)
     val phoneDigits = phone.filter { it.isDigit() }
     val canSubmit = !loading &&
         displayName.isNotBlank() &&
@@ -101,9 +103,15 @@ fun PairingScreen(
             }.onSuccess {
                 loading = false
                 onPaired()
-            }.onFailure {
+            }.onFailure { err ->
                 loading = false
-                error.value = failureMessage
+                val api = err.apiErrorMessage()
+                error.value = when {
+                    api.contains("limit", ignoreCase = true) -> limitMessage
+                    api.contains("Invalid pairing", ignoreCase = true) -> invalidCode
+                    api.contains("Subscription", ignoreCase = true) -> api
+                    else -> failureMessage
+                }
             }
         }
     }
@@ -247,4 +255,11 @@ fun PairingScreen(
                 .navigationBarsPadding(),
         )
     }
+}
+
+private fun Throwable.apiErrorMessage(): String {
+    val http = this as? retrofit2.HttpException ?: return message.orEmpty()
+    val raw = runCatching { http.response()?.errorBody()?.string() }.getOrNull().orEmpty()
+    return Regex("\"message\"\\s*:\\s*\"([^\"]+)\"").find(raw)?.groupValues?.get(1)
+        ?: message.orEmpty()
 }

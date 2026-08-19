@@ -48,7 +48,8 @@
     <string name="pair_code_placeholder">Code</string>
     <string name="pair_code_helper">Optional — leave empty if you don’t have a code</string>
     <string name="pair_button">Continue</string>
-    <string name="pair_failed">Could not connect. Check the code or phone number.</string>
+    <string name="pair_failed">Could not connect. Check the name, phone number, or code.</string>
+    <string name="pair_invalid_code">This code is invalid or already used.</string>
     <string name="pair_error_title">Something went wrong</string>
     <string name="pair_footer_hint">Sign in with your name, phone number, and optional code.</string>
 
@@ -134,7 +135,7 @@
     <string name="profile_set_photo">Set profile photo</string>
     <string name="profile_change_photo">Change profile photo</string>
     <string name="profile_photo_failed">Could not update photo</string>
-    <string name="limit_reached">Device limit reached</string>
+    <string name="limit_reached">Device limit reached. Unpair an old device and try again.</string>
     <string name="settings_link_section">Link a device</string>
     <string name="settings_share_hint">Generate a code and send it to another phone. Whoever enters it is linked to you — chat and live video are free for 24 hours.</string>
     <string name="settings_generate_code">Generate link code</string>

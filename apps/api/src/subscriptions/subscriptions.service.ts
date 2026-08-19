@@ -36,13 +36,17 @@ export class SubscriptionsService {
         where: { organizationId },
         orderBy: { createdAt: 'desc' },
       }),
-      this.prisma.device.count({ where: { organizationId } }),
+      this.prisma.device.count({
+        where: { organizationId, disabled: false },
+      }),
     ]);
 
     const status = this.effectiveStatus(sub?.status, sub?.expiresAt);
     const plan = sub?.plan ?? 'NONE';
     const active = status === SubscriptionStatus.ACTIVE;
-    const maxDevices = sub?.maxDevices ?? this.maxDevicesFor(plan === 'NONE' ? SubscriptionPlan.TRIAL : plan);
+    const maxDevices =
+      sub?.maxDevices ??
+      this.maxDevicesFor(plan === 'NONE' ? SubscriptionPlan.TRIAL : plan);
     const trial = active && plan === SubscriptionPlan.TRIAL;
     const canWatchVideo = active;
     const canWatchAudio = active && plan === SubscriptionPlan.PRO_PLUS;
@@ -153,8 +157,10 @@ export class SubscriptionsService {
   }
 
   private maxDevicesFor(plan: SubscriptionPlan | 'NONE') {
-    if (plan === SubscriptionPlan.PRO_PLUS) return 2;
-    return 2;
+    if (plan === SubscriptionPlan.PRO || plan === SubscriptionPlan.PRO_PLUS) {
+      return 2;
+    }
+    return 1;
   }
 
   private effectiveStatus(

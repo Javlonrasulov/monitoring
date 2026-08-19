@@ -47,7 +47,8 @@
     <string name="pair_code_placeholder">Код</string>
     <string name="pair_code_helper">Необязательно — если кода нет, оставьте пустым</string>
     <string name="pair_button">Войти</string>
-    <string name="pair_failed">Не удалось подключить. Проверьте код или номер телефона.</string>
+    <string name="pair_failed">Не удалось подключить. Проверьте имя, телефон или код.</string>
+    <string name="pair_invalid_code">Код недействителен или уже использован.</string>
     <string name="pair_error_title">Произошла ошибка</string>
     <string name="pair_footer_hint">Вход по имени, телефону и коду (если есть).</string>
 
@@ -133,7 +134,7 @@
     <string name="profile_set_photo">Установить фото</string>
     <string name="profile_change_photo">Изменить фото</string>
     <string name="profile_photo_failed">Не удалось обновить фото</string>
-    <string name="limit_reached">Достигнут лимит устройств</string>
+    <string name="limit_reached">Лимит устройств исчерпан. Отключите старое устройство и попробуйте снова.</string>
     <string name="settings_link_section">Подключение устройства</string>
     <string name="settings_share_hint">Создайте код и отправьте его на другой телефон. Кто введёт код, подключится к вам — чат и эфир бесплатны 24 часа.</string>
     <string name="settings_generate_code">Создать код</string>

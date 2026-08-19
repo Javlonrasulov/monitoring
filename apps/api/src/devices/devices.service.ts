@@ -401,7 +401,10 @@ export class DevicesService {
       });
     }
 
-    const target = await this.resolveDefaultPairTarget();
+    const target = await this.createAccountForPhone(
+      phone,
+      dto.name?.trim() || phone,
+    );
     return this.createPairedDevice({
       organizationId: target.organizationId,
       branchId: target.branchId,
@@ -411,27 +414,19 @@ export class DevicesService {
     });
   }
 
-  private async resolveDefaultPairTarget() {
-    const preferredId =
-      this.config.get<string>('DEFAULT_PAIR_ORG_ID') ?? 'seed-org';
-    let org = await this.prisma.organization.findUnique({
-      where: { id: preferredId },
+  private async createAccountForPhone(phone: string, displayName: string) {
+    const org = await this.prisma.organization.create({
+      data: {
+        name: displayName,
+        branches: { create: { name: 'Main' } },
+      },
       include: { branches: { orderBy: { createdAt: 'asc' }, take: 1 } },
     });
-    if (!org?.branches[0]) {
-      org = await this.prisma.organization.findFirst({
-        include: { branches: { orderBy: { createdAt: 'asc' }, take: 1 } },
-        orderBy: { createdAt: 'asc' },
-      });
+    const branch = org.branches[0];
+    if (!branch) {
+      throw new BadRequestException('Branch not found');
     }
-    if (!org?.branches[0]) {
-      throw new BadRequestException('Organization not found');
-    }
-
-    const allowed = await this.subscriptions.assertCanPair(org.id);
-    this.throwIfPairBlocked(allowed);
-
-    return { organizationId: org.id, branchId: org.branches[0].id };
+    return { organizationId: org.id, branchId: branch.id };
   }
 
   private async createPairedDevice(params: {
