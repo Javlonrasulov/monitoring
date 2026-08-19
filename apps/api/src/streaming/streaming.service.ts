@@ -245,6 +245,15 @@ export class StreamingService {
     }
   }
 
+  async listSessions(organizationId: string) {
+    return this.prisma.streamSession.findMany({
+      where: { organizationId },
+      include: { device: { select: { id: true, name: true, status: true } } },
+      orderBy: { startedAt: 'desc' },
+      take: 100,
+    });
+  }
+
   private isPrivateLanIp(ip?: string) {
     if (!ip) {
       return false;

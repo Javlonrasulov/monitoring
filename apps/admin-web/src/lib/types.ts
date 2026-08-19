@@ -107,6 +107,7 @@ export interface PairingCodeResponse {
   expiresAt: string;
   branchId: string;
   deviceNameHint?: string | null;
+  qrPayload?: string;
 }
 
 export interface ViewerTokenResponse {

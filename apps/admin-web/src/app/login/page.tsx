@@ -38,7 +38,7 @@ export default function LoginPage() {
     <div className="login-page">
       <div className="login-card">
         <div className="login-card-top">
-          <h1 className="login-brand">Monitor</h1>
+          <h1 className="login-brand">{t("brandName")}</h1>
           <LanguageSwitcher />
         </div>
         <p className="muted" style={{ marginTop: 0, marginBottom: "1.25rem" }}>

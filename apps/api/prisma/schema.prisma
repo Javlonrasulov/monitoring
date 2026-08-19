@@ -11,6 +11,28 @@ datasource db {
 enum UserRole {
   ADMIN
   VIEWER
+  OWNER
+  USER
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  EXPIRED
+  CANCELLED
+  PENDING
+}
+
+enum ChatMessageType {
+  TEXT
+  IMAGE
+  VIDEO
+  FILE
+  VOICE
+}
+
+enum DeviceAccountKind {
+  OWNER
+  USER
 }
 
 enum DeviceStatus {
@@ -61,9 +83,11 @@ model Organization {
   users            User[]
   devices          Device[]
   snapshots        Snapshot[]
-  auditLogs        AuditLog[]
-  streamSessions   StreamSession[]
+  auditLogs         AuditLog[]
+  streamSessions    StreamSession[]
   recordingSegments RecordingSegment[]
+  subscriptions     Subscription[]
+  chatThreads       ChatThread[]
 }
 
 model Branch {
@@ -82,21 +106,31 @@ model Branch {
 }
 
 model User {
-  id             String   @id @default(cuid())
+  id             String    @id @default(cuid())
   email          String
   passwordHash   String
   name           String
-  role           UserRole @default(ADMIN)
+  phone          String?
+  username       String?
+  role           UserRole  @default(ADMIN)
+  blocked        Boolean   @default(false)
   organizationId String
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  deviceId       String?   @unique
+  lastSeenAt     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  device       Device?      @relation(fields: [deviceId], references: [id], onDelete: SetNull)
   snapshots    Snapshot[]
   auditLogs    AuditLog[]
+  ownedThreads ChatThread[] @relation("ThreadOwner")
+  peerThreads  ChatThread[] @relation("ThreadPeer")
+  sentMessages ChatMessage[] @relation("MessageSender")
 
   @@unique([organizationId, email])
   @@index([organizationId])
+  @@index([role])
 }
 
 model Device {
@@ -120,16 +154,19 @@ model Device {
   appVersion       String?
   androidVersion   String?
   deviceModel      String?
-  disabled         Boolean      @default(false)
-  createdAt        DateTime     @default(now())
-  updatedAt        DateTime     @updatedAt
+  disabled         Boolean           @default(false)
+  accountKind      DeviceAccountKind @default(USER)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
 
-  organization   Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  branch         Branch             @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  organization      Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branch            Branch               @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  linkedUser        User?
   pairingCodes      DevicePairingCode[]
   streamSessions    StreamSession[]
   snapshots         Snapshot[]
   recordingSegments RecordingSegment[]
+  chatThreads       ChatThread[]
 
   @@index([organizationId])
   @@index([branchId])
@@ -232,4 +269,61 @@ model AuditLog {
 
   @@index([organizationId])
   @@index([createdAt])
+}
+
+model Subscription {
+  id             String             @id @default(cuid())
+  organizationId String
+  status         SubscriptionStatus @default(PENDING)
+  maxDevices     Int                @default(2)
+  startedAt      DateTime?
+  expiresAt      DateTime?
+  cancelledAt    DateTime?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([status])
+}
+
+model ChatThread {
+  id                  String    @id @default(cuid())
+  organizationId      String
+  ownerUserId         String
+  peerUserId          String
+  deviceId            String?
+  lastMessageAt       DateTime?
+  lastMessagePreview  String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  owner        User         @relation("ThreadOwner", fields: [ownerUserId], references: [id], onDelete: Cascade)
+  peer         User         @relation("ThreadPeer", fields: [peerUserId], references: [id], onDelete: Cascade)
+  device       Device?      @relation(fields: [deviceId], references: [id], onDelete: SetNull)
+  messages     ChatMessage[]
+
+  @@unique([organizationId, ownerUserId, peerUserId])
+  @@index([organizationId])
+  @@index([deviceId])
+}
+
+model ChatMessage {
+  id             String          @id @default(cuid())
+  threadId       String
+  senderUserId   String?
+  receiverUserId String?
+  messageType    ChatMessageType @default(TEXT)
+  text           String?
+  attachmentUrl  String?
+  createdAt      DateTime        @default(now())
+  deliveredAt    DateTime?
+  readAt         DateTime?
+
+  thread ChatThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  sender User?      @relation("MessageSender", fields: [senderUserId], references: [id], onDelete: SetNull)
+
+  @@index([threadId, createdAt])
 }

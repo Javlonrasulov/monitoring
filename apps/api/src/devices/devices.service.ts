@@ -6,13 +6,15 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import { DeviceStatus, NetworkType, Prisma } from '../generated/prisma';
+import { DeviceStatus, NetworkType, Prisma, UserRole } from '../generated/prisma';
 import * as bcrypt from 'bcrypt';
 import { randomBytes } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { EventsGateway } from '../events/events.gateway';
 import { AuditService } from '../audit/audit.service';
 import { RecordingsService } from '../recordings/recordings.service';
+import { SubscriptionsService } from '../subscriptions/subscriptions.service';
+import { ChatsService } from '../chats/chats.service';
 import {
   CreatePairingCodeDto,
   DeviceStatusDto,
@@ -28,12 +30,14 @@ export class DevicesService {
     private readonly events: EventsGateway,
     private readonly audit: AuditService,
     private readonly recordings: RecordingsService,
+    private readonly subscriptions: SubscriptionsService,
+    private readonly chats: ChatsService,
   ) {}
 
   async listForOrg(organizationId: string) {
     const devices = await this.prisma.device.findMany({
       where: { organizationId },
-      include: { branch: true },
+      include: { branch: true, linkedUser: { select: { id: true, name: true, role: true, lastSeenAt: true } } },
       orderBy: { name: 'asc' },
     });
     return devices.map((device) => this.withCameraFacing(device));
@@ -114,6 +118,15 @@ export class DevicesService {
     userId: string,
     dto: CreatePairingCodeDto,
   ) {
+    const allowed = await this.subscriptions.assertCanPair(organizationId);
+    if (!allowed.ok) {
+      throw new BadRequestException(
+        allowed.reason === 'device_limit_reached'
+          ? 'Device limit reached'
+          : 'Subscription is not active',
+      );
+    }
+
     const branch = await this.prisma.branch.findFirst({
       where: { id: dto.branchId, organizationId },
     });
@@ -149,16 +162,26 @@ export class DevicesService {
       expiresAt: pairing.expiresAt,
       branchId: pairing.branchId,
       deviceNameHint: pairing.deviceNameHint,
+      qrPayload: `MONITOR:${pairing.code}`,
     };
   }
 
   async pairDevice(dto: PairDeviceDto) {
     const pairing = await this.prisma.devicePairingCode.findUnique({
-      where: { code: dto.code.toUpperCase() },
+      where: { code: dto.code.replace(/^MONITOR:/i, '').trim().toUpperCase() },
     });
 
     if (!pairing || pairing.usedAt || pairing.expiresAt <= new Date()) {
       throw new BadRequestException('Invalid pairing code');
+    }
+
+    const allowed = await this.subscriptions.assertCanPair(pairing.organizationId);
+    if (!allowed.ok) {
+      throw new BadRequestException(
+        allowed.reason === 'device_limit_reached'
+          ? 'Device limit reached'
+          : 'Subscription is not active',
+      );
     }
 
     const apiKey = randomBytes(32).toString('hex');
@@ -202,12 +225,33 @@ export class DevicesService {
       },
     );
 
+    const passwordHash = await bcrypt.hash(randomBytes(16).toString('hex'), 10);
+    const linkedUser = await this.prisma.user.create({
+      data: {
+        email: `user-${device.id}@device.local`,
+        passwordHash,
+        name: dto.name,
+        username: dto.name,
+        role: UserRole.USER,
+        organizationId: device.organizationId,
+        deviceId: device.id,
+        lastSeenAt: new Date(),
+      },
+    });
+
+    const thread = await this.chats.ensureThreadForPairedDevice({
+      organizationId: device.organizationId,
+      deviceId: device.id,
+      deviceName: device.name,
+      peerUserId: linkedUser.id,
+    });
+
     await this.audit.log({
       organizationId: device.organizationId,
       action: 'device.paired',
       resourceType: 'Device',
       resourceId: device.id,
-      metadata: { name: device.name },
+      metadata: { name: device.name, userId: linkedUser.id },
     });
 
     this.events.emitToOrg(device.organizationId, 'device.online', {
@@ -223,6 +267,8 @@ export class DevicesService {
       branchId: device.branchId,
       deviceToken,
       apiKey,
+      userId: linkedUser.id,
+      threadId: thread?.id ?? null,
     };
   }
 

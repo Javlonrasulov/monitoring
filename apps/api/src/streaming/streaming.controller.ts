@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Get,
   HttpCode,
   Param,
   Post,
@@ -18,6 +19,14 @@ import { CurrentDevice, CurrentUser } from '../auth/decorators';
 @Controller('streaming')
 export class StreamingController {
   constructor(private readonly streamingService: StreamingService) {}
+
+  @Get('sessions')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, AdminRoleGuard)
+  @ApiOperation({ summary: 'List live stream sessions for the organization' })
+  sessions(@CurrentUser() user: { organizationId: string }) {
+    return this.streamingService.listSessions(user.organizationId);
+  }
 
   @Post('devices/:id/viewer-token')
   @ApiBearerAuth()

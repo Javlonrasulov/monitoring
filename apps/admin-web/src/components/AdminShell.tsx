@@ -44,13 +44,18 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
 
   const devicesActive = pathname.startsWith("/devices");
   const archiveActive = pathname.startsWith("/archive");
+  const usersActive = pathname.startsWith("/users");
+  const subsActive = pathname.startsWith("/subscriptions");
+  const chatsActive = pathname.startsWith("/chats");
+  const liveActive = pathname.startsWith("/live");
+  const auditActive = pathname.startsWith("/audit");
 
   return (
     <div className="admin-shell">
       <header className="admin-header">
         <div className="admin-header-inner">
           <Link href="/devices" className="brand">
-            Monitor
+            {t("brandName")}
           </Link>
 
           <button
@@ -72,8 +77,23 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
               <Link href="/devices" className={devicesActive ? "nav-active" : undefined}>
                 {t("navDevices")}
               </Link>
+              <Link href="/users" className={usersActive ? "nav-active" : undefined}>
+                {t("navUsers")}
+              </Link>
+              <Link href="/subscriptions" className={subsActive ? "nav-active" : undefined}>
+                {t("navSubscriptions")}
+              </Link>
+              <Link href="/chats" className={chatsActive ? "nav-active" : undefined}>
+                {t("navChats")}
+              </Link>
+              <Link href="/live" className={liveActive ? "nav-active" : undefined}>
+                {t("navLive")}
+              </Link>
               <Link href="/archive" className={archiveActive ? "nav-active" : undefined}>
                 {t("navArchive")}
+              </Link>
+              <Link href="/audit" className={auditActive ? "nav-active" : undefined}>
+                {t("navAudit")}
               </Link>
             </nav>
             <div className="admin-header-right">

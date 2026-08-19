@@ -86,7 +86,7 @@ fun PairingScreen(
             runCatching {
                 apiClient.pair(
                     PairRequest(
-                        code = code.trim(),
+                        code = code.replace("MONITOR:", "", ignoreCase = true).trim(),
                         name = name.trim(),
                         appVersion = BuildConfig.VERSION_NAME,
                         androidVersion = Build.VERSION.RELEASE,
@@ -210,6 +210,13 @@ fun PairingScreen(
                 color = colors.textMuted,
             )
         }
+
+        Spacer(modifier = Modifier.size(Spacing.sm))
+        Text(
+            text = stringResource(R.string.pair_qr_hint),
+            style = MaterialTheme.typography.bodySmall,
+            color = colors.textMuted,
+        )
 
         Spacer(
             modifier = Modifier

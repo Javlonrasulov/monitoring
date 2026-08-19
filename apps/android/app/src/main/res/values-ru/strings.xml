@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Monitor</string>
-    <string name="brand_tagline">Прозрачный мониторинг</string>
+    <string name="app_name">Monitoring Telegram</string>
+    <string name="brand_tagline">Чат + мониторинг устройства</string>
 
     <!-- Common -->
     <string name="common_continue">Продолжить</string>
@@ -71,4 +71,26 @@
     <string name="home_unpair_message">Данные привязки будут удалены, мониторинг остановится. Для повторной привязки понадобится новый код.</string>
     <string name="home_unpair_confirm">Отвязать</string>
     <string name="home_transparency_note">Ничего не работает скрытно — во время мониторинга уведомление всегда видно.</string>
+
+    <string name="pair_qr_hint">Или отсканируйте QR из админ-панели и введите код MONITOR: сюда.</string>
+    <string name="nav_chats">Чаты</string>
+    <string name="nav_devices">Устройства</string>
+    <string name="nav_profile">Профиль</string>
+    <string name="chats_search">Поиск</string>
+    <string name="chats_empty_title">Чатов пока нет</string>
+    <string name="chats_empty_message">После привязки устройства чат с OWNER появится здесь.</string>
+    <string name="chats_untitled">Чат</string>
+    <string name="chat_placeholder">Сообщение</string>
+    <string name="chat_send">Отправить</string>
+    <string name="profile_subscription">Monitoring Telegram Premium</string>
+    <string name="profile_status">Статус</string>
+    <string name="profile_devices">Устройства</string>
+    <string name="profile_expires">Истекает</string>
+    <string name="profile_inactive_title">Premium не активен</string>
+    <string name="profile_inactive_message">Для live-мониторинга и новых устройств нужна подписка. История чата сохраняется.</string>
+    <string name="profile_security">Безопасность</string>
+    <string name="profile_notifications">Уведомления</string>
+    <string name="profile_connected">Подключённое устройство</string>
+    <string name="profile_logout">Выйти / отвязать</string>
+    <string name="limit_reached">Device limit reached</string>
 </resources>

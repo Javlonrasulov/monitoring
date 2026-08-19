@@ -21,6 +21,8 @@ data class PairResponse(
     val branchId: String,
     val deviceToken: String,
     val apiKey: String,
+    val userId: String? = null,
+    val threadId: String? = null,
 )
 
 @Serializable
@@ -92,3 +94,61 @@ enum class NetworkTypeLabel {
     MOBILE,
     UNKNOWN,
 }
+
+@Serializable
+data class ChatPeer(
+    val id: String? = null,
+    val name: String? = null,
+    val role: String? = null,
+    val lastSeenAt: String? = null,
+)
+
+@Serializable
+data class ChatThreadDto(
+    val id: String,
+    val lastMessagePreview: String? = null,
+    val lastMessageAt: String? = null,
+    val owner: ChatPeer? = null,
+    val peer: ChatPeer? = null,
+)
+
+@Serializable
+data class ChatMessageDto(
+    val id: String,
+    val threadId: String? = null,
+    val senderUserId: String? = null,
+    val receiverUserId: String? = null,
+    val messageType: String? = null,
+    val text: String? = null,
+    val attachmentUrl: String? = null,
+    val createdAt: String? = null,
+    val deliveredAt: String? = null,
+    val readAt: String? = null,
+)
+
+@Serializable
+data class ChatMessagesPage(
+    val items: List<ChatMessageDto> = emptyList(),
+    val nextCursor: String? = null,
+)
+
+@Serializable
+data class OkResponse(
+    val ok: Boolean? = null,
+)
+
+@Serializable
+data class SendChatRequest(
+    val text: String,
+)
+
+@Serializable
+data class SubscriptionDto(
+    val id: String? = null,
+    val status: String? = null,
+    val maxDevices: Int? = null,
+    val deviceCount: Int? = null,
+    val devicesUsed: String? = null,
+    val expiresAt: String? = null,
+    val active: Boolean? = null,
+)

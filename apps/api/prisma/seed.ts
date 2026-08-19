@@ -48,6 +48,21 @@ async function main() {
     },
   });
 
+  await prisma.subscription.create({
+    data: {
+      organizationId: org.id,
+      status: 'ACTIVE',
+      maxDevices: 2,
+      startedAt: new Date(),
+      expiresAt: new Date('2026-09-19T23:59:59.000Z'),
+    },
+  }).catch(async () => {
+    const existing = await prisma.subscription.findFirst({ where: { organizationId: org.id } });
+    if (!existing) {
+      throw new Error('Failed to seed subscription');
+    }
+  });
+
   // eslint-disable-next-line no-console
   console.log('Seed complete');
   // eslint-disable-next-line no-console

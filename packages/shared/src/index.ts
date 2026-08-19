@@ -36,6 +36,8 @@ export enum SocketEvent {
 export enum UserRole {
   ADMIN = 'ADMIN',
   VIEWER = 'VIEWER',
+  OWNER = 'OWNER',
+  USER = 'USER',
 }
 
 export enum NetworkType {

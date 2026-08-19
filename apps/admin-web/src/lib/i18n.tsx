@@ -10,13 +10,14 @@ import {
   type ReactNode,
 } from "react";
 
-export type Locale = "uz" | "ru";
+export type Locale = "uz" | "ru" | "en";
 
 const STORAGE_KEY = "monitor.locale";
 
 const uz = {
   langUz: "Oʻz",
   langRu: "Ру",
+  langEn: "En",
   langSwitch: "Tilni o‘zgartirish",
   loading: "Yuklanmoqda…",
 
@@ -138,11 +139,47 @@ const uz = {
   archiveSelect: "Tanlash",
   archiveNoPlayer: "Playback uchun yozuvni tanlang",
   archiveLoadError: "Arxiv yuklanmadi",
+
+  brandName: "Monitoring Telegram",
+  navUsers: "Userlar",
+  navSubscriptions: "Obunalar",
+  navChats: "Chatlar",
+  navLive: "Live",
+  navAudit: "Audit",
+  pairingQr: "QR kod",
+  pairingExpires: "Kod 10 daqiqa amal qiladi, bir marta ishlatiladi.",
+  usersTitle: "Userlar",
+  usersSubtitle: "OWNER, USER va admin hisoblar",
+  usersEmpty: "Userlar yo‘q",
+  usersBlock: "Bloklash",
+  usersActivate: "Aktivlashtirish",
+  usersRole: "Rol",
+  usersDevice: "Qurilma",
+  usersLastSeen: "Oxirgi ko‘rinish",
+  subsTitle: "Obunalar",
+  subsSubtitle: "1 obuna = 2 ta qurilma",
+  subsActivate: "Demo obunani yoqish",
+  subsDevices: "Qurilmalar",
+  subsExpires: "Tugash",
+  subsStatus: "Holat",
+  chatsTitle: "Chatlar",
+  chatsSubtitle: "Faqat ko‘rish — admin yozolmaydi",
+  chatsEmpty: "Chat yo‘q",
+  chatsOpen: "Ochish",
+  chatMessages: "Xabarlar",
+  chatEmpty: "Xabar yo‘q",
+  liveTitle: "Live sessiyalar",
+  liveSubtitle: "Mavjud stream sessiyalari",
+  liveEmpty: "Sessiya yo‘q",
+  liveOpenDevice: "Qurilmani ochish",
+  auditTitle: "Audit log",
+  auditEmpty: "Yozuv yo‘q",
 } as const;
 
 const ru: { [K in keyof typeof uz]: string } = {
   langUz: "Oʻz",
   langRu: "Ру",
+  langEn: "En",
   langSwitch: "Сменить язык",
   loading: "Загрузка…",
 
@@ -264,9 +301,97 @@ const ru: { [K in keyof typeof uz]: string } = {
   archiveSelect: "Выбрать",
   archiveNoPlayer: "Выберите запись для воспроизведения",
   archiveLoadError: "Не удалось загрузить архив",
+
+  brandName: "Monitoring Telegram",
+  navUsers: "Пользователи",
+  navSubscriptions: "Подписки",
+  navChats: "Чаты",
+  navLive: "Live",
+  navAudit: "Аудит",
+  pairingQr: "QR-код",
+  pairingExpires: "Код действует 10 минут и используется один раз.",
+  usersTitle: "Пользователи",
+  usersSubtitle: "OWNER, USER и админ-аккаунты",
+  usersEmpty: "Нет пользователей",
+  usersBlock: "Заблокировать",
+  usersActivate: "Активировать",
+  usersRole: "Роль",
+  usersDevice: "Устройство",
+  usersLastSeen: "Был в сети",
+  subsTitle: "Подписки",
+  subsSubtitle: "1 подписка = 2 устройства",
+  subsActivate: "Включить демо-подписку",
+  subsDevices: "Устройства",
+  subsExpires: "Истекает",
+  subsStatus: "Статус",
+  chatsTitle: "Чаты",
+  chatsSubtitle: "Только просмотр — админ не пишет",
+  chatsEmpty: "Чатов нет",
+  chatsOpen: "Открыть",
+  chatMessages: "Сообщения",
+  chatEmpty: "Нет сообщений",
+  liveTitle: "Live-сессии",
+  liveSubtitle: "Существующие сессии трансляции",
+  liveEmpty: "Сессий нет",
+  liveOpenDevice: "Открыть устройство",
+  auditTitle: "Журнал аудита",
+  auditEmpty: "Записей нет",
 };
 
-const dictionaries = { uz, ru } as const;
+const en: { [K in keyof typeof uz]: string } = {
+  ...uz,
+  langSwitch: "Change language",
+  loading: "Loading…",
+  navDevices: "Devices",
+  navArchive: "Archive",
+  navLogout: "Log out",
+  navMenu: "Menu",
+  navClose: "Close",
+  loginSubtitle: "Admin sign in",
+  loginEmail: "Email",
+  loginPassword: "Password",
+  loginSubmit: "Sign in",
+  loginSubmitting: "Signing in…",
+  loginFailed: "Sign-in failed",
+  devicesTitle: "Monitoring devices",
+  devicesSubtitle: "Device status updates in real time",
+  devicesPairing: "Pairing code",
+  navUsers: "Users",
+  navSubscriptions: "Subscriptions",
+  navChats: "Chats",
+  navLive: "Live",
+  navAudit: "Audit",
+  pairingQr: "QR code",
+  pairingExpires: "The code is valid for 10 minutes and can be used once.",
+  usersTitle: "Users",
+  usersSubtitle: "OWNER, USER and admin accounts",
+  usersEmpty: "No users",
+  usersBlock: "Block",
+  usersActivate: "Activate",
+  usersRole: "Role",
+  usersDevice: "Device",
+  usersLastSeen: "Last seen",
+  subsTitle: "Subscriptions",
+  subsSubtitle: "1 subscription = 2 devices",
+  subsActivate: "Enable demo subscription",
+  subsDevices: "Devices",
+  subsExpires: "Expires",
+  subsStatus: "Status",
+  chatsTitle: "Chats",
+  chatsSubtitle: "View only — admin cannot send",
+  chatsEmpty: "No chats",
+  chatsOpen: "Open",
+  chatMessages: "Messages",
+  chatEmpty: "No messages",
+  liveTitle: "Live sessions",
+  liveSubtitle: "Existing stream sessions",
+  liveEmpty: "No sessions",
+  liveOpenDevice: "Open device",
+  auditTitle: "Audit log",
+  auditEmpty: "No entries",
+};
+
+const dictionaries = { uz, ru, en } as const;
 
 export type MessageKey = keyof typeof uz;
 
@@ -281,7 +406,7 @@ const I18nContext = createContext<I18nContextValue | null>(null);
 function readStoredLocale(): Locale {
   if (typeof window === "undefined") return "uz";
   const stored = window.localStorage.getItem(STORAGE_KEY);
-  return stored === "ru" || stored === "uz" ? stored : "uz";
+  return stored === "ru" || stored === "uz" || stored === "en" ? stored : "uz";
 }
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
@@ -321,5 +446,5 @@ export function useI18n() {
 }
 
 export function localeTag(locale: Locale) {
-  return locale === "ru" ? "ru-RU" : "uz-UZ";
+  return locale === "ru" ? "ru-RU" : locale === "en" ? "en-US" : "uz-UZ";
 }

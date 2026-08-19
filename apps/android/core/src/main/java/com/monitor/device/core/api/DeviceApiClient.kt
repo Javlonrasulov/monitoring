@@ -3,12 +3,17 @@ package com.monitor.device.core.api
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
 import com.monitor.device.core.BuildConfig
 import com.monitor.device.core.auth.TokenStore
+import com.monitor.device.core.model.ChatMessageDto
+import com.monitor.device.core.model.ChatMessagesPage
+import com.monitor.device.core.model.ChatThreadDto
 import com.monitor.device.core.model.DeviceMeResponse
 import com.monitor.device.core.model.DeviceStatusResponse
 import com.monitor.device.core.model.DeviceStatusUpdate
 import com.monitor.device.core.model.PairRequest
 import com.monitor.device.core.model.PairResponse
 import com.monitor.device.core.model.PublisherTokenResponse
+import com.monitor.device.core.model.SendChatRequest
+import com.monitor.device.core.model.SubscriptionDto
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -66,6 +71,20 @@ class DeviceApiClient(
     suspend fun publisherToken(): PublisherTokenResponse {
         return authorized { api.publisherToken(it) }
     }
+
+    suspend fun chats(): List<ChatThreadDto> = authorized { api.chats(it) }
+
+    suspend fun chatMessages(threadId: String, cursor: String? = null): ChatMessagesPage =
+        authorized { api.chatMessages(it, threadId, cursor) }
+
+    suspend fun sendChat(threadId: String, text: String): ChatMessageDto =
+        authorized { api.sendChat(it, threadId, SendChatRequest(text)) }
+
+    suspend fun readChat(threadId: String) {
+        authorized { api.readChat(it, threadId) }
+    }
+
+    suspend fun subscription(): SubscriptionDto = authorized { api.subscription(it) }
 
     /**
      * Authentication failures and a missing device mean the pairing was

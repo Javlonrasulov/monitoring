@@ -10,8 +10,8 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Monitor Admin",
-  description: "Device monitoring admin panel",
+  title: "Monitoring Telegram Admin",
+  description: "Monitoring Telegram admin panel",
 };
 
 export const viewport: Viewport = {

@@ -2,9 +2,10 @@
 
 import { useI18n, type Locale } from "@/lib/i18n";
 
-const OPTIONS: { id: Locale; labelKey: "langUz" | "langRu" }[] = [
+const OPTIONS: { id: Locale; labelKey: "langUz" | "langRu" | "langEn" }[] = [
   { id: "uz", labelKey: "langUz" },
   { id: "ru", labelKey: "langRu" },
+  { id: "en", labelKey: "langEn" },
 ];
 
 export function LanguageSwitcher() {

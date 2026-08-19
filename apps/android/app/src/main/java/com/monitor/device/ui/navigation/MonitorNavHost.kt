@@ -33,7 +33,8 @@ import com.monitor.device.ui.components.AppShell
 import com.monitor.device.ui.components.IconPillButton
 import com.monitor.device.ui.components.MonitorTopBar
 import com.monitor.device.ui.components.SettingsSheet
-import com.monitor.device.ui.screens.HomeScreen
+import com.monitor.device.ui.screens.ChatThreadScreen
+import com.monitor.device.ui.screens.MainTabsScreen
 import com.monitor.device.ui.screens.PairingScreen
 import com.monitor.device.ui.screens.PermissionsScreen
 import com.monitor.device.ui.screens.hasCapturePermissions
@@ -65,6 +66,8 @@ fun MonitorNavHost(
     }
 
     var showSettings by remember { mutableStateOf(false) }
+    var chatThreadId by remember { mutableStateOf<String?>(null) }
+    var chatTitle by remember { mutableStateOf("") }
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route ?: start
     val showTopBar = currentRoute != Routes.Permissions
@@ -129,21 +132,37 @@ fun MonitorNavHost(
                 )
             }
             composable(Routes.Home) {
-                HomeScreen(
-                    tokenStore = tokenStore,
-                    onUnpaired = {
-                        MonitoringForegroundService.stop(context)
-                        tokenStore.clear()
-                        navController.navigate(Routes.Permissions) {
-                            popUpTo(Routes.Home) { inclusive = true }
-                        }
-                    },
-                    onPermissionsRequired = {
-                        navController.navigate(Routes.Permissions) {
-                            popUpTo(Routes.Home) { inclusive = true }
-                        }
-                    },
-                )
+                val threadId = chatThreadId
+                if (threadId != null) {
+                    ChatThreadScreen(
+                        apiClient = apiClient,
+                        threadId = threadId,
+                        title = chatTitle.ifBlank { stringResource(R.string.chats_untitled) },
+                        onBack = { chatThreadId = null },
+                    )
+                } else {
+                    MainTabsScreen(
+                        apiClient = apiClient,
+                        tokenStore = tokenStore,
+                        onOpenChat = { id, title ->
+                            chatTitle = title
+                            chatThreadId = id
+                        },
+                        onUnpaired = {
+                            MonitoringForegroundService.stop(context)
+                            tokenStore.clear()
+                            chatThreadId = null
+                            navController.navigate(Routes.Permissions) {
+                                popUpTo(Routes.Home) { inclusive = true }
+                            }
+                        },
+                        onPermissionsRequired = {
+                            navController.navigate(Routes.Permissions) {
+                                popUpTo(Routes.Home) { inclusive = true }
+                            }
+                        },
+                    )
+                }
             }
         }
     }

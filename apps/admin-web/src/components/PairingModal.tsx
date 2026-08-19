@@ -79,7 +79,14 @@ export function PairingModal({ open, onClose }: Props) {
           <div className="pairing-result">
             <p className="muted">{t("pairingEnterCode")}</p>
             <p className="pairing-code">{result.code}</p>
-            <p className="muted small">{t("pairingHint")}</p>
+            <img
+              alt={t("pairingQr")}
+              width={180}
+              height={180}
+              style={{ margin: "12px auto", display: "block", background: "#fff", padding: 8, borderRadius: 12 }}
+              src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(result.qrPayload ?? `MONITOR:${result.code}`)}`}
+            />
+            <p className="muted small">{t("pairingExpires")}</p>
             <button type="button" className="btn btn-primary" onClick={onClose}>
               {t("pairingReady")}
             </button>

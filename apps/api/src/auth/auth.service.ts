@@ -23,7 +23,7 @@ export class AuthService {
       include: { organization: true },
     });
 
-    if (!user) {
+    if (!user || user.blocked) {
       throw new UnauthorizedException('Invalid credentials');
     }
 
