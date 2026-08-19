@@ -91,7 +91,7 @@ export class NowPaymentsService {
       order_id: params.orderId,
       order_description: params.description,
       is_fixed_rate: true,
-      is_fee_paid_by_user: true,
+      is_fee_paid_by_user: false,
     };
     if (params.ipnCallbackUrl) {
       body.ipn_callback_url = params.ipnCallbackUrl;

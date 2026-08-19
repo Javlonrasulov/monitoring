@@ -225,7 +225,7 @@ export class SubscriptionsService {
       await this.prisma.paymentInvoice.delete({ where: { id: placeholder.id } });
       throw err;
     }
-    if (!payment.pay_address) {
+    if (!payment.pay_address || payment.payment_id == null || payment.payment_id === '') {
       await this.prisma.paymentInvoice.delete({ where: { id: placeholder.id } });
       throw new BadRequestException('NOWPayments did not return a deposit address');
     }
@@ -299,9 +299,18 @@ export class SubscriptionsService {
       invoice.status === PaymentInvoiceStatus.CONFIRMING
     ) {
       try {
-        const payment = invoice.nowPaymentId.startsWith('invoice:')
-          ? await this.nowpayments.findPaymentByOrderId(invoice.id)
-          : await this.nowpayments.getPayment(invoice.nowPaymentId);
+        let payment: Awaited<
+          ReturnType<NowPaymentsService['getPayment']>
+        > | null = null;
+        if (invoice.nowPaymentId.startsWith('invoice:')) {
+          payment = await this.nowpayments.findPaymentByOrderId(invoice.id);
+        } else {
+          try {
+            payment = await this.nowpayments.getPayment(invoice.nowPaymentId);
+          } catch {
+            payment = await this.nowpayments.findPaymentByOrderId(invoice.id);
+          }
+        }
         if (payment?.payment_id) {
           await this.applyProviderStatus(String(payment.payment_status ?? ''), {
             paymentId: String(payment.payment_id),
@@ -506,7 +515,7 @@ export class SubscriptionsService {
       payout_address: address,
       default_payout_address: address,
       customer_payout_address: address,
-      skip_choose_payout_address: 'false',
+      skip_choose_payout_address: 'true',
       switchable: 'false',
       crypto_currencies_list: usdtTrc20,
       theme: 'blue',

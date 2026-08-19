@@ -110,10 +110,9 @@ fun PaymentCheckoutSheet(
                                 val next = request.url
                                 val scheme = next.scheme?.lowercase().orEmpty()
                                 if (scheme == "http" || scheme == "https") {
-                                    view.loadUrl(next.toString())
-                                    return true
+                                    return false
                                 }
-                                return false
+                                return true
                             }
 
                             override fun onPageFinished(view: WebView, loaded: String) {
