@@ -79,7 +79,8 @@ fun ProfileScreen(
             userId = me.userId ?: tokenStore.userId()
             hasAvatar = me.hasAvatar
             avatarUpdatedAt = me.avatarUpdatedAt
-            if (!me.name.isNullOrBlank()) displayName = me.name
+            val name = me.name
+            if (!name.isNullOrBlank()) displayName = name
         }
     }
 

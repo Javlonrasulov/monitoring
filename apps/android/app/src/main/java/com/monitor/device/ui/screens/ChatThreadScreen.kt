@@ -408,10 +408,8 @@ fun ChatThreadScreen(
             title = thread?.counterpartName ?: title,
             subtitle = formatLastSeen(context, thread?.lastSeenAt, thread?.online == true, typing),
             typing = typing,
-            avatarUrl = if (thread?.counterpartHasAvatar == true) {
-                apiClient.avatarUrl(thread.counterpartUserId, thread.counterpartAvatarUpdatedAt)
-            } else {
-                null
+            avatarUrl = thread?.takeIf { it.counterpartHasAvatar }?.let {
+                apiClient.avatarUrl(it.counterpartUserId, it.counterpartAvatarUpdatedAt)
             },
             imageLoader = imageLoader,
             online = thread?.online == true,
@@ -806,10 +804,8 @@ fun ChatThreadScreen(
             ) {
                 UserAvatar(
                     name = thread?.counterpartName ?: title,
-                    imageUrl = if (thread?.counterpartHasAvatar == true) {
-                        apiClient.avatarUrl(thread.counterpartUserId, thread.counterpartAvatarUpdatedAt)
-                    } else {
-                        null
+                    imageUrl = thread?.takeIf { it.counterpartHasAvatar }?.let {
+                        apiClient.avatarUrl(it.counterpartUserId, it.counterpartAvatarUpdatedAt)
                     },
                     imageLoader = imageLoader,
                     size = 96.dp,
