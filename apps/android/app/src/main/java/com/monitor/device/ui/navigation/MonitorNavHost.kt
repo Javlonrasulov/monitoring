@@ -1,5 +1,7 @@
 package com.monitor.device.ui.navigation
 
+import android.app.Activity
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
@@ -11,16 +13,18 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.DarkMode
 import androidx.compose.material.icons.rounded.LightMode
 import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
-import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.monitor.device.R
 import com.monitor.device.core.api.DeviceApiClient
@@ -37,11 +41,8 @@ import com.monitor.device.ui.screens.ChatThreadScreen
 import com.monitor.device.ui.screens.LiveWatchScreen
 import com.monitor.device.ui.screens.MainTabsScreen
 import com.monitor.device.ui.screens.PairingScreen
-import com.monitor.device.ui.screens.PermissionsScreen
-import com.monitor.device.ui.screens.hasCapturePermissions
 
 object Routes {
-    const val Permissions = "permissions"
     const val Pairing = "pairing"
     const val Home = "home"
 }
@@ -60,10 +61,7 @@ fun MonitorNavHost(
     val context = LocalContext.current
     val navController = rememberNavController()
     val start = remember {
-        when {
-            tokenStore.isPaired() && hasCapturePermissions(context) -> Routes.Home
-            else -> Routes.Permissions
-        }
+        if (tokenStore.isPaired()) Routes.Home else Routes.Pairing
     }
 
     var showSettings by remember { mutableStateOf(false) }
@@ -71,9 +69,7 @@ fun MonitorNavHost(
     var chatTitle by remember { mutableStateOf("") }
     var watchDeviceId by remember { mutableStateOf<String?>(null) }
     var watchTitle by remember { mutableStateOf("") }
-    val backStackEntry by navController.currentBackStackEntryAsState()
-    val currentRoute = backStackEntry?.destination?.route ?: start
-    val showTopBar = currentRoute != Routes.Permissions && chatThreadId == null && watchDeviceId == null
+    val showTopBar = chatThreadId == null && watchDeviceId == null
 
     AppShell(
         topBar = if (!showTopBar) {
@@ -109,50 +105,21 @@ fun MonitorNavHost(
             popEnterTransition = { backEnter() },
             popExitTransition = { backExit() },
         ) {
-            composable(Routes.Permissions) {
-                PermissionsScreen(
-                    onAllGranted = {
-                        if (tokenStore.isPaired()) {
-                            navController.navigate(Routes.Home) {
-                                popUpTo(Routes.Permissions) { inclusive = true }
-                            }
-                        } else {
-                            navController.navigate(Routes.Pairing) {
-                                popUpTo(Routes.Permissions) { inclusive = false }
-                            }
-                        }
-                    },
-                )
-            }
             composable(Routes.Pairing) {
                 PairingScreen(
                     apiClient = apiClient,
                     onPaired = {
                         navController.navigate(Routes.Home) {
-                            popUpTo(Routes.Permissions) { inclusive = true }
+                            popUpTo(Routes.Pairing) { inclusive = true }
                         }
                     },
                 )
             }
             composable(Routes.Home) {
-                val threadId = chatThreadId
-                val liveId = watchDeviceId
-                if (threadId != null) {
-                    ChatThreadScreen(
-                        apiClient = apiClient,
-                        tokenStore = tokenStore,
-                        threadId = threadId,
-                        title = chatTitle.ifBlank { stringResource(R.string.chats_untitled) },
-                        onBack = { chatThreadId = null },
-                    )
-                } else if (liveId != null) {
-                    LiveWatchScreen(
-                        apiClient = apiClient,
-                        deviceId = liveId,
-                        title = watchTitle,
-                        onBack = { watchDeviceId = null },
-                    )
-                } else {
+                BackHandler(enabled = chatThreadId == null && watchDeviceId == null) {
+                    (context as? Activity)?.moveTaskToBack(true)
+                }
+                Box(modifier = Modifier.fillMaxSize()) {
                     MainTabsScreen(
                         apiClient = apiClient,
                         tokenStore = tokenStore,
@@ -165,13 +132,8 @@ fun MonitorNavHost(
                             tokenStore.clear()
                             chatThreadId = null
                             watchDeviceId = null
-                            navController.navigate(Routes.Permissions) {
-                                popUpTo(Routes.Home) { inclusive = true }
-                            }
-                        },
-                        onPermissionsRequired = {
-                            navController.navigate(Routes.Permissions) {
-                                popUpTo(Routes.Home) { inclusive = true }
+                            navController.navigate(Routes.Pairing) {
+                                popUpTo(0) { inclusive = true }
                             }
                         },
                         onWatchDevice = { id, title ->
@@ -179,6 +141,24 @@ fun MonitorNavHost(
                             watchDeviceId = id
                         },
                     )
+                    val threadId = chatThreadId
+                    val liveId = watchDeviceId
+                    if (threadId != null) {
+                        ChatThreadScreen(
+                            apiClient = apiClient,
+                            tokenStore = tokenStore,
+                            threadId = threadId,
+                            title = chatTitle.ifBlank { stringResource(R.string.chats_untitled) },
+                            onBack = { chatThreadId = null },
+                        )
+                    } else if (liveId != null) {
+                        LiveWatchScreen(
+                            apiClient = apiClient,
+                            deviceId = liveId,
+                            title = watchTitle,
+                            onBack = { watchDeviceId = null },
+                        )
+                    }
                 }
             }
         }

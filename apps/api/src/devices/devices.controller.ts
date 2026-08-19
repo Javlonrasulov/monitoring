@@ -6,11 +6,9 @@ import {
   Param,
   Patch,
   Post,
-  Put,
-  Req,
+  Query,
   UseGuards,
 } from '@nestjs/common';
-import type { Request } from 'express';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { DevicesService } from './devices.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -23,6 +21,7 @@ import {
   LinkDeviceDto,
   PairDeviceDto,
   SetCameraFacingDto,
+  UploadAvatarDto,
 } from './dto/devices.dto';
 import { AuditService } from '../audit/audit.service';
 import { AvatarsService } from '../avatars/avatars.service';
@@ -55,19 +54,19 @@ export class DevicesController {
     return this.devicesService.getMe(device.deviceId, device.organizationId);
   }
 
-  @Put('me/avatar')
+  @Post('me/avatar')
   @ApiBearerAuth()
   @UseGuards(DeviceAuthGuard)
-  @ApiOperation({ summary: 'Upload this user profile photo (JPEG)' })
+  @ApiOperation({ summary: 'Upload this user profile photo (JPEG base64)' })
   uploadAvatar(
     @CurrentDevice()
     device: { deviceId: string; organizationId: string },
-    @Req() req: Request,
+    @Body() dto: UploadAvatarDto,
   ) {
     return this.avatars.saveForDevice(
       device.organizationId,
       device.deviceId,
-      req,
+      dto.imageBase64,
     );
   }
 
@@ -127,6 +126,12 @@ export class DevicesController {
       device.organizationId,
       dto.code,
     );
+  }
+
+  @Get('pair-status')
+  @ApiOperation({ summary: 'Check if this phone already has an account' })
+  pairStatus(@Query('phone') phone?: string) {
+    return this.devicesService.pairStatus(phone);
   }
 
   @Get(':id')

@@ -179,16 +179,12 @@ fun ChatsListScreen(
 }
 
 private fun isConnectedUserThread(thread: ChatThreadDto): Boolean {
-    val viewer = thread.viewerUserId
-    val ownerId = thread.owner?.id
-    if (viewer != null && ownerId != null && viewer != ownerId && thread.counterpartUserId == ownerId) {
-        return false
+    val counterpart = when (thread.counterpartUserId) {
+        thread.owner?.id -> thread.owner
+        thread.peer?.id -> thread.peer
+        else -> if (thread.viewerUserId == thread.owner?.id) thread.peer else thread.owner
     }
-    val role = when (thread.counterpartUserId) {
-        thread.owner?.id -> thread.owner?.role
-        thread.peer?.id -> thread.peer?.role
-        else -> thread.owner?.role
-    }?.uppercase()
+    val role = counterpart?.role?.uppercase()
     if (role == "ADMIN" || role == "OWNER" || role == "VIEWER") return false
     if (role == "USER") return true
     return !thread.counterpartName.equals("Admin", ignoreCase = true)

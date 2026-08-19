@@ -15,6 +15,11 @@ data class PairRequest(
 )
 
 @Serializable
+data class PairStatusResponse(
+    val exists: Boolean = false,
+)
+
+@Serializable
 data class PairResponse(
     val deviceId: String,
     val name: String,
@@ -61,6 +66,11 @@ data class DeviceMeResponse(
     val name: String? = null,
     val hasAvatar: Boolean = false,
     val avatarUpdatedAt: String? = null,
+)
+
+@Serializable
+data class UploadAvatarRequest(
+    val imageBase64: String,
 )
 
 enum class CameraFacing {

@@ -118,7 +118,7 @@ class WhepViewer(
                 runCatching {
                     val builder = Request.Builder().url(url).delete()
                     if (!token.isNullOrBlank()) {
-                        builder.header("Authorization", "Bearer $token")
+                        builder.header("Authorization", WhipPublisherImpl.streamCredentials(token))
                     }
                     httpClient.newCall(builder.build()).execute().close()
                 }
@@ -199,13 +199,14 @@ class WhepViewer(
         withContext(Dispatchers.IO) {
             val request = Request.Builder()
                 .url(url)
-                .header("Authorization", "Bearer $token")
+                .header("Authorization", WhipPublisherImpl.streamCredentials(token))
                 .header("Content-Type", "application/sdp")
                 .post(sdp.toRequestBody("application/sdp".toMediaType()))
                 .build()
             httpClient.newCall(request).execute().use { response ->
                 if (!response.isSuccessful) {
-                    error("WHEP POST failed: HTTP ${response.code}")
+                    val body = response.body?.string().orEmpty()
+                    error("WHEP POST failed: HTTP ${response.code} ${body.take(180)}")
                 }
                 resourceUrl = response.header("Location")?.let { location ->
                     runCatching { URI(url).resolve(location).toString() }.getOrDefault(location)

@@ -32,6 +32,7 @@ import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -57,6 +58,7 @@ import com.monitor.device.ui.components.SectionHeader
 import com.monitor.device.ui.theme.MonitorTheme
 import com.monitor.device.ui.theme.Sizing
 import com.monitor.device.ui.theme.Spacing
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @Composable
@@ -68,6 +70,7 @@ fun PairingScreen(
     var code by remember { mutableStateOf("") }
     var phone by remember { mutableStateOf("") }
     var loading by remember { mutableStateOf(false) }
+    var knownAccount by remember { mutableStateOf<Boolean?>(null) }
     val error: MutableState<String?> = remember { mutableStateOf(null) }
     val scope = rememberCoroutineScope()
     val focusManager = LocalFocusManager.current
@@ -77,10 +80,23 @@ fun PairingScreen(
     val failureMessage = stringResource(R.string.pair_failed)
     val limitMessage = stringResource(R.string.limit_reached)
     val invalidCode = stringResource(R.string.pair_invalid_code)
+    val nameRequired = stringResource(R.string.pair_name_required)
     val phoneDigits = phone.filter { it.isDigit() }
+    val returningUser = knownAccount == true
     val canSubmit = !loading &&
-        displayName.isNotBlank() &&
-        (code.isNotBlank() || phoneDigits.length >= 9)
+        phoneDigits.length >= 9 &&
+        (returningUser || displayName.isNotBlank())
+
+    LaunchedEffect(phoneDigits) {
+        if (phoneDigits.length < 9) {
+            knownAccount = null
+            return@LaunchedEffect
+        }
+        delay(350)
+        knownAccount = runCatching {
+            apiClient.pairStatus(phone.trim())
+        }.getOrNull()?.exists
+    }
 
     fun submit() {
         if (!canSubmit) return
@@ -93,7 +109,7 @@ fun PairingScreen(
                 apiClient.pair(
                     PairRequest(
                         code = code.replace("MONITOR:", "", ignoreCase = true).trim(),
-                        name = displayName.trim(),
+                        name = if (returningUser) "" else displayName.trim(),
                         phone = phone.trim().ifBlank { null },
                         appVersion = BuildConfig.VERSION_NAME,
                         androidVersion = Build.VERSION.RELEASE,
@@ -109,12 +125,15 @@ fun PairingScreen(
                 error.value = when {
                     api.contains("limit", ignoreCase = true) -> limitMessage
                     api.contains("Invalid pairing", ignoreCase = true) -> invalidCode
+                    api.contains("Name is required", ignoreCase = true) -> nameRequired
                     api.contains("Subscription", ignoreCase = true) -> api
                     else -> failureMessage
                 }
             }
         }
     }
+
+    RequestCapturePermissions()
 
     ScreenContainer {
         Spacer(modifier = Modifier.size(Spacing.md))
@@ -156,28 +175,6 @@ fun PairingScreen(
             Spacer(modifier = Modifier.size(Spacing.md))
 
             MonitorTextField(
-                value = displayName,
-                onValueChange = {
-                    displayName = it.take(48)
-                    if (error.value != null) error.value = null
-                },
-                label = stringResource(R.string.pair_name_label),
-                placeholder = stringResource(R.string.pair_name_placeholder),
-                helperText = stringResource(R.string.pair_name_helper),
-                enabled = !loading,
-                leadingIcon = Icons.Rounded.Person,
-                keyboardOptions = KeyboardOptions(
-                    capitalization = KeyboardCapitalization.Words,
-                    imeAction = ImeAction.Next,
-                ),
-                keyboardActions = KeyboardActions(
-                    onNext = { focusManager.moveFocus(FocusDirection.Down) },
-                ),
-            )
-
-            Spacer(modifier = Modifier.size(Spacing.md))
-
-            MonitorTextField(
                 value = phone,
                 onValueChange = {
                     phone = it.filter { ch -> ch.isDigit() || ch == '+' || ch == ' ' }.take(16)
@@ -194,8 +191,38 @@ fun PairingScreen(
                 ),
                 keyboardActions = KeyboardActions(
                     onNext = { focusManager.moveFocus(FocusDirection.Down) },
+                    onDone = { submit() },
                 ),
             )
+
+            AnimatedVisibility(
+                visible = !returningUser,
+                enter = fadeIn(tween(180)) + expandVertically(tween(180)),
+                exit = fadeOut(tween(120)) + shrinkVertically(tween(120)),
+            ) {
+                Column {
+                    Spacer(modifier = Modifier.size(Spacing.md))
+                    MonitorTextField(
+                        value = displayName,
+                        onValueChange = {
+                            displayName = it.take(48)
+                            if (error.value != null) error.value = null
+                        },
+                        label = stringResource(R.string.pair_name_label),
+                        placeholder = stringResource(R.string.pair_name_placeholder),
+                        helperText = stringResource(R.string.pair_name_helper),
+                        enabled = !loading,
+                        leadingIcon = Icons.Rounded.Person,
+                        keyboardOptions = KeyboardOptions(
+                            capitalization = KeyboardCapitalization.Words,
+                            imeAction = ImeAction.Next,
+                        ),
+                        keyboardActions = KeyboardActions(
+                            onNext = { focusManager.moveFocus(FocusDirection.Down) },
+                        ),
+                    )
+                }
+            }
 
             Spacer(modifier = Modifier.size(Spacing.md))
 
@@ -257,9 +284,5 @@ fun PairingScreen(
     }
 }
 
-private fun Throwable.apiErrorMessage(): String {
-    val http = this as? retrofit2.HttpException ?: return message.orEmpty()
-    val raw = runCatching { http.response()?.errorBody()?.string() }.getOrNull().orEmpty()
-    return Regex("\"message\"\\s*:\\s*\"([^\"]+)\"").find(raw)?.groupValues?.get(1)
-        ?: message.orEmpty()
-}
+private fun Throwable.apiErrorMessage(): String =
+    DeviceApiClient.errorMessage(this, message.orEmpty())

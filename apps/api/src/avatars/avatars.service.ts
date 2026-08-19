@@ -7,7 +7,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { createReadStream, existsSync } from 'fs';
 import { mkdir, rm, stat, writeFile } from 'fs/promises';
-import { join, normalize, sep } from 'path';
+import { dirname, join, normalize, sep } from 'path';
 import type { Request, Response } from 'express';
 import { PrismaService } from '../prisma/prisma.service';
 import { EventsGateway } from '../events/events.gateway';
@@ -26,15 +26,16 @@ export class AvatarsService {
     return this.config.get<string>('AVATAR_DIR') ?? './uploads/avatars';
   }
 
-  async saveForDevice(organizationId: string, deviceId: string, req: Request) {
+  async saveForDevice(
+    organizationId: string,
+    deviceId: string,
+    imageBase64: string,
+  ) {
     const user = await this.deviceUser(organizationId, deviceId);
-    const bytes = await this.readLimited(req);
-    if (bytes.length < 3 || bytes[0] !== 0xff || bytes[1] !== 0xd8) {
-      throw new BadRequestException('Send a JPEG photo');
-    }
+    const bytes = this.decodeImage(imageBase64);
     const key = this.storageKey(organizationId, user.id);
     const dest = this.absoluteKey(key);
-    await mkdir(this.rootDir(), { recursive: true });
+    await mkdir(dirname(dest), { recursive: true });
     await writeFile(dest, bytes);
     const updated = await this.prisma.user.update({
       where: { id: user.id },
@@ -100,6 +101,30 @@ export class AvatarsService {
     };
   }
 
+  private decodeImage(imageBase64: string) {
+    const raw = imageBase64.replace(/^data:image\/[a-zA-Z+]+;base64,/, '').trim();
+    if (!raw) throw new BadRequestException('Photo is required');
+    let bytes: Buffer;
+    try {
+      bytes = Buffer.from(raw, 'base64');
+    } catch {
+      throw new BadRequestException('Photo is invalid');
+    }
+    if (bytes.length < 24 || bytes.length > MAX_AVATAR_BYTES) {
+      throw new BadRequestException('Photo is too large');
+    }
+    const jpeg = bytes[0] === 0xff && bytes[1] === 0xd8;
+    const png =
+      bytes[0] === 0x89 &&
+      bytes[1] === 0x50 &&
+      bytes[2] === 0x4e &&
+      bytes[3] === 0x47;
+    if (!jpeg && !png) {
+      throw new BadRequestException('Send a JPEG or PNG photo');
+    }
+    return bytes;
+  }
+
   private async deviceUser(organizationId: string, deviceId: string) {
     const user = await this.prisma.user.findFirst({
       where: { deviceId, organizationId },
@@ -120,20 +145,5 @@ export class AvatarsService {
       throw new BadRequestException('Invalid storage key');
     }
     return full;
-  }
-
-  private async readLimited(req: Request) {
-    const chunks: Buffer[] = [];
-    let size = 0;
-    for await (const chunk of req) {
-      const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
-      size += buf.length;
-      if (size > MAX_AVATAR_BYTES) {
-        throw new BadRequestException('Photo is too large');
-      }
-      chunks.push(buf);
-    }
-    if (!size) throw new BadRequestException('Photo is required');
-    return Buffer.concat(chunks);
   }
 }

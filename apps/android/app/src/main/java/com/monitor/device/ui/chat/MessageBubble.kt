@@ -193,7 +193,15 @@ fun MessageBubble(
             ) {
                 Icon(Icons.Rounded.ErrorOutline, contentDescription = null, tint = colors.danger, modifier = Modifier.size(14.dp))
                 Spacer(Modifier.width(4.dp))
-                Text(stringResource(R.string.chat_upload_failed), color = colors.danger, fontSize = 11.sp)
+                Text(
+                    if (message.messageType == "TEXT") {
+                        stringResource(R.string.chat_send_failed)
+                    } else {
+                        stringResource(R.string.chat_upload_failed)
+                    },
+                    color = colors.danger,
+                    fontSize = 11.sp,
+                )
             }
         }
         message.uploadProgress?.let { progress ->

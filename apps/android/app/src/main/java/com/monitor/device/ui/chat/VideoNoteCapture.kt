@@ -75,11 +75,15 @@ fun VideoNoteCapture(
 
     LaunchedEffect(Unit) {
         var waits = 0
-        while (MonitoringForegroundService.isStarted() && waits < 30) {
+        while (MonitoringForegroundService.isStarted() && waits < 100) {
             delay(100)
             waits++
         }
-        delay(250)
+        if (MonitoringForegroundService.isStarted()) {
+            onBusy()
+            return@LaunchedEffect
+        }
+        delay(400)
         cameraReady = true
     }
 
@@ -103,12 +107,7 @@ fun VideoNoteCapture(
         MonitoringForegroundService.pauseForChatCamera(context)
         onDispose {
             active?.stop()
-            val provider = boundProvider
-            val preview = boundPreview
-            val capture = boundCapture
-            if (provider != null && preview != null && capture != null) {
-                runCatching { provider.unbind(preview, capture) }
-            }
+            runCatching { boundProvider?.unbindAll() }
             MonitoringForegroundService.resumeAfterChatCamera(context)
         }
     }

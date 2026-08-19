@@ -126,6 +126,7 @@ import com.monitor.device.ui.chat.formatLastSeen
 import com.monitor.device.ui.chat.mimeFor
 import com.monitor.device.ui.chat.videoDurationMs
 import com.monitor.device.ui.chat.videoThumbnail
+import com.monitor.device.monitoring.service.MonitoringForegroundService
 import com.monitor.device.ui.components.UserAvatar
 import com.monitor.device.ui.theme.MonitorTheme
 import com.monitor.device.ui.theme.Spacing
@@ -320,6 +321,14 @@ fun ChatThreadScreen(
     DisposableEffect(Unit) {
         onDispose { player?.release() }
     }
+    DisposableEffect(recording) {
+        onDispose {
+            if (recording) {
+                voiceCapture?.cancel()
+                MonitoringForegroundService.resumeAfterChatCamera(context)
+            }
+        }
+    }
 
     fun playMessage(message: ChatMessageDto) {
         if (playingId == message.id) {
@@ -368,6 +377,16 @@ fun ChatThreadScreen(
         }
     }
 
+    BackHandler {
+        when {
+            videoNote -> videoNote = false
+            attachOpen -> attachOpen = false
+            fullscreen != null -> fullscreen = null
+            searchOpen -> searchOpen = false
+            else -> onBack()
+        }
+    }
+
     if (videoNote) {
         VideoNoteCapture(
             onRecorded = { file, duration ->
@@ -380,7 +399,7 @@ fun ChatThreadScreen(
                             replyTo?.id, null,
                         ) { sent -> messages = mergeMessage(messages, sent) }
                     }.onFailure {
-                        Toast.makeText(context, context.getString(R.string.chat_camera_busy), Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, context.getString(R.string.chat_upload_failed), Toast.LENGTH_SHORT).show()
                     }
                 }
             },
@@ -392,8 +411,6 @@ fun ChatThreadScreen(
         )
         return
     }
-
-    BackHandler(onBack = onBack)
 
     val wallpaper = if (colors.isDark) Color(0xFF0B1413) else Color(0xFFE8F1F0)
 
@@ -582,6 +599,7 @@ fun ChatThreadScreen(
                     voiceCapture?.cancel()
                     voiceCapture = null
                     recording = false
+                    MonitoringForegroundService.resumeAfterChatCamera(context)
                 }) { Text(stringResource(R.string.common_cancel)) }
                 IconButton(
                     onClick = {
@@ -591,18 +609,23 @@ fun ChatThreadScreen(
                         recording = false
                         voiceCapture = null
                         voiceFile = null
-                        if (file != null && file.exists()) {
+                        MonitoringForegroundService.resumeAfterChatCamera(context)
+                        if (file != null && file.exists() && file.length() > 0L) {
                             scope.launch {
-                                sendMedia(
-                                    apiClient, threadId,
-                                    PendingMedia(
-                                        file, "voice.m4a", "audio/mp4", "VOICE", duration,
-                                        waveformJson = defaultVoiceWaveform(file.absolutePath)
-                                            .joinToString(prefix = "[", postfix = "]") { "%.3f".format(it) },
-                                    ),
-                                    replyTo?.id, null,
-                                ) { sent -> messages = mergeMessage(messages, sent) }
-                                replyTo = null
+                                runCatching {
+                                    sendMedia(
+                                        apiClient, threadId,
+                                        PendingMedia(
+                                            file, "voice.m4a", "audio/mp4", "VOICE", duration,
+                                            waveformJson = defaultVoiceWaveform(file.absolutePath)
+                                                .joinToString(prefix = "[", postfix = "]") { "%.3f".format(it) },
+                                        ),
+                                        replyTo?.id, null,
+                                    ) { sent -> messages = mergeMessage(messages, sent) }
+                                    replyTo = null
+                                }.onFailure {
+                                    Toast.makeText(context, context.getString(R.string.chat_upload_failed), Toast.LENGTH_SHORT).show()
+                                }
                             }
                         }
                     },
@@ -656,15 +679,27 @@ fun ChatThreadScreen(
                     }
                 },
                 onMicDown = {
-                    val file = File(context.cacheDir, "voice-${UUID.randomUUID()}.m4a")
-                    val capture = VoiceCapture(file)
-                    runCatching { capture.start() }
-                        .onSuccess {
-                            voiceCapture = capture
-                            voiceFile = file
-                            recording = true
-                            recordMs = 0
+                    scope.launch {
+                        MonitoringForegroundService.pauseForChatCamera(context)
+                        var waits = 0
+                        while (MonitoringForegroundService.isStarted() && waits < 80) {
+                            delay(100)
+                            waits++
                         }
+                        delay(200)
+                        val file = File(context.cacheDir, "voice-${UUID.randomUUID()}.m4a")
+                        val capture = VoiceCapture(file)
+                        val started = runCatching { capture.start() }
+                        if (started.isFailure) {
+                            MonitoringForegroundService.resumeAfterChatCamera(context)
+                            Toast.makeText(context, context.getString(R.string.chat_upload_failed), Toast.LENGTH_SHORT).show()
+                            return@launch
+                        }
+                        voiceCapture = capture
+                        voiceFile = file
+                        recording = true
+                        recordMs = 0
+                    }
                 },
                 onCamera = { videoNote = true },
             )

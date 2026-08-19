@@ -20,7 +20,6 @@ import kotlinx.coroutines.delay
 fun rememberMonitoringSession(
     tokenStore: TokenStore,
     onUnpaired: () -> Unit,
-    onPermissionsRequired: () -> Unit,
 ): MonitoringSession {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -31,8 +30,9 @@ fun rememberMonitoringSession(
             if (event != Lifecycle.Event.ON_RESUME) return@LifecycleEventObserver
             when {
                 !tokenStore.isPaired() -> onUnpaired()
-                !hasCapturePermissions(context) -> onPermissionsRequired()
-                tokenStore.isAutoStartEnabled() && !Emulator.isEmulator &&
+                tokenStore.isAutoStartEnabled() &&
+                    hasCapturePermissions(context) &&
+                    !Emulator.isEmulator &&
                     !MonitoringForegroundService.isChatCameraHold() -> {
                     MonitoringForegroundService.start(context)
                     monitoring = MonitoringForegroundService.isStarted()
@@ -43,8 +43,9 @@ fun rememberMonitoringSession(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    LaunchedEffect(lifecycleOwner) {
-        while (tokenStore.isPaired()) {
+    LaunchedEffect(Unit) {
+        while (true) {
+            if (!tokenStore.isPaired()) break
             val live = MonitoringForegroundService.isStarted()
             monitoring = live
             val inForeground = lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)
@@ -60,7 +61,6 @@ fun rememberMonitoringSession(
             }
             delay(1_000)
         }
-        onUnpaired()
     }
 
     return MonitoringSession(

@@ -35,11 +35,11 @@
 
     <!-- Pairing -->
     <string name="pair_title">Pair device</string>
-    <string name="pair_subtitle">Enter your name, phone number, and a code if you have one.</string>
+    <string name="pair_subtitle">Enter your phone number. If this is your first time, also enter your name.</string>
     <string name="pair_section_title">Sign in</string>
     <string name="pair_name_label">Name</string>
     <string name="pair_name_placeholder">Name</string>
-    <string name="pair_name_helper">This name is shown in chat</string>
+    <string name="pair_name_helper">Required for the first sign-in. Shown in chat.</string>
     <string name="pair_phone_label">Phone number</string>
     <string name="pair_phone_placeholder">Phone number</string>
     <string name="pair_phone_helper">Required</string>
@@ -49,8 +49,9 @@
     <string name="pair_button">Continue</string>
     <string name="pair_failed">Could not connect. Check the name, phone number, or code.</string>
     <string name="pair_invalid_code">This code is invalid or already used.</string>
+    <string name="pair_name_required">Enter your name for the first sign-in.</string>
     <string name="pair_error_title">Something went wrong</string>
-    <string name="pair_footer_hint">Sign in with your name, phone number, and optional code.</string>
+    <string name="pair_footer_hint">Returning users sign in with phone only. New users also enter a name.</string>
 
     <!-- Home -->
     <string name="home_device_fallback">Device</string>
@@ -84,6 +85,7 @@
     <string name="chats_untitled">Chat</string>
     <string name="chat_placeholder">Message</string>
     <string name="chat_send">Send</string>
+    <string name="chat_send_failed">Message not sent</string>
     <string name="chat_online">online</string>
     <string name="chat_offline">offline</string>
     <string name="chat_typing">typing…</string>

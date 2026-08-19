@@ -57,7 +57,10 @@ class MonitoringForegroundService : LifecycleService() {
         when (intent?.action) {
             ACTION_STOP -> {
                 serviceScope.launch {
-                    engine?.stop()
+                    runCatching { engine?.stop() }
+                    engine = null
+                    startingEngine.set(false)
+                    started.set(false)
                     stopForeground(STOP_FOREGROUND_REMOVE)
                     stopSelf()
                 }

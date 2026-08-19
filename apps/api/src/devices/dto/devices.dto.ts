@@ -68,6 +68,12 @@ export class PairDeviceDto {
   deviceModel?: string;
 }
 
+export class UploadAvatarDto {
+  @ApiProperty({ description: 'JPEG image as base64' })
+  @IsString()
+  imageBase64!: string;
+}
+
 export class DeviceStatusDto {
   @ApiPropertyOptional({
     enum: ['ONLINE', 'OFFLINE', 'CONNECTING', 'STREAMING', 'ERROR'],

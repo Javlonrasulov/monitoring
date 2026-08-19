@@ -59,8 +59,7 @@ export class StreamingService {
       },
     });
 
-    const base =
-      this.config.get<string>('MEDIAMTX_WHIP_BASE') ?? 'http://localhost:8889';
+    const base = this.publicStreamHttpBase();
 
     return {
       token,
@@ -113,14 +112,13 @@ export class StreamingService {
 
     await this.audit.log({
       organizationId,
-      userId,
+      userId: await this.auditUserId(userId),
       action: 'stream.view',
       resourceType: 'Device',
       resourceId: device.id,
     });
 
-    const base =
-      this.config.get<string>('MEDIAMTX_WHEP_BASE') ?? 'http://localhost:8889';
+    const base = this.publicStreamHttpBase();
 
     return {
       token,
@@ -309,5 +307,33 @@ export class StreamingService {
       return second >= 16 && second <= 31;
     }
     return false;
+  }
+
+  private publicStreamHttpBase() {
+    const configured = (
+      this.config.get<string>('MEDIAMTX_WHEP_BASE') ??
+      this.config.get<string>('MEDIAMTX_WHIP_BASE') ??
+      ''
+    ).replace(/\/$/, '');
+    if (configured && !/localhost|127\.0\.0\.1/i.test(configured)) {
+      return configured;
+    }
+    const published = (
+      this.config.get<string>('PUBLIC_BASE_URL') ?? ''
+    ).replace(/\/$/, '');
+    if (published) {
+      return published;
+    }
+    return configured || 'http://localhost:8889';
+  }
+
+  private async auditUserId(userOrDeviceId: string) {
+    const user = await this.prisma.user.findFirst({
+      where: {
+        OR: [{ id: userOrDeviceId }, { deviceId: userOrDeviceId }],
+      },
+      select: { id: true },
+    });
+    return user?.id;
   }
 }

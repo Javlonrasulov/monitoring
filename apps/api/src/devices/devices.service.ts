@@ -368,16 +368,7 @@ export class DevicesService {
   }
 
   private async pairByPhone(phone: string, dto: PairDeviceDto) {
-    const existing = await this.prisma.user.findFirst({
-      where: {
-        blocked: false,
-        role: UserRole.USER,
-        organizationId: { not: 'seed-org' },
-        OR: [{ phone }, { email: `user-${phone}@device.local` }],
-      },
-      include: { device: true },
-      orderBy: { createdAt: 'asc' },
-    });
+    const existing = await this.findUserByPhone(phone);
 
     if (existing?.device && !existing.device.disabled) {
       return this.issueDeviceSession(existing.device, existing.id, dto);
@@ -397,23 +388,47 @@ export class DevicesService {
       return this.createPairedDevice({
         organizationId: existing.organizationId,
         branchId: branch.id,
-        displayName: dto.name?.trim() || phone,
+        displayName: dto.name?.trim() || existing.name || phone,
         dto,
         phone,
         existingUserId: existing.id,
       });
     }
 
-    const target = await this.createAccountForPhone(
-      phone,
-      dto.name?.trim() || phone,
-    );
+    const displayName = dto.name?.trim();
+    if (!displayName) {
+      throw new BadRequestException('Name is required');
+    }
+
+    const target = await this.createAccountForPhone(phone, displayName);
     return this.createPairedDevice({
       organizationId: target.organizationId,
       branchId: target.branchId,
-      displayName: dto.name?.trim() || phone,
+      displayName,
       dto,
       phone,
+    });
+  }
+
+  async pairStatus(rawPhone?: string) {
+    const phone = this.normalizePhone(rawPhone);
+    if (!phone) {
+      return { exists: false };
+    }
+    const existing = await this.findUserByPhone(phone);
+    return { exists: Boolean(existing) };
+  }
+
+  private async findUserByPhone(phone: string) {
+    return this.prisma.user.findFirst({
+      where: {
+        blocked: false,
+        role: UserRole.USER,
+        organizationId: { not: 'seed-org' },
+        OR: [{ phone }, { email: `user-${phone}@device.local` }],
+      },
+      include: { device: true },
+      orderBy: { createdAt: 'asc' },
     });
   }
 

@@ -15,6 +15,7 @@ import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 import java.util.UUID
+import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
 
@@ -120,8 +121,16 @@ fun copyUriToCache(context: Context, uri: Uri, nameHint: String? = null): File {
 }
 
 fun compressAvatar(context: Context, uri: Uri, size: Int = 640, quality: Int = 85): File {
-    val original = context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it) }
+    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+    context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
         ?: error("Cannot decode image")
+    val longest = max(bounds.outWidth, bounds.outHeight).coerceAtLeast(1)
+    var sample = 1
+    while (longest / sample > size * 2) sample *= 2
+    val opts = BitmapFactory.Options().apply { inSampleSize = sample }
+    val original = context.contentResolver.openInputStream(uri)?.use {
+        BitmapFactory.decodeStream(it, null, opts)
+    } ?: error("Cannot decode image")
     val side = min(original.width, original.height).coerceAtLeast(1)
     val x = (original.width - side) / 2
     val y = (original.height - side) / 2

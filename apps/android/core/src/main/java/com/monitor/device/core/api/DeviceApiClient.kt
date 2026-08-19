@@ -20,11 +20,13 @@ import com.monitor.device.core.model.OkResponse
 import com.monitor.device.core.model.PairingCodeResponse
 import com.monitor.device.core.model.PairRequest
 import com.monitor.device.core.model.PairResponse
+import com.monitor.device.core.model.PairStatusResponse
 import com.monitor.device.core.model.PublisherTokenResponse
 import com.monitor.device.core.model.PurchasePlanRequest
 import com.monitor.device.core.model.ReactChatRequest
 import com.monitor.device.core.model.SendChatRequest
 import com.monitor.device.core.model.SubscriptionDto
+import com.monitor.device.core.model.UploadAvatarRequest
 import com.monitor.device.core.model.ViewerTokenResponse
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -67,6 +69,10 @@ class DeviceApiClient(
         .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
         .build()
         .create(DeviceApi::class.java)
+
+    suspend fun pairStatus(phone: String): PairStatusResponse {
+        return api.pairStatus(phone)
+    }
 
     suspend fun pair(request: PairRequest): PairResponse {
         val response = api.pair(request)
@@ -185,17 +191,12 @@ class DeviceApiClient(
     }
 
     suspend fun uploadAvatar(file: File): DeviceMeResponse = withContext(Dispatchers.IO) {
-        val request = Request.Builder()
-            .url("${apiBaseUrl}devices/me/avatar")
-            .header("Authorization", bearer())
-            .put(RequestBody.create("image/jpeg".toMediaType(), file))
-            .build()
-        http.newCall(request).execute().use { response ->
-            val body = response.body?.string().orEmpty()
-            if (!response.isSuccessful) {
-                throw IllegalStateException("Avatar upload failed (${response.code})")
-            }
-            json.decodeFromString(DeviceMeResponse.serializer(), body)
+        val imageBase64 = android.util.Base64.encodeToString(
+            file.readBytes(),
+            android.util.Base64.NO_WRAP,
+        )
+        authorized(unpairOnFailure = false) {
+            api.uploadAvatar(it, UploadAvatarRequest(imageBase64))
         }.also { it.userId?.let(tokenStore::saveUserId) }
     }
 
@@ -219,7 +220,7 @@ class DeviceApiClient(
         onProgress: (Float) -> Unit = {},
     ): ChatMessageDto = withContext(Dispatchers.IO) {
         val auth = bearer()
-        val init = authorized {
+        val init = authorized(unpairOnFailure = false) {
             api.initUpload(
                 it,
                 threadId,
@@ -308,12 +309,9 @@ class DeviceApiClient(
         return try {
             call(bearer())
         } catch (e: HttpException) {
-            val gone = unpairOnFailure && (
-                e.code() == 401 ||
-                    e.code() == 403 ||
-                    (unpairOnNotFound && e.code() == 404)
-                )
-            if (gone) {
+            // Only a real auth failure should unpair. Chat 403/404 (missing thread,
+            // expired upload) must not send the user back to login.
+            if (unpairOnFailure && e.code() == 401) {
                 tokenStore.clear()
                 throw Unpaired(e)
             }

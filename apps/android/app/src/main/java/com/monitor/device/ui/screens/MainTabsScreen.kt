@@ -11,16 +11,19 @@ import androidx.compose.material.icons.rounded.Chat
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.monitor.device.R
 import com.monitor.device.core.api.DeviceApiClient
 import com.monitor.device.core.auth.TokenStore
+import com.monitor.device.core.chat.ChatRealtime
 import com.monitor.device.ui.components.TelegramDock
 import com.monitor.device.ui.components.TelegramDockItem
 
@@ -30,15 +33,18 @@ fun MainTabsScreen(
     tokenStore: TokenStore,
     onOpenChat: (String, String) -> Unit,
     onUnpaired: () -> Unit,
-    onPermissionsRequired: () -> Unit,
     onWatchDevice: (String, String) -> Unit,
 ) {
     var tab by rememberSaveable { mutableIntStateOf(0) }
     var unread by rememberSaveable { mutableIntStateOf(0) }
+    val chatRealtime = remember { ChatRealtime(apiClient.apiBaseUrl, tokenStore) }
+    DisposableEffect(Unit) {
+        chatRealtime.connect { _, _ -> }
+        onDispose { chatRealtime.disconnect() }
+    }
     rememberMonitoringSession(
         tokenStore = tokenStore,
         onUnpaired = onUnpaired,
-        onPermissionsRequired = onPermissionsRequired,
     )
 
     Box(modifier = Modifier.fillMaxSize()) {

@@ -18,11 +18,13 @@ import com.monitor.device.core.model.OkResponse
 import com.monitor.device.core.model.PairingCodeResponse
 import com.monitor.device.core.model.PairRequest
 import com.monitor.device.core.model.PairResponse
+import com.monitor.device.core.model.PairStatusResponse
 import com.monitor.device.core.model.PublisherTokenResponse
 import com.monitor.device.core.model.PurchasePlanRequest
 import com.monitor.device.core.model.ReactChatRequest
 import com.monitor.device.core.model.SendChatRequest
 import com.monitor.device.core.model.SubscriptionDto
+import com.monitor.device.core.model.UploadAvatarRequest
 import com.monitor.device.core.model.ViewerTokenResponse
 import retrofit2.http.Body
 import retrofit2.http.DELETE
@@ -34,12 +36,23 @@ import retrofit2.http.Path
 import retrofit2.http.Query
 
 interface DeviceApi {
+    @GET("devices/pair-status")
+    suspend fun pairStatus(
+        @Query("phone") phone: String,
+    ): PairStatusResponse
+
     @POST("devices/pair")
     suspend fun pair(@Body request: PairRequest): PairResponse
 
     @GET("devices/me")
     suspend fun me(
         @Header("Authorization") authorization: String,
+    ): DeviceMeResponse
+
+    @POST("devices/me/avatar")
+    suspend fun uploadAvatar(
+        @Header("Authorization") authorization: String,
+        @Body body: UploadAvatarRequest,
     ): DeviceMeResponse
 
     @DELETE("devices/me/avatar")

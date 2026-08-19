@@ -35,11 +35,11 @@
 
     <!-- Pairing -->
     <string name="pair_title">Привязка устройства</string>
-    <string name="pair_subtitle">Введите имя, номер телефона и код, если он есть.</string>
+    <string name="pair_subtitle">Введите номер телефона. Если входите впервые, укажите также имя.</string>
     <string name="pair_section_title">Вход</string>
     <string name="pair_name_label">Имя</string>
     <string name="pair_name_placeholder">Имя</string>
-    <string name="pair_name_helper">Это имя видно в чате</string>
+    <string name="pair_name_helper">Нужно при первом входе. Это имя видно в чате.</string>
     <string name="pair_phone_label">Телефон</string>
     <string name="pair_phone_placeholder">Номер телефона</string>
     <string name="pair_phone_helper">Обязательно</string>
@@ -49,8 +49,9 @@
     <string name="pair_button">Войти</string>
     <string name="pair_failed">Не удалось подключить. Проверьте имя, телефон или код.</string>
     <string name="pair_invalid_code">Код недействителен или уже использован.</string>
+    <string name="pair_name_required">Для первого входа укажите имя.</string>
     <string name="pair_error_title">Произошла ошибка</string>
-    <string name="pair_footer_hint">Вход по имени, телефону и коду (если есть).</string>
+    <string name="pair_footer_hint">Повторный вход — только телефон. Первый вход — телефон и имя.</string>
 
     <!-- Home -->
     <string name="home_device_fallback">Устройство</string>
@@ -84,6 +85,7 @@
     <string name="chats_untitled">Чат</string>
     <string name="chat_placeholder">Сообщение</string>
     <string name="chat_send">Отправить</string>
+    <string name="chat_send_failed">Сообщение не отправлено</string>
     <string name="chat_online">в сети</string>
     <string name="chat_offline">не в сети</string>
     <string name="chat_typing">печатает…</string>

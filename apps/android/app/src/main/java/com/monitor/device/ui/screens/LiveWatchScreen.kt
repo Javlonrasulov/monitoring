@@ -29,8 +29,10 @@ import com.monitor.device.monitoring.stream.WhepViewer
 import com.monitor.device.ui.components.IconPillButton
 import com.monitor.device.ui.theme.MonitorTheme
 import com.monitor.device.ui.theme.Spacing
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.webrtc.SurfaceViewRenderer
+import java.net.URI
 
 @Composable
 fun LiveWatchScreen(
@@ -52,25 +54,22 @@ fun LiveWatchScreen(
     LaunchedEffect(deviceId, renderer) {
         val view = renderer ?: return@LaunchedEffect
         status = waiting
-        runCatching {
-            val token = apiClient.deviceViewerToken(deviceId)
-            if (token.videoEnabled == false) {
-                status = upgrade
-                return@runCatching
-            }
-            viewer.start(token.whepUrl, token.token, token.audioEnabled, view)
-            status = ""
-        }.onFailure {
-            status = if (
-                it.message?.contains("Trial", ignoreCase = true) == true ||
-                it.message?.contains("Upgrade", ignoreCase = true) == true ||
-                it.message?.contains("Pro", ignoreCase = true) == true
-            ) {
-                upgrade
-            } else {
-                failed
-            }
+        var lastError: Throwable? = null
+        repeat(4) { attempt ->
+            runCatching {
+                val token = apiClient.deviceViewerToken(deviceId)
+                if (token.videoEnabled == false) {
+                    status = upgrade
+                    return@LaunchedEffect
+                }
+                val whepUrl = publicStreamUrl(token.whepUrl, apiClient.apiBaseUrl)
+                viewer.start(whepUrl, token.token, token.audioEnabled, view)
+                status = ""
+                return@LaunchedEffect
+            }.onFailure { lastError = it }
+            delay(1_500L * (attempt + 1))
         }
+        status = DeviceApiClient.errorMessage(lastError ?: Exception(), failed)
     }
 
     DisposableEffect(viewer) {
@@ -119,4 +118,22 @@ fun LiveWatchScreen(
             }
         }
     }
+}
+
+private fun publicStreamUrl(streamUrl: String, apiBaseUrl: String): String {
+    return runCatching {
+        val stream = URI(streamUrl)
+        val host = stream.host.orEmpty()
+        if (host.isNotBlank() && host != "localhost" && host != "127.0.0.1") {
+            return streamUrl
+        }
+        val api = URI(apiBaseUrl)
+        URI(
+            api.scheme,
+            api.authority,
+            stream.path,
+            stream.query,
+            stream.fragment,
+        ).toString()
+    }.getOrDefault(streamUrl)
 }

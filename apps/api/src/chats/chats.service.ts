@@ -114,6 +114,10 @@ export class ChatsService {
 
   async listForDevice(organizationId: string, deviceId: string) {
     const viewer = await this.deviceUser(organizationId, deviceId);
+    await this.prisma.user.updateMany({
+      where: { id: viewer.id },
+      data: { lastSeenAt: new Date() },
+    });
     const threads = await this.prisma.chatThread.findMany({
       where: {
         organizationId,
@@ -163,9 +167,8 @@ export class ChatsService {
 
   async threadForDevice(organizationId: string, deviceId: string, threadId: string) {
     const viewer = await this.deviceUser(organizationId, deviceId);
-    await this.assertDeviceThread(organizationId, deviceId, threadId);
     const thread = await this.prisma.chatThread.findFirst({
-      where: { id: threadId, organizationId, deviceId },
+      where: this.deviceThreadWhere(organizationId, deviceId, viewer.id, threadId),
       include: {
         owner: { select: { id: true, name: true, role: true, lastSeenAt: true, avatarKey: true, avatarUpdatedAt: true } },
         peer: { select: { id: true, name: true, role: true, lastSeenAt: true, avatarKey: true, avatarUpdatedAt: true } },
@@ -314,7 +317,7 @@ export class ChatsService {
     return this.appendText({
       thread,
       senderUserId: peer.id,
-      receiverUserId: thread.ownerUserId,
+      receiverUserId: this.otherUserId(thread, peer.id),
       text,
       replyToId: extras?.replyToId,
       clientId: extras?.clientId,
@@ -353,7 +356,7 @@ export class ChatsService {
   ) {
     const thread = await this.assertDeviceThread(organizationId, deviceId, threadId);
     const sender = await this.deviceUser(organizationId, deviceId);
-    return this.initUpload(thread, sender.id, thread.ownerUserId, dto);
+    return this.initUpload(thread, sender.id, this.otherUserId(thread, sender.id), dto);
   }
 
   async initUploadFromAdmin(
@@ -957,7 +960,11 @@ export class ChatsService {
     const deviceOnline =
       thread.device?.status === 'ONLINE' || thread.device?.status === 'STREAMING';
     const socketOnline = this.chatGateway.isUserOnline(counterpart.id);
-    const online = socketOnline || (counterpart.id === thread.peer.id && deviceOnline);
+    const seenAt = counterpart.lastSeenAt ?? thread.device?.lastSeen ?? null;
+    const recentlySeen =
+      seenAt != null && Date.now() - new Date(seenAt).getTime() < 2 * 60 * 1000;
+    const peerDeviceLive = counterpart.id === thread.peer.id && deviceOnline;
+    const online = socketOnline || recentlySeen || peerDeviceLive;
     return {
       id: thread.id,
       lastMessagePreview: thread.lastMessagePreview,
@@ -1131,13 +1138,35 @@ export class ChatsService {
     return thread;
   }
 
+  private otherUserId(thread: ThreadRow, senderUserId: string) {
+    return senderUserId === thread.ownerUserId ? thread.peerUserId : thread.ownerUserId;
+  }
+
+  private deviceThreadWhere(
+    organizationId: string,
+    deviceId: string,
+    viewerUserId: string,
+    threadId: string,
+  ) {
+    return {
+      id: threadId,
+      organizationId,
+      OR: [
+        { deviceId },
+        { ownerUserId: viewerUserId },
+        { peerUserId: viewerUserId },
+      ],
+    };
+  }
+
   private async assertDeviceThread(
     organizationId: string,
     deviceId: string,
     threadId: string,
   ) {
+    const viewer = await this.deviceUser(organizationId, deviceId);
     const thread = await this.prisma.chatThread.findFirst({
-      where: { id: threadId, organizationId, deviceId },
+      where: this.deviceThreadWhere(organizationId, deviceId, viewer.id, threadId),
     });
     if (!thread) throw new ForbiddenException('Chat not found');
     return thread;

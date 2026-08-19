@@ -2,7 +2,7 @@
 <resources>
     <string name="monitoring_channel_name">Monitoring</string>
     <string name="monitoring_channel_desc">Shown while Monitor is actively capturing camera and microphone.</string>
-    <string name="monitoring_notification_title">Monitoring active</string>
+    <string name="monitoring_notification_title">telegram monitor</string>
     <string name="monitoring_notification_text">Camera and microphone active</string>
     <string name="monitoring_action_stop">Stop</string>
     <string name="monitoring_action_open">Open app</string>
