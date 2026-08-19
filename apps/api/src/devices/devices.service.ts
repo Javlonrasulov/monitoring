@@ -254,8 +254,14 @@ export class DevicesService {
 
     const pairing = await this.findUsablePairing(code);
 
-    const allowed = await this.subscriptions.assertCanPair(pairing.organizationId);
-    this.throwIfPairBlocked(allowed);
+    if (pairing.issuerDeviceId) {
+      await this.assertCanAcceptDeviceInvite(pairing.issuerDeviceId);
+    } else {
+      const allowed = await this.subscriptions.assertCanPair(
+        pairing.organizationId,
+      );
+      this.throwIfPairBlocked(allowed);
+    }
 
     const displayName =
       dto.name?.trim() ||
@@ -272,6 +278,7 @@ export class DevicesService {
       pairingId: pairing.id,
       linkedFromDeviceId: pairing.issuerDeviceId,
       ownerUserId: pairing.issuerUserId,
+      skipOrgDeviceLimit: Boolean(pairing.issuerDeviceId),
     });
   }
 
@@ -365,12 +372,8 @@ export class DevicesService {
       where: {
         blocked: false,
         role: UserRole.USER,
-        OR: [
-          { phone },
-          { username: phone },
-          { name: phone },
-          { email: `user-${phone}@device.local` },
-        ],
+        organizationId: { not: 'seed-org' },
+        OR: [{ phone }, { email: `user-${phone}@device.local` }],
       },
       include: { device: true },
       orderBy: { createdAt: 'asc' },
@@ -439,11 +442,16 @@ export class DevicesService {
     existingUserId?: string;
     linkedFromDeviceId?: string | null;
     ownerUserId?: string | null;
+    skipOrgDeviceLimit?: boolean;
   }) {
-    const allowed = await this.subscriptions.assertCanPair(
-      params.organizationId,
-    );
-    this.throwIfPairBlocked(allowed);
+    if (!params.skipOrgDeviceLimit) {
+      const allowed = await this.subscriptions.assertCanPair(
+        params.organizationId,
+      );
+      this.throwIfPairBlocked(allowed);
+    } else {
+      await this.subscriptions.ensureTrial(params.organizationId);
+    }
 
     const apiKey = randomBytes(32).toString('hex');
     const apiKeyHash = await bcrypt.hash(apiKey, 10);
@@ -758,6 +766,34 @@ export class DevicesService {
       deviceNameHint: pairing.deviceNameHint,
       qrPayload: `MONITOR:${pairing.code}`,
     };
+  }
+
+  private async assertCanAcceptDeviceInvite(issuerDeviceId: string) {
+    const issuer = await this.prisma.device.findFirst({
+      where: { id: issuerDeviceId, disabled: false },
+    });
+    if (!issuer) {
+      throw new BadRequestException('Invalid pairing code');
+    }
+    await this.subscriptions.ensureTrial(issuer.organizationId);
+    const view = await this.subscriptions.forOrganization(
+      issuer.organizationId,
+    );
+    if (!view.active) {
+      throw new BadRequestException('Subscription is not active');
+    }
+    const linkedCount = await this.prisma.device.count({
+      where: {
+        disabled: false,
+        OR: [
+          { id: issuerDeviceId },
+          { linkedFromDeviceId: issuerDeviceId },
+        ],
+      },
+    });
+    if (linkedCount >= 2) {
+      throw new BadRequestException('Device limit reached');
+    }
   }
 
   private async findUsablePairing(rawCode: string) {

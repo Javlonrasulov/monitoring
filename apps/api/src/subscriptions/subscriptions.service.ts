@@ -51,7 +51,7 @@ export class SubscriptionsService {
     const canWatchVideo = active;
     const canWatchAudio = active && plan === SubscriptionPlan.PRO_PLUS;
     const canRecordings = canWatchAudio;
-    const canLinkTwoApps = active && plan === SubscriptionPlan.PRO_PLUS;
+    const canLinkTwoApps = active;
 
     return {
       id: sub?.id ?? null,
@@ -160,7 +160,7 @@ export class SubscriptionsService {
     if (plan === SubscriptionPlan.PRO || plan === SubscriptionPlan.PRO_PLUS) {
       return 2;
     }
-    return 1;
+    return 2;
   }
 
   private effectiveStatus(
