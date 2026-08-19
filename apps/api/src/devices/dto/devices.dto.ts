@@ -22,13 +22,20 @@ export class CreatePairingCodeDto {
 }
 
 export class PairDeviceDto {
-  @ApiProperty({ example: 'AB12CD' })
+  @ApiPropertyOptional({ example: 'AB12CD' })
+  @IsOptional()
   @IsString()
-  code!: string;
+  code?: string;
 
-  @ApiProperty({ example: '1-qavat kirish' })
+  @ApiPropertyOptional({ example: '1-qavat kirish' })
+  @IsOptional()
   @IsString()
-  name!: string;
+  name?: string;
+
+  @ApiPropertyOptional({ example: '+998901234567' })
+  @IsOptional()
+  @IsString()
+  phone?: string;
 
   @ApiPropertyOptional()
   @IsOptional()

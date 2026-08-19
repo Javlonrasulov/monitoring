@@ -37,16 +37,16 @@
 
     <!-- Pairing -->
     <string name="pair_title">Qurilmani ulash</string>
-    <string name="pair_subtitle">Admin paneldan olingan ulanish kodini kiriting va bu qurilmaga nom bering.</string>
-    <string name="pair_section_title">Ulanish maʼlumotlari</string>
-    <string name="pair_code_label">Ulanish kodi</string>
+    <string name="pair_subtitle">Agar admin kod bersa, kodni kiriting. Kod boʻlmasa, telefon raqamingiz bilan kiring.</string>
+    <string name="pair_section_title">Ulanish</string>
+    <string name="pair_code_label">Ulanish kodi (ixtiyoriy)</string>
     <string name="pair_code_placeholder">Masalan: A1B2C3</string>
-    <string name="pair_code_helper">Kod admin panelida koʻrsatiladi</string>
-    <string name="pair_device_name_label">Qurilma nomi</string>
-    <string name="pair_device_name_placeholder">Masalan: Qabulxona telefoni</string>
-    <string name="pair_device_name_helper">Bu nom admin panelida koʻrinadi</string>
-    <string name="pair_button">Ulash</string>
-    <string name="pair_failed">Ulanib boʻlmadi. Kodni tekshirib, qayta urinib koʻring.</string>
+    <string name="pair_code_helper">Kod boʻlsa, admin paneldan oling</string>
+    <string name="pair_phone_label">Telefon raqami</string>
+    <string name="pair_phone_placeholder">+998 90 123 45 67</string>
+    <string name="pair_phone_helper">Kod boʻlmasa, shu raqam bilan kirasiz</string>
+    <string name="pair_button">Kirish</string>
+    <string name="pair_failed">Ulanib boʻlmadi. Kod yoki telefon raqamini tekshiring.</string>
     <string name="pair_error_title">Xatolik</string>
     <string name="pair_footer_hint">Qurilma faqat siz ruxsat bergan tashkilotga ulanadi.</string>
 

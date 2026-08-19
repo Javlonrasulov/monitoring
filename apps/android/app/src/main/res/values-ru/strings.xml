@@ -36,16 +36,16 @@
 
     <!-- Pairing -->
     <string name="pair_title">Привязка устройства</string>
-    <string name="pair_subtitle">Введите код привязки из админ-панели и укажите имя этого устройства.</string>
-    <string name="pair_section_title">Данные привязки</string>
-    <string name="pair_code_label">Код привязки</string>
+    <string name="pair_subtitle">Если есть код из админ-панели — введите его. Если кода нет — войдите по номеру телефона.</string>
+    <string name="pair_section_title">Вход</string>
+    <string name="pair_code_label">Код привязки (необязательно)</string>
     <string name="pair_code_placeholder">Например: A1B2C3</string>
-    <string name="pair_code_helper">Код показан в админ-панели</string>
-    <string name="pair_device_name_label">Имя устройства</string>
-    <string name="pair_device_name_placeholder">Например: Телефон ресепшн</string>
-    <string name="pair_device_name_helper">Это имя отображается в админ-панели</string>
-    <string name="pair_button">Привязать</string>
-    <string name="pair_failed">Не удалось привязать. Проверьте код и попробуйте снова.</string>
+    <string name="pair_code_helper">Код берётся из админ-панели, если он есть</string>
+    <string name="pair_phone_label">Номер телефона</string>
+    <string name="pair_phone_placeholder">+998 90 123 45 67</string>
+    <string name="pair_phone_helper">Если кода нет, входите по этому номеру</string>
+    <string name="pair_button">Войти</string>
+    <string name="pair_failed">Не удалось подключить. Проверьте код или номер телефона.</string>
     <string name="pair_error_title">Произошла ошибка</string>
     <string name="pair_footer_hint">Устройство подключается только к той организации, которую вы подтвердили.</string>
 

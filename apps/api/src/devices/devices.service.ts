@@ -167,8 +167,20 @@ export class DevicesService {
   }
 
   async pairDevice(dto: PairDeviceDto) {
+    const phone = this.normalizePhone(dto.phone);
+    const rawCode = (dto.code ?? '').replace(/^MONITOR:/i, '').trim();
+    const code = rawCode ? rawCode.toUpperCase() : '';
+
+    if (!code && !phone) {
+      throw new BadRequestException('Pairing code or phone is required');
+    }
+
+    if (!code && phone) {
+      return this.resumeByPhone(phone, dto);
+    }
+
     const pairing = await this.prisma.devicePairingCode.findUnique({
-      where: { code: dto.code.replace(/^MONITOR:/i, '').trim().toUpperCase() },
+      where: { code },
     });
 
     if (!pairing || pairing.usedAt || pairing.expiresAt <= new Date()) {
@@ -184,13 +196,19 @@ export class DevicesService {
       );
     }
 
+    const displayName =
+      phone ||
+      dto.name?.trim() ||
+      dto.deviceModel?.trim() ||
+      'Device';
+
     const apiKey = randomBytes(32).toString('hex');
     const apiKeyHash = await bcrypt.hash(apiKey, 10);
 
     const device = await this.prisma.$transaction(async (tx) => {
       const created = await tx.device.create({
         data: {
-          name: dto.name,
+          name: displayName,
           organizationId: pairing.organizationId,
           branchId: pairing.branchId,
           status: DeviceStatus.ONLINE,
@@ -230,8 +248,9 @@ export class DevicesService {
       data: {
         email: `user-${device.id}@device.local`,
         passwordHash,
-        name: dto.name,
-        username: dto.name,
+        name: displayName,
+        username: displayName,
+        phone,
         role: UserRole.USER,
         organizationId: device.organizationId,
         deviceId: device.id,
@@ -355,6 +374,71 @@ export class DevicesService {
     }
 
     return this.withCameraFacing(updated);
+  }
+
+  private async resumeByPhone(
+    phone: string,
+    dto: PairDeviceDto,
+  ) {
+    const user = await this.prisma.user.findFirst({
+      where: {
+        blocked: false,
+        deviceId: { not: null },
+        OR: [{ phone }, { username: phone }, { name: phone }],
+      },
+      include: { device: true },
+    });
+    const device = user?.device;
+    if (!device || device.disabled) {
+      throw new BadRequestException('Invalid pairing code');
+    }
+
+    const deviceToken = await this.jwt.signAsync(
+      {
+        sub: device.id,
+        organizationId: device.organizationId,
+        branchId: device.branchId,
+        typ: 'device',
+      },
+      {
+        secret: this.config.getOrThrow<string>('DEVICE_JWT_SECRET'),
+        expiresIn: (this.config.get<string>('DEVICE_JWT_EXPIRES_IN') ??
+          '30d') as `${number}d`,
+      },
+    );
+
+    await this.prisma.device.update({
+      where: { id: device.id },
+      data: {
+        lastSeen: new Date(),
+        appVersion: dto.appVersion ?? undefined,
+        androidVersion: dto.androidVersion ?? undefined,
+        deviceModel: dto.deviceModel ?? undefined,
+      },
+    });
+
+    const thread = await this.prisma.chatThread.findFirst({
+      where: { deviceId: device.id },
+      select: { id: true },
+    });
+
+    return {
+      deviceId: device.id,
+      name: device.name,
+      organizationId: device.organizationId,
+      branchId: device.branchId,
+      deviceToken,
+      apiKey: '',
+      userId: user.id,
+      threadId: thread?.id ?? null,
+    };
+  }
+
+  private normalizePhone(value?: string | null): string | null {
+    if (!value) return null;
+    const digits = value.replace(/\D/g, '');
+    if (digits.length < 9) return null;
+    return digits;
   }
 
   async disableDevice(

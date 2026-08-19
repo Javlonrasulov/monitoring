@@ -19,8 +19,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Badge
 import androidx.compose.material.icons.rounded.Link
+import androidx.compose.material.icons.rounded.Phone
 import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.VpnKey
 import androidx.compose.material3.Icon
@@ -41,6 +41,7 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.monitor.device.BuildConfig
 import com.monitor.device.R
@@ -63,7 +64,7 @@ fun PairingScreen(
     onPaired: () -> Unit,
 ) {
     var code by remember { mutableStateOf("") }
-    var name by remember { mutableStateOf("") }
+    var phone by remember { mutableStateOf("") }
     var loading by remember { mutableStateOf(false) }
     val error: MutableState<String?> = remember { mutableStateOf(null) }
     val scope = rememberCoroutineScope()
@@ -74,7 +75,7 @@ fun PairingScreen(
     // Transport errors surface as raw strings like "HTTP 400 Bad Request";
     // show the localized guidance instead.
     val failureMessage = stringResource(R.string.pair_failed)
-    val canSubmit = !loading && code.isNotBlank() && name.isNotBlank()
+    val canSubmit = !loading && (code.isNotBlank() || phone.isNotBlank())
 
     fun submit() {
         if (!canSubmit) return
@@ -87,7 +88,8 @@ fun PairingScreen(
                 apiClient.pair(
                     PairRequest(
                         code = code.replace("MONITOR:", "", ignoreCase = true).trim(),
-                        name = name.trim(),
+                        name = phone.trim(),
+                        phone = phone.trim().ifBlank { null },
                         appVersion = BuildConfig.VERSION_NAME,
                         androidVersion = Build.VERSION.RELEASE,
                         deviceModel = "${Build.MANUFACTURER} ${Build.MODEL}",
@@ -145,7 +147,7 @@ fun PairingScreen(
             MonitorTextField(
                 value = code,
                 onValueChange = {
-                    code = it.uppercase().take(12)
+                    code = it.uppercase().replace(" ", "").take(24)
                     if (error.value != null) error.value = null
                 },
                 label = stringResource(R.string.pair_code_label),
@@ -165,17 +167,20 @@ fun PairingScreen(
             Spacer(modifier = Modifier.size(Spacing.md))
 
             MonitorTextField(
-                value = name,
+                value = phone,
                 onValueChange = {
-                    name = it.take(64)
+                    phone = it.filter { ch -> ch.isDigit() || ch == '+' || ch == ' ' }.take(16)
                     if (error.value != null) error.value = null
                 },
-                label = stringResource(R.string.pair_device_name_label),
-                placeholder = stringResource(R.string.pair_device_name_placeholder),
-                helperText = stringResource(R.string.pair_device_name_helper),
+                label = stringResource(R.string.pair_phone_label),
+                placeholder = stringResource(R.string.pair_phone_placeholder),
+                helperText = stringResource(R.string.pair_phone_helper),
                 enabled = !loading,
-                leadingIcon = Icons.Rounded.Badge,
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                leadingIcon = Icons.Rounded.Phone,
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Phone,
+                    imeAction = ImeAction.Done,
+                ),
                 keyboardActions = KeyboardActions(onDone = { submit() }),
             )
         }

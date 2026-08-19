@@ -36,16 +36,16 @@
 
     <!-- Pairing -->
     <string name="pair_title">Pair device</string>
-    <string name="pair_subtitle">Enter the pairing code from the admin console and give this device a name.</string>
-    <string name="pair_section_title">Pairing details</string>
-    <string name="pair_code_label">Pairing code</string>
+    <string name="pair_subtitle">Enter the admin pairing code. If you don’t have a code, sign in with your phone number.</string>
+    <string name="pair_section_title">Sign in</string>
+    <string name="pair_code_label">Pairing code (optional)</string>
     <string name="pair_code_placeholder">For example: A1B2C3</string>
-    <string name="pair_code_helper">The code is shown in the admin console</string>
-    <string name="pair_device_name_label">Device name</string>
-    <string name="pair_device_name_placeholder">For example: Reception phone</string>
-    <string name="pair_device_name_helper">This name appears in the admin console</string>
-    <string name="pair_button">Pair device</string>
-    <string name="pair_failed">Pairing failed. Check the code and try again.</string>
+    <string name="pair_code_helper">Use the code from the admin console if you have one</string>
+    <string name="pair_phone_label">Phone number</string>
+    <string name="pair_phone_placeholder">+998 90 123 45 67</string>
+    <string name="pair_phone_helper">If you have no code, enter with this number</string>
+    <string name="pair_button">Continue</string>
+    <string name="pair_failed">Could not connect. Check the code or phone number.</string>
     <string name="pair_error_title">Something went wrong</string>
     <string name="pair_footer_hint">This device only connects to the organization you approve.</string>
 

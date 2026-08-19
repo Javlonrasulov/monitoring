@@ -5,8 +5,9 @@ import kotlinx.serialization.json.JsonObject
 
 @Serializable
 data class PairRequest(
-    val code: String,
-    val name: String,
+    val code: String = "",
+    val name: String = "",
+    val phone: String? = null,
     val capabilities: JsonObject? = null,
     val appVersion: String? = null,
     val androidVersion: String? = null,
