@@ -1,14 +1,13 @@
 package com.monitor.device.ui.screens
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Notifications
-import androidx.compose.material.icons.rounded.Security
 import androidx.compose.material.icons.rounded.Smartphone
 import androidx.compose.material.icons.rounded.WorkspacePremium
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -66,9 +65,9 @@ fun ProfileScreen(
             )
             if (!active) {
                 Spacer(modifier = Modifier.size(Spacing.sm))
-                androidx.compose.material3.Text(
+                Text(
                     text = stringResource(R.string.profile_inactive_message),
-                    style = androidx.compose.material3.MaterialTheme.typography.bodyMedium,
+                    style = MaterialTheme.typography.bodyMedium,
                     color = colors.textMuted,
                 )
             }
@@ -85,11 +84,6 @@ fun ProfileScreen(
                 stringResource(R.string.profile_notifications),
                 stringResource(R.string.home_badge_live),
                 icon = Icons.Rounded.Notifications,
-            )
-            InfoRow(
-                stringResource(R.string.profile_security),
-                stringResource(R.string.home_transparency_note),
-                icon = Icons.Rounded.Security,
             )
         }
 

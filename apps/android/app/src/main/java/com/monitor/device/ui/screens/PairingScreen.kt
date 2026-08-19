@@ -72,10 +72,9 @@ fun PairingScreen(
     val keyboard = LocalSoftwareKeyboardController.current
     val colors = MonitorTheme.colors
 
-    // Transport errors surface as raw strings like "HTTP 400 Bad Request";
-    // show the localized guidance instead.
     val failureMessage = stringResource(R.string.pair_failed)
-    val canSubmit = !loading && (code.isNotBlank() || phone.isNotBlank())
+    val phoneDigits = phone.filter { it.isDigit() }
+    val canSubmit = !loading && (code.isNotBlank() || phoneDigits.length >= 9)
 
     fun submit() {
         if (!canSubmit) return
@@ -215,13 +214,6 @@ fun PairingScreen(
                 color = colors.textMuted,
             )
         }
-
-        Spacer(modifier = Modifier.size(Spacing.sm))
-        Text(
-            text = stringResource(R.string.pair_qr_hint),
-            style = MaterialTheme.typography.bodySmall,
-            color = colors.textMuted,
-        )
 
         Spacer(
             modifier = Modifier

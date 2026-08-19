@@ -37,18 +37,18 @@
 
     <!-- Pairing -->
     <string name="pair_title">Qurilmani ulash</string>
-    <string name="pair_subtitle">Agar admin kod bersa, kodni kiriting. Kod boʻlmasa, telefon raqamingiz bilan kiring.</string>
+    <string name="pair_subtitle">Ulanish kodi boʻlsa, uni yozing. Kod boʻlmasa, telefon raqami yetadi.</string>
     <string name="pair_section_title">Ulanish</string>
-    <string name="pair_code_label">Ulanish kodi (ixtiyoriy)</string>
+    <string name="pair_code_label">Ulanish kodi</string>
     <string name="pair_code_placeholder">Masalan: A1B2C3</string>
-    <string name="pair_code_helper">Kod boʻlsa, admin paneldan oling</string>
+    <string name="pair_code_helper">Ixtiyoriy — boʻlmasa boʻsh qoldiring</string>
     <string name="pair_phone_label">Telefon raqami</string>
-    <string name="pair_phone_placeholder">+998 90 123 45 67</string>
-    <string name="pair_phone_helper">Kod boʻlmasa, shu raqam bilan kirasiz</string>
+    <string name="pair_phone_placeholder">Nomer telefona</string>
+    <string name="pair_phone_helper">Kod boʻlmasa, shu raqam bilan kiring</string>
     <string name="pair_button">Kirish</string>
     <string name="pair_failed">Ulanib boʻlmadi. Kod yoki telefon raqamini tekshiring.</string>
     <string name="pair_error_title">Xatolik</string>
-    <string name="pair_footer_hint">Qurilma faqat siz ruxsat bergan tashkilotga ulanadi.</string>
+    <string name="pair_footer_hint">Kod yoki telefon raqami bilan ulanadi.</string>
 
     <!-- Home -->
     <string name="home_device_fallback">Qurilma</string>
@@ -69,13 +69,12 @@
     <string name="home_stop_monitoring">Monitoringni toʻxtatish</string>
     <string name="home_unpair">Qurilmani uzish</string>
     <string name="home_unpair_title">Qurilma uzilsinmi?</string>
-    <string name="home_unpair_message">Ulanish maʼlumotlari oʻchiriladi va monitoring toʻxtaydi. Qayta ulash uchun yangi kod kerak boʻladi.</string>
+    <string name="home_unpair_message">Ulanish maʼlumotlari oʻchiriladi va monitoring toʻxtaydi. Qayta kirish uchun telefon raqamingiz kerak boʻladi.</string>
     <string name="home_unpair_confirm">Uzish</string>
     <string name="home_transparency_note">Hech narsa yashirincha ishlamaydi — monitoring vaqtida bildirishnoma doim koʻrinadi.</string>
 
-    <string name="pair_qr_hint">Yoki admin panelidagi QR kodni skanerlab, MONITOR: kodini shu yerga kiriting.</string>
     <string name="nav_chats">Chatlar</string>
-    <string name="nav_devices">Qurilmalar</string>
+    <string name="nav_settings">Sozlamalar</string>
     <string name="nav_profile">Profil</string>
     <string name="chats_search">Qidirish</string>
     <string name="chats_empty_title">Hali chat yoʻq</string>
@@ -83,6 +82,39 @@
     <string name="chats_untitled">Suhbat</string>
     <string name="chat_placeholder">Xabar yozing</string>
     <string name="chat_send">Yuborish</string>
+    <string name="chat_online">onlayn</string>
+    <string name="chat_offline">oflayn</string>
+    <string name="chat_typing">yozmoqda…</string>
+    <string name="chat_last_seen">oxirgi faollik: %1$s</string>
+    <string name="chat_last_seen_recently">yaqinda onlayn edi</string>
+    <string name="chat_reply">Javob</string>
+    <string name="chat_copy">Nusxa</string>
+    <string name="chat_forward">Uzatish</string>
+    <string name="chat_edit">Tahrirlash</string>
+    <string name="chat_delete">O‘chirish</string>
+    <string name="chat_select">Tanlash</string>
+    <string name="chat_share">Ulashish</string>
+    <string name="chat_delete_me">O‘zim uchun o‘chirish</string>
+    <string name="chat_delete_everyone">Hammaga o‘chirish</string>
+    <string name="chat_photo">Rasm</string>
+    <string name="chat_video">Video</string>
+    <string name="chat_file">Fayl</string>
+    <string name="chat_document">Hujjat</string>
+    <string name="chat_recording">Yozilmoqda</string>
+    <string name="chat_attach">Ilova</string>
+    <string name="chat_voice">Ovozli xabar</string>
+    <string name="chat_video_note">Video xabar</string>
+    <string name="chat_upload_failed">Yuklash muvaffaqiyatsiz</string>
+    <string name="chat_today">Bugun</string>
+    <string name="chat_yesterday">Kecha</string>
+    <string name="chat_search_messages">Xabarlar bo‘yicha qidirish</string>
+    <string name="chat_media">Media</string>
+    <string name="chat_files">Fayllar</string>
+    <string name="chat_links">Havolalar</string>
+    <string name="chat_voice_tab">Ovoz</string>
+    <string name="chat_preview_send">Yuborishdan oldin ko‘rish</string>
+    <string name="chat_settings">Chat sozlamalari</string>
+    <string name="chat_camera_busy">Kamera band. Live monitoring ishlayotgan bo‘lishi mumkin.</string>
     <string name="profile_subscription">Monitoring Telegram Premium</string>
     <string name="profile_status">Holat</string>
     <string name="profile_devices">Qurilmalar</string>

@@ -89,3 +89,13 @@ export const api = {
   delete: <T>(path: string, body?: unknown, options?: RequestOptions) =>
     apiFetch<T>(path, { ...options, method: "DELETE", body }),
 };
+
+export async function authorizedMediaUrl(path: string): Promise<string> {
+  const token = getStoredToken();
+  const res = await fetch(`${API_URL}${path}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+  });
+  if (!res.ok) throw new Error("Media download failed");
+  const blob = await res.blob();
+  return URL.createObjectURL(blob);
+}

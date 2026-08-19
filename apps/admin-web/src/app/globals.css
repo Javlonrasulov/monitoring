@@ -23,6 +23,30 @@
   --shadow: 0 1px 2px rgba(15, 28, 31, 0.06), 0 8px 24px rgba(15, 28, 31, 0.04);
   --radius: 12px;
   --font-sans: var(--font-dm-sans), "Segoe UI", sans-serif;
+  --msg-mine: #0f766e;
+  --msg-theirs: #ffffff;
+  --msg-wallpaper: #e7eef0;
+}
+
+html[data-theme="dark"] {
+  --bg: #071110;
+  --bg-elevated: #0e1a19;
+  --fg: #eaf4f2;
+  --muted: #8aa09c;
+  --border: #1e3330;
+  --teal-50: #11332f;
+  --teal-100: #0f2a27;
+  --teal-500: #2dd4bf;
+  --teal-600: #14b8a6;
+  --teal-700: #5eead4;
+  --slate-700: #cbd5e1;
+  --slate-800: #e2e8f0;
+  --danger: #fb7185;
+  --danger-bg: #3d1220;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.35), 0 8px 24px rgba(0, 0, 0, 0.28);
+  --msg-mine: #1a6b64;
+  --msg-theirs: #1c2b29;
+  --msg-wallpaper: #0b1413;
 }
 
 @theme inline {
@@ -86,9 +110,10 @@ select {
 }
 
 .admin-header-inner {
-  max-width: 1120px;
-  margin: 0 auto;
-  padding: 0.75rem max(1rem, env(safe-area-inset-right)) 0.75rem max(1rem, env(safe-area-inset-left));
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 0.75rem max(1.25rem, env(safe-area-inset-right)) 0.75rem max(1.25rem, env(safe-area-inset-left));
   display: flex;
   align-items: center;
   gap: 1.5rem;
@@ -245,9 +270,9 @@ select {
 
 .admin-main {
   width: 100%;
-  max-width: 1120px;
-  margin: 0 auto;
-  padding: 1.25rem max(1rem, env(safe-area-inset-right)) max(1.75rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
+  max-width: none;
+  margin: 0;
+  padding: 1.25rem max(1.25rem, env(safe-area-inset-right)) max(1.75rem, env(safe-area-inset-bottom)) max(1.25rem, env(safe-area-inset-left));
   flex: 1;
   min-width: 0;
 }
@@ -1197,4 +1222,218 @@ select {
 .list li {
   padding: 0.85rem 0;
   border-bottom: 1px solid color-mix(in srgb, currentColor 12%, transparent);
+}
+
+.msg-thread-list {
+  list-style: none;
+  padding: 0;
+  margin: 1rem 0 0;
+}
+.msg-thread-row {
+  display: flex;
+  gap: 0.85rem;
+  align-items: center;
+  padding: 0.85rem 0.4rem;
+  border-bottom: 1px solid var(--border);
+}
+.msg-thread-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+.msg-thread-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.35rem;
+}
+.msg-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--teal-600);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  position: relative;
+  flex-shrink: 0;
+}
+.msg-avatar.is-online::after {
+  content: "";
+  position: absolute;
+  right: 1px;
+  bottom: 1px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #2dd4bf;
+  border: 2px solid var(--bg-elevated);
+}
+.msg-unread {
+  min-width: 1.4rem;
+  height: 1.4rem;
+  padding: 0 0.4rem;
+  border-radius: 999px;
+  background: var(--teal-600);
+  color: #fff;
+  font-size: 0.75rem;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+}
+.msg-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100vh - 6rem);
+  background: var(--msg-wallpaper);
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+.msg-top {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  background: color-mix(in srgb, var(--bg-elevated) 92%, transparent);
+  border-bottom: 1px solid var(--border);
+}
+.msg-peer {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex: 1;
+}
+.msg-search {
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  color: var(--fg);
+  border-radius: 999px;
+  padding: 0.45rem 0.85rem;
+  min-width: 12rem;
+}
+.msg-tabs {
+  display: flex;
+  gap: 0.35rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--bg-elevated);
+}
+.msg-tabs button {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  padding: 0.4rem 0.75rem;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.msg-tabs button.is-active {
+  background: var(--teal-50);
+  color: var(--teal-700);
+  font-weight: 600;
+}
+.msg-stream {
+  flex: 1;
+  overflow: auto;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+.msg-day {
+  align-self: center;
+  background: color-mix(in srgb, #000 28%, transparent);
+  color: #fff;
+  font-size: 0.75rem;
+  padding: 0.2rem 0.7rem;
+  border-radius: 999px;
+  margin: 0.5rem 0;
+}
+.msg-bubble {
+  max-width: min(72%, 420px);
+  align-self: flex-start;
+  background: var(--msg-theirs);
+  color: var(--fg);
+  border-radius: 16px 16px 16px 5px;
+  padding: 0.55rem 0.75rem;
+  box-shadow: var(--shadow);
+}
+.msg-bubble.is-mine {
+  align-self: flex-end;
+  background: var(--msg-mine);
+  color: #fff;
+  border-radius: 16px 16px 5px 16px;
+}
+.msg-meta {
+  font-size: 0.7rem;
+  opacity: 0.75;
+  text-align: right;
+  margin-top: 0.25rem;
+}
+.msg-reply, .msg-reply-draft {
+  background: color-mix(in srgb, #000 16%, transparent);
+  border-radius: 8px;
+  padding: 0.3rem 0.5rem;
+  margin-bottom: 0.35rem;
+  font-size: 0.8rem;
+}
+.msg-photo, .msg-video {
+  max-width: 100%;
+  border-radius: 10px;
+  display: block;
+}
+.msg-note {
+  width: 180px;
+  height: 180px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+.msg-composer {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  background: var(--bg-elevated);
+  border-top: 1px solid var(--border);
+}
+.msg-composer input {
+  flex: 1;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.7rem 1rem;
+  background: var(--bg);
+  color: var(--fg);
+}
+.msg-composer button, .msg-menu button {
+  border: 0;
+  background: var(--teal-600);
+  color: #fff;
+  border-radius: 999px;
+  padding: 0.65rem 1rem;
+  cursor: pointer;
+}
+.msg-menu {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  padding: 0.6rem 0.75rem;
+  background: var(--bg-elevated);
+}
+.msg-viewer-note {
+  padding: 0.85rem 1rem;
+}
+.msg-reactions {
+  display: flex;
+  gap: 0.35rem;
+  margin-top: 0.3rem;
+  font-size: 0.8rem;
+}
+.msg-search-hits, .msg-media-grid {
+  list-style: none;
+  padding: 0.75rem 1rem;
+  margin: 0;
+}
+.msg-deleted {
+  font-style: italic;
+  opacity: 0.8;
 }

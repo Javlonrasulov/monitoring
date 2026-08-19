@@ -171,12 +171,11 @@ export class DevicesService {
     const rawCode = (dto.code ?? '').replace(/^MONITOR:/i, '').trim();
     const code = rawCode ? rawCode.toUpperCase() : '';
 
-    if (!code && !phone) {
-      throw new BadRequestException('Pairing code or phone is required');
-    }
-
-    if (!code && phone) {
-      return this.resumeByPhone(phone, dto);
+    if (!code) {
+      if (!phone) {
+        throw new BadRequestException('Phone is required');
+      }
+      return this.pairByPhone(phone, dto);
     }
 
     const pairing = await this.prisma.devicePairingCode.findUnique({
@@ -202,93 +201,14 @@ export class DevicesService {
       dto.deviceModel?.trim() ||
       'Device';
 
-    const apiKey = randomBytes(32).toString('hex');
-    const apiKeyHash = await bcrypt.hash(apiKey, 10);
-
-    const device = await this.prisma.$transaction(async (tx) => {
-      const created = await tx.device.create({
-        data: {
-          name: displayName,
-          organizationId: pairing.organizationId,
-          branchId: pairing.branchId,
-          status: DeviceStatus.ONLINE,
-          lastSeen: new Date(),
-          apiKeyHash,
-          capabilitiesJson: (dto.capabilities ?? {}) as Prisma.InputJsonValue,
-          appVersion: dto.appVersion,
-          androidVersion: dto.androidVersion,
-          deviceModel: dto.deviceModel,
-        },
-      });
-
-      await tx.devicePairingCode.update({
-        where: { id: pairing.id },
-        data: { usedAt: new Date(), deviceId: created.id },
-      });
-
-      return created;
+    return this.createPairedDevice({
+      organizationId: pairing.organizationId,
+      branchId: pairing.branchId,
+      displayName,
+      dto,
+      phone,
+      pairingId: pairing.id,
     });
-
-    const deviceToken = await this.jwt.signAsync(
-      {
-        sub: device.id,
-        organizationId: device.organizationId,
-        branchId: device.branchId,
-        typ: 'device',
-      },
-      {
-        secret: this.config.getOrThrow<string>('DEVICE_JWT_SECRET'),
-        expiresIn: (this.config.get<string>('DEVICE_JWT_EXPIRES_IN') ??
-          '30d') as `${number}d`,
-      },
-    );
-
-    const passwordHash = await bcrypt.hash(randomBytes(16).toString('hex'), 10);
-    const linkedUser = await this.prisma.user.create({
-      data: {
-        email: `user-${device.id}@device.local`,
-        passwordHash,
-        name: displayName,
-        username: displayName,
-        phone,
-        role: UserRole.USER,
-        organizationId: device.organizationId,
-        deviceId: device.id,
-        lastSeenAt: new Date(),
-      },
-    });
-
-    const thread = await this.chats.ensureThreadForPairedDevice({
-      organizationId: device.organizationId,
-      deviceId: device.id,
-      deviceName: device.name,
-      peerUserId: linkedUser.id,
-    });
-
-    await this.audit.log({
-      organizationId: device.organizationId,
-      action: 'device.paired',
-      resourceType: 'Device',
-      resourceId: device.id,
-      metadata: { name: device.name, userId: linkedUser.id },
-    });
-
-    this.events.emitToOrg(device.organizationId, 'device.online', {
-      deviceId: device.id,
-      status: DeviceStatus.ONLINE,
-      lastSeen: device.lastSeen?.toISOString(),
-    });
-
-    return {
-      deviceId: device.id,
-      name: device.name,
-      organizationId: device.organizationId,
-      branchId: device.branchId,
-      deviceToken,
-      apiKey,
-      userId: linkedUser.id,
-      threadId: thread?.id ?? null,
-    };
   }
 
   async updateStatusFromDevice(
@@ -376,24 +296,249 @@ export class DevicesService {
     return this.withCameraFacing(updated);
   }
 
-  private async resumeByPhone(
-    phone: string,
-    dto: PairDeviceDto,
-  ) {
-    const user = await this.prisma.user.findFirst({
+  private async pairByPhone(phone: string, dto: PairDeviceDto) {
+    const existing = await this.prisma.user.findFirst({
       where: {
         blocked: false,
-        deviceId: { not: null },
-        OR: [{ phone }, { username: phone }, { name: phone }],
+        role: UserRole.USER,
+        OR: [
+          { phone },
+          { username: phone },
+          { name: phone },
+          { email: `user-${phone}@device.local` },
+        ],
       },
       include: { device: true },
+      orderBy: { createdAt: 'asc' },
     });
-    const device = user?.device;
-    if (!device || device.disabled) {
-      throw new BadRequestException('Invalid pairing code');
+
+    if (existing?.device && !existing.device.disabled) {
+      return this.issueDeviceSession(existing.device, existing.id, dto);
+    }
+    if (existing?.device?.disabled) {
+      throw new BadRequestException('Device disabled');
     }
 
-    const deviceToken = await this.jwt.signAsync(
+    if (existing && !existing.deviceId) {
+      const branch = await this.prisma.branch.findFirst({
+        where: { organizationId: existing.organizationId },
+        orderBy: { createdAt: 'asc' },
+      });
+      if (!branch) {
+        throw new BadRequestException('Branch not found');
+      }
+      return this.createPairedDevice({
+        organizationId: existing.organizationId,
+        branchId: branch.id,
+        displayName: phone,
+        dto,
+        phone,
+        existingUserId: existing.id,
+      });
+    }
+
+    const target = await this.resolveDefaultPairTarget();
+    return this.createPairedDevice({
+      organizationId: target.organizationId,
+      branchId: target.branchId,
+      displayName: phone,
+      dto,
+      phone,
+    });
+  }
+
+  private async resolveDefaultPairTarget() {
+    const preferredId =
+      this.config.get<string>('DEFAULT_PAIR_ORG_ID') ?? 'seed-org';
+    let org = await this.prisma.organization.findUnique({
+      where: { id: preferredId },
+      include: { branches: { orderBy: { createdAt: 'asc' }, take: 1 } },
+    });
+    if (!org?.branches[0]) {
+      org = await this.prisma.organization.findFirst({
+        include: { branches: { orderBy: { createdAt: 'asc' }, take: 1 } },
+        orderBy: { createdAt: 'asc' },
+      });
+    }
+    if (!org?.branches[0]) {
+      throw new BadRequestException('Organization not found');
+    }
+
+    const allowed = await this.subscriptions.assertCanPair(org.id);
+    if (!allowed.ok) {
+      throw new BadRequestException(
+        allowed.reason === 'device_limit_reached'
+          ? 'Device limit reached'
+          : 'Subscription is not active',
+      );
+    }
+
+    return { organizationId: org.id, branchId: org.branches[0].id };
+  }
+
+  private async createPairedDevice(params: {
+    organizationId: string;
+    branchId: string;
+    displayName: string;
+    dto: PairDeviceDto;
+    phone: string | null;
+    pairingId?: string;
+    existingUserId?: string;
+  }) {
+    const allowed = await this.subscriptions.assertCanPair(
+      params.organizationId,
+    );
+    if (!allowed.ok) {
+      throw new BadRequestException(
+        allowed.reason === 'device_limit_reached'
+          ? 'Device limit reached'
+          : 'Subscription is not active',
+      );
+    }
+
+    const apiKey = randomBytes(32).toString('hex');
+    const apiKeyHash = await bcrypt.hash(apiKey, 10);
+
+    const device = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.device.create({
+        data: {
+          name: params.displayName,
+          organizationId: params.organizationId,
+          branchId: params.branchId,
+          status: DeviceStatus.ONLINE,
+          lastSeen: new Date(),
+          apiKeyHash,
+          capabilitiesJson: (params.dto.capabilities ??
+            {}) as Prisma.InputJsonValue,
+          appVersion: params.dto.appVersion,
+          androidVersion: params.dto.androidVersion,
+          deviceModel: params.dto.deviceModel,
+        },
+      });
+
+      if (params.pairingId) {
+        await tx.devicePairingCode.update({
+          where: { id: params.pairingId },
+          data: { usedAt: new Date(), deviceId: created.id },
+        });
+      }
+
+      return created;
+    });
+
+    const linkedUser = params.existingUserId
+      ? await this.prisma.user.update({
+          where: { id: params.existingUserId },
+          data: {
+            deviceId: device.id,
+            phone: params.phone ?? undefined,
+            name: params.displayName,
+            username: params.displayName,
+            lastSeenAt: new Date(),
+          },
+        })
+      : await this.prisma.user.create({
+          data: {
+            email: params.phone
+              ? `user-${params.phone}@device.local`
+              : `user-${device.id}@device.local`,
+            passwordHash: await bcrypt.hash(randomBytes(16).toString('hex'), 10),
+            name: params.displayName,
+            username: params.displayName,
+            phone: params.phone,
+            role: UserRole.USER,
+            organizationId: device.organizationId,
+            deviceId: device.id,
+            lastSeenAt: new Date(),
+          },
+        });
+
+    const deviceToken = await this.signDeviceToken(device);
+    const thread = await this.chats.ensureThreadForPairedDevice({
+      organizationId: device.organizationId,
+      deviceId: device.id,
+      deviceName: device.name,
+      peerUserId: linkedUser.id,
+    });
+
+    await this.audit.log({
+      organizationId: device.organizationId,
+      action: 'device.paired',
+      resourceType: 'Device',
+      resourceId: device.id,
+      metadata: {
+        name: device.name,
+        userId: linkedUser.id,
+        via: params.pairingId ? 'code' : 'phone',
+      },
+    });
+
+    this.events.emitToOrg(device.organizationId, 'device.online', {
+      deviceId: device.id,
+      status: DeviceStatus.ONLINE,
+      lastSeen: device.lastSeen?.toISOString(),
+    });
+
+    return {
+      deviceId: device.id,
+      name: device.name,
+      organizationId: device.organizationId,
+      branchId: device.branchId,
+      deviceToken,
+      apiKey,
+      userId: linkedUser.id,
+      threadId: thread?.id ?? null,
+    };
+  }
+
+  private async issueDeviceSession(
+    device: {
+      id: string;
+      name: string;
+      organizationId: string;
+      branchId: string;
+    },
+    userId: string,
+    dto: PairDeviceDto,
+  ) {
+    const apiKey = randomBytes(32).toString('hex');
+    const apiKeyHash = await bcrypt.hash(apiKey, 10);
+
+    await this.prisma.device.update({
+      where: { id: device.id },
+      data: {
+        lastSeen: new Date(),
+        apiKeyHash,
+        appVersion: dto.appVersion ?? undefined,
+        androidVersion: dto.androidVersion ?? undefined,
+        deviceModel: dto.deviceModel ?? undefined,
+      },
+    });
+
+    const deviceToken = await this.signDeviceToken(device);
+    const thread = await this.prisma.chatThread.findFirst({
+      where: { deviceId: device.id },
+      select: { id: true },
+    });
+
+    return {
+      deviceId: device.id,
+      name: device.name,
+      organizationId: device.organizationId,
+      branchId: device.branchId,
+      deviceToken,
+      apiKey,
+      userId,
+      threadId: thread?.id ?? null,
+    };
+  }
+
+  private signDeviceToken(device: {
+    id: string;
+    organizationId: string;
+    branchId: string;
+  }) {
+    return this.jwt.signAsync(
       {
         sub: device.id,
         organizationId: device.organizationId,
@@ -406,32 +551,6 @@ export class DevicesService {
           '30d') as `${number}d`,
       },
     );
-
-    await this.prisma.device.update({
-      where: { id: device.id },
-      data: {
-        lastSeen: new Date(),
-        appVersion: dto.appVersion ?? undefined,
-        androidVersion: dto.androidVersion ?? undefined,
-        deviceModel: dto.deviceModel ?? undefined,
-      },
-    });
-
-    const thread = await this.prisma.chatThread.findFirst({
-      where: { deviceId: device.id },
-      select: { id: true },
-    });
-
-    return {
-      deviceId: device.id,
-      name: device.name,
-      organizationId: device.organizationId,
-      branchId: device.branchId,
-      deviceToken,
-      apiKey: '',
-      userId: user.id,
-      threadId: thread?.id ?? null,
-    };
   }
 
   private normalizePhone(value?: string | null): string | null {

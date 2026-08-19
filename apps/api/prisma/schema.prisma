@@ -28,6 +28,7 @@ enum ChatMessageType {
   VIDEO
   FILE
   VOICE
+  VIDEO_NOTE
 }
 
 enum DeviceAccountKind {
@@ -311,19 +312,66 @@ model ChatThread {
 }
 
 model ChatMessage {
-  id             String          @id @default(cuid())
-  threadId       String
-  senderUserId   String?
-  receiverUserId String?
-  messageType    ChatMessageType @default(TEXT)
-  text           String?
-  attachmentUrl  String?
-  createdAt      DateTime        @default(now())
-  deliveredAt    DateTime?
-  readAt         DateTime?
+  id                 String          @id @default(cuid())
+  threadId           String
+  senderUserId       String?
+  receiverUserId     String?
+  messageType        ChatMessageType @default(TEXT)
+  text               String?
+  attachmentUrl      String?
+  createdAt          DateTime        @default(now())
+  deliveredAt        DateTime?
+  readAt             DateTime?
+  editedAt           DateTime?
+  deletedAt          DateTime?
+  deletedForEveryone Boolean         @default(false)
+  replyToId          String?
+  forwardedFromId    String?
+  clientId           String?
+  albumId            String?
+  fileName           String?
+  fileSize           Int?
+  mimeType           String?
+  durationMs         Int?
+  width              Int?
+  height             Int?
+  storageKey         String?
+  thumbnailKey       String?
+  waveformJson       String?
 
-  thread ChatThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
-  sender User?      @relation("MessageSender", fields: [senderUserId], references: [id], onDelete: SetNull)
+  thread           ChatThread        @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  sender           User?             @relation("MessageSender", fields: [senderUserId], references: [id], onDelete: SetNull)
+  replyTo          ChatMessage?      @relation("MessageReply", fields: [replyToId], references: [id], onDelete: SetNull)
+  replies          ChatMessage[]     @relation("MessageReply")
+  forwardedFrom    ChatMessage?      @relation("MessageForward", fields: [forwardedFromId], references: [id], onDelete: SetNull)
+  forwardedCopies  ChatMessage[]     @relation("MessageForward")
+  reactions        ChatReaction[]
+  hiddenFor        ChatMessageHide[]
 
   @@index([threadId, createdAt])
+  @@index([threadId, messageType])
+  @@index([clientId])
+}
+
+model ChatReaction {
+  id        String   @id @default(cuid())
+  messageId String
+  userId    String
+  emoji     String
+  createdAt DateTime @default(now())
+
+  message ChatMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId])
+  @@index([messageId])
+}
+
+model ChatMessageHide {
+  messageId String
+  userId    String
+  createdAt DateTime @default(now())
+
+  message ChatMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@id([messageId, userId])
 }

@@ -8,9 +8,9 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Videocam
+import androidx.compose.material.icons.automirrored.rounded.Send
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -20,11 +20,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.monitor.device.ui.theme.MonitorTheme
 
 /**
- * The app's logo tile: a gradient rounded square with the monitoring glyph.
- * When [pulsing] it emits a slow halo, used while the app is preparing.
+ * Circular brand mark: Telegram-style paper plane on blue.
  */
 @Composable
 fun BrandMark(
@@ -32,7 +30,6 @@ fun BrandMark(
     size: Dp = 64.dp,
     pulsing: Boolean = false,
 ) {
-    val colors = MonitorTheme.colors
     val transition = rememberInfiniteTransition(label = "brandPulse")
     val haloScale by transition.animateFloat(
         initialValue = 1f,
@@ -66,20 +63,20 @@ fun BrandMark(
                         scaleY = haloScale
                         alpha = haloAlpha
                     }
-                    .background(colors.brandGradient, RoundedCornerShape(size / 2.6f)),
+                    .background(Color(0xFF2AABEE), CircleShape),
             )
         }
         Box(
             modifier = Modifier
                 .size(size)
-                .background(colors.brandGradient, RoundedCornerShape(size / 3.2f)),
+                .background(Color(0xFF2AABEE), CircleShape),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
-                imageVector = Icons.Rounded.Videocam,
+                imageVector = Icons.AutoMirrored.Rounded.Send,
                 contentDescription = null,
                 tint = Color.White,
-                modifier = Modifier.size(size / 2f),
+                modifier = Modifier.size(size / 2.1f),
             )
         }
     }

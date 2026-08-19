@@ -36,18 +36,18 @@
 
     <!-- Pairing -->
     <string name="pair_title">Привязка устройства</string>
-    <string name="pair_subtitle">Если есть код из админ-панели — введите его. Если кода нет — войдите по номеру телефона.</string>
+    <string name="pair_subtitle">Если есть код, введите его. Если кода нет, достаточно номера телефона.</string>
     <string name="pair_section_title">Вход</string>
-    <string name="pair_code_label">Код привязки (необязательно)</string>
+    <string name="pair_code_label">Код привязки</string>
     <string name="pair_code_placeholder">Например: A1B2C3</string>
-    <string name="pair_code_helper">Код берётся из админ-панели, если он есть</string>
+    <string name="pair_code_helper">Необязательно — если кода нет, оставьте пустым</string>
     <string name="pair_phone_label">Номер телефона</string>
-    <string name="pair_phone_placeholder">+998 90 123 45 67</string>
-    <string name="pair_phone_helper">Если кода нет, входите по этому номеру</string>
+    <string name="pair_phone_placeholder">Номер телефона</string>
+    <string name="pair_phone_helper">Если кода нет, войдите по этому номеру</string>
     <string name="pair_button">Войти</string>
     <string name="pair_failed">Не удалось подключить. Проверьте код или номер телефона.</string>
     <string name="pair_error_title">Произошла ошибка</string>
-    <string name="pair_footer_hint">Устройство подключается только к той организации, которую вы подтвердили.</string>
+    <string name="pair_footer_hint">Подключение по коду или по номеру телефона.</string>
 
     <!-- Home -->
     <string name="home_device_fallback">Устройство</string>
@@ -68,13 +68,12 @@
     <string name="home_stop_monitoring">Остановить мониторинг</string>
     <string name="home_unpair">Отвязать устройство</string>
     <string name="home_unpair_title">Отвязать устройство?</string>
-    <string name="home_unpair_message">Данные привязки будут удалены, мониторинг остановится. Для повторной привязки понадобится новый код.</string>
+    <string name="home_unpair_message">Данные привязки будут удалены, мониторинг остановится. Чтобы войти снова, используйте номер телефона.</string>
     <string name="home_unpair_confirm">Отвязать</string>
     <string name="home_transparency_note">Ничего не работает скрытно — во время мониторинга уведомление всегда видно.</string>
 
-    <string name="pair_qr_hint">Или отсканируйте QR из админ-панели и введите код MONITOR: сюда.</string>
     <string name="nav_chats">Чаты</string>
-    <string name="nav_devices">Устройства</string>
+    <string name="nav_settings">Настройки</string>
     <string name="nav_profile">Профиль</string>
     <string name="chats_search">Поиск</string>
     <string name="chats_empty_title">Чатов пока нет</string>
@@ -82,6 +81,39 @@
     <string name="chats_untitled">Чат</string>
     <string name="chat_placeholder">Сообщение</string>
     <string name="chat_send">Отправить</string>
+    <string name="chat_online">в сети</string>
+    <string name="chat_offline">не в сети</string>
+    <string name="chat_typing">печатает…</string>
+    <string name="chat_last_seen">был(а) %1$s</string>
+    <string name="chat_last_seen_recently">был(а) недавно</string>
+    <string name="chat_reply">Ответить</string>
+    <string name="chat_copy">Копировать</string>
+    <string name="chat_forward">Переслать</string>
+    <string name="chat_edit">Изменить</string>
+    <string name="chat_delete">Удалить</string>
+    <string name="chat_select">Выбрать</string>
+    <string name="chat_share">Поделиться</string>
+    <string name="chat_delete_me">Удалить у меня</string>
+    <string name="chat_delete_everyone">Удалить у всех</string>
+    <string name="chat_photo">Фото</string>
+    <string name="chat_video">Видео</string>
+    <string name="chat_file">Файл</string>
+    <string name="chat_document">Документ</string>
+    <string name="chat_recording">Запись</string>
+    <string name="chat_attach">Вложение</string>
+    <string name="chat_voice">Голосовое</string>
+    <string name="chat_video_note">Видеосообщение</string>
+    <string name="chat_upload_failed">Не удалось загрузить</string>
+    <string name="chat_today">Сегодня</string>
+    <string name="chat_yesterday">Вчера</string>
+    <string name="chat_search_messages">Поиск по сообщениям</string>
+    <string name="chat_media">Медиа</string>
+    <string name="chat_files">Файлы</string>
+    <string name="chat_links">Ссылки</string>
+    <string name="chat_voice_tab">Голос</string>
+    <string name="chat_preview_send">Просмотр перед отправкой</string>
+    <string name="chat_settings">Настройки чата</string>
+    <string name="chat_camera_busy">Камера занята. Возможно, идёт live-мониторинг.</string>
     <string name="profile_subscription">Monitoring Telegram Premium</string>
     <string name="profile_status">Статус</string>
     <string name="profile_devices">Устройства</string>

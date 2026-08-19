@@ -7,6 +7,8 @@ import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { getUser, logout, type AuthUser } from "@/lib/auth";
 import { useI18n } from "@/lib/i18n";
 import { disconnectSocket } from "@/lib/socket";
+import { disconnectChatSocket } from "@/lib/chat-socket";
+import { useTheme } from "@/lib/theme";
 
 export function AdminShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -38,6 +40,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
 
   function handleLogout() {
     disconnectSocket();
+    disconnectChatSocket();
     logout();
     router.replace("/login");
   }
@@ -98,6 +101,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
             </nav>
             <div className="admin-header-right">
               <LanguageSwitcher />
+              <ThemeToggle />
               {user && <span className="user-chip">{user.name || user.email}</span>}
               <button
                 type="button"
@@ -120,5 +124,27 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
       )}
       <main className="admin-main">{children}</main>
     </div>
+  );
+}
+
+function ThemeToggle() {
+  const { mode, setMode } = useTheme();
+  const { t } = useI18n();
+  const next: Record<"system" | "light" | "dark", "light" | "dark" | "system"> = {
+    system: "light",
+    light: "dark",
+    dark: "system",
+  };
+  const label =
+    mode === "dark" ? t("themeDark") : mode === "light" ? t("themeLight") : t("themeSystem");
+  return (
+    <button
+      type="button"
+      className="btn btn-ghost btn-sm"
+      onClick={() => setMode(next[mode])}
+      aria-label={t("themeSwitch")}
+    >
+      {label}
+    </button>
   );
 }

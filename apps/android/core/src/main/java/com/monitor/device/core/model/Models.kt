@@ -102,6 +102,16 @@ data class ChatPeer(
     val name: String? = null,
     val role: String? = null,
     val lastSeenAt: String? = null,
+    val email: String? = null,
+    val deviceId: String? = null,
+)
+
+@Serializable
+data class ChatDeviceRef(
+    val id: String? = null,
+    val name: String? = null,
+    val status: String? = null,
+    val lastSeen: String? = null,
 )
 
 @Serializable
@@ -111,6 +121,30 @@ data class ChatThreadDto(
     val lastMessageAt: String? = null,
     val owner: ChatPeer? = null,
     val peer: ChatPeer? = null,
+    val device: ChatDeviceRef? = null,
+    val viewerUserId: String? = null,
+    val unreadCount: Int = 0,
+    val counterpartName: String? = null,
+    val counterpartUserId: String? = null,
+    val online: Boolean = false,
+    val lastSeenAt: String? = null,
+)
+
+@Serializable
+data class ChatReplyDto(
+    val id: String? = null,
+    val text: String? = null,
+    val messageType: String? = null,
+    val senderUserId: String? = null,
+    val fileName: String? = null,
+    val deletedForEveryone: Boolean = false,
+)
+
+@Serializable
+data class ChatReactionDto(
+    val emoji: String,
+    val count: Int = 0,
+    val mine: Boolean = false,
 )
 
 @Serializable
@@ -125,6 +159,26 @@ data class ChatMessageDto(
     val createdAt: String? = null,
     val deliveredAt: String? = null,
     val readAt: String? = null,
+    val editedAt: String? = null,
+    val deletedAt: String? = null,
+    val deletedForEveryone: Boolean = false,
+    val clientId: String? = null,
+    val albumId: String? = null,
+    val fileName: String? = null,
+    val fileSize: Long? = null,
+    val mimeType: String? = null,
+    val durationMs: Int? = null,
+    val width: Int? = null,
+    val height: Int? = null,
+    val waveform: List<Double>? = null,
+    val hasFile: Boolean = false,
+    val hasThumbnail: Boolean = false,
+    val forwarded: Boolean = false,
+    val replyTo: ChatReplyDto? = null,
+    val reactions: List<ChatReactionDto> = emptyList(),
+    val mine: Boolean = false,
+    val localStatus: String? = null,
+    val uploadProgress: Float? = null,
 )
 
 @Serializable
@@ -134,13 +188,84 @@ data class ChatMessagesPage(
 )
 
 @Serializable
+data class ChatSearchPage(
+    val items: List<ChatMessageDto> = emptyList(),
+)
+
+@Serializable
+data class ChatMediaCounts(
+    val photos: Int = 0,
+    val videos: Int = 0,
+    val notes: Int = 0,
+    val files: Int = 0,
+    val voice: Int = 0,
+    val links: Int = 0,
+)
+
+@Serializable
+data class ChatMediaPage(
+    val counts: ChatMediaCounts = ChatMediaCounts(),
+    val items: List<ChatMessageDto> = emptyList(),
+)
+
+@Serializable
 data class OkResponse(
     val ok: Boolean? = null,
 )
 
 @Serializable
 data class SendChatRequest(
+    val text: String = "",
+    val replyToId: String? = null,
+    val clientId: String? = null,
+    val forwardedFromId: String? = null,
+)
+
+@Serializable
+data class EditChatRequest(
     val text: String,
+)
+
+@Serializable
+data class DeleteChatRequest(
+    val forEveryone: Boolean = false,
+)
+
+@Serializable
+data class ReactChatRequest(
+    val emoji: String,
+)
+
+@Serializable
+data class InitUploadRequest(
+    val fileName: String,
+    val mimeType: String,
+    val fileSize: Long,
+    val messageType: String,
+    val durationMs: Int? = null,
+    val width: Int? = null,
+    val height: Int? = null,
+    val replyToId: String? = null,
+    val clientId: String? = null,
+    val albumId: String? = null,
+    val waveformJson: String? = null,
+    val text: String? = null,
+)
+
+@Serializable
+data class InitUploadResponse(
+    val uploadId: String,
+    val chunkSize: Int = 262144,
+    val receivedChunks: Int = 0,
+)
+
+@Serializable
+data class ChunkUploadResponse(
+    val ok: Boolean = true,
+    val index: Int = 0,
+    val receivedChunks: Int = 0,
+    val receivedBytes: Long = 0,
+    val fileSize: Long = 0,
 )
 
 @Serializable

@@ -70,7 +70,7 @@ fun MonitorNavHost(
     var chatTitle by remember { mutableStateOf("") }
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route ?: start
-    val showTopBar = currentRoute != Routes.Permissions
+    val showTopBar = currentRoute != Routes.Permissions && chatThreadId == null
 
     AppShell(
         topBar = if (!showTopBar) {
@@ -136,6 +136,7 @@ fun MonitorNavHost(
                 if (threadId != null) {
                     ChatThreadScreen(
                         apiClient = apiClient,
+                        tokenStore = tokenStore,
                         threadId = threadId,
                         title = chatTitle.ifBlank { stringResource(R.string.chats_untitled) },
                         onBack = { chatThreadId = null },
@@ -161,6 +162,8 @@ fun MonitorNavHost(
                                 popUpTo(Routes.Home) { inclusive = true }
                             }
                         },
+                        onOpenSettings = { showSettings = true },
+                        settingsOpen = showSettings,
                     )
                 }
             }

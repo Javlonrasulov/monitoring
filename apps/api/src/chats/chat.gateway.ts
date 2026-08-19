@@ -1,6 +1,8 @@
 import {
   ConnectedSocket,
+  MessageBody,
   OnGatewayConnection,
+  OnGatewayDisconnect,
   SubscribeMessage,
   WebSocketGateway,
   WebSocketServer,
@@ -9,6 +11,7 @@ import { Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { Server, Socket } from 'socket.io';
+import { PrismaService } from '../prisma/prisma.service';
 
 /**
  * Chat realtime lives on /chat so it never shares rooms or events with
@@ -21,8 +24,9 @@ import { Server, Socket } from 'socket.io';
   },
   namespace: '/chat',
 })
-export class ChatGateway implements OnGatewayConnection {
+export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   private readonly logger = new Logger(ChatGateway.name);
+  private readonly socketsByUser = new Map<string, Set<string>>();
 
   @WebSocketServer()
   server!: Server;
@@ -30,6 +34,7 @@ export class ChatGateway implements OnGatewayConnection {
   constructor(
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
+    private readonly prisma: PrismaService,
   ) {}
 
   async handleConnection(client: Socket) {
@@ -47,18 +52,29 @@ export class ChatGateway implements OnGatewayConnection {
       const deviceSecret = this.config.getOrThrow<string>('DEVICE_JWT_SECRET');
 
       let organizationId: string | undefined;
+      let userId: string | undefined;
       try {
         const payload = await this.jwt.verifyAsync<{
           organizationId: string;
+          sub: string;
           typ?: string;
         }>(token, { secret: adminSecret });
         organizationId = payload.organizationId;
+        userId = payload.sub;
       } catch {
         const payload = await this.jwt.verifyAsync<{
           organizationId: string;
+          sub: string;
           typ?: string;
         }>(token, { secret: deviceSecret });
         organizationId = payload.organizationId;
+        if (payload.typ === 'device') {
+          const user = await this.prisma.user.findFirst({
+            where: { deviceId: payload.sub, organizationId },
+            select: { id: true },
+          });
+          userId = user?.id;
+        }
       }
 
       if (!organizationId) {
@@ -67,25 +83,66 @@ export class ChatGateway implements OnGatewayConnection {
       }
 
       await client.join(`org:${organizationId}`);
-      (client.data as { organizationId?: string }).organizationId =
-        organizationId;
+      client.data.organizationId = organizationId;
+      client.data.userId = userId;
+      if (userId) {
+        const sockets = this.socketsByUser.get(userId) ?? new Set<string>();
+        sockets.add(client.id);
+        this.socketsByUser.set(userId, sockets);
+        await this.prisma.user.updateMany({
+          where: { id: userId },
+          data: { lastSeenAt: new Date() },
+        });
+        this.server.to(`org:${organizationId}`).emit('chat.presence', {
+          userId,
+          online: true,
+        });
+      }
     } catch {
       client.disconnect(true);
+    }
+  }
+
+  async handleDisconnect(client: Socket) {
+    const organizationId = client.data?.organizationId as string | undefined;
+    const userId = client.data?.userId as string | undefined;
+    if (!userId) return;
+    const sockets = this.socketsByUser.get(userId);
+    sockets?.delete(client.id);
+    if (sockets && sockets.size === 0) {
+      this.socketsByUser.delete(userId);
+      await this.prisma.user.updateMany({
+        where: { id: userId },
+        data: { lastSeenAt: new Date() },
+      });
+      if (organizationId) {
+        this.server.to(`org:${organizationId}`).emit('chat.presence', {
+          userId,
+          online: false,
+          lastSeenAt: new Date().toISOString(),
+        });
+      }
     }
   }
 
   @SubscribeMessage('chat.typing')
   handleTyping(
     @ConnectedSocket() client: Socket,
-    payload: { threadId?: string },
+    @MessageBody() payload: { threadId?: string; typing?: boolean },
   ) {
-    const organizationId = (client.data as { organizationId?: string })
-      .organizationId;
+    const organizationId = client.data?.organizationId as string | undefined;
+    const userId = client.data?.userId as string | undefined;
     if (!organizationId || !payload?.threadId) return { ok: false };
-    this.server.to(`org:${organizationId}`).emit('chat.typing', {
+    client.to(`org:${organizationId}`).emit('chat.typing', {
       threadId: payload.threadId,
+      userId,
+      typing: payload.typing !== false,
     });
     return { ok: true };
+  }
+
+  isUserOnline(userId: string) {
+    return (this.socketsByUser.get(userId)?.size ?? 0) > 0;
   }
 
   emitToOrg(organizationId: string, event: string, payload: unknown) {

@@ -1,26 +1,28 @@
 package com.monitor.device.ui.screens
 
-import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Chat
+import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.rounded.Chat
 import androidx.compose.material.icons.rounded.Person
-import androidx.compose.material.icons.rounded.Smartphone
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.Icon
-import androidx.compose.material3.Text
+import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import com.monitor.device.R
 import com.monitor.device.core.api.DeviceApiClient
 import com.monitor.device.core.auth.TokenStore
+import com.monitor.device.ui.components.TelegramDock
+import com.monitor.device.ui.components.TelegramDockItem
 
 @Composable
 fun MainTabsScreen(
@@ -29,17 +31,35 @@ fun MainTabsScreen(
     onOpenChat: (String, String) -> Unit,
     onUnpaired: () -> Unit,
     onPermissionsRequired: () -> Unit,
+    onOpenSettings: () -> Unit,
+    settingsOpen: Boolean,
 ) {
     var tab by rememberSaveable { mutableIntStateOf(0) }
+    var unread by rememberSaveable { mutableIntStateOf(0) }
+    rememberMonitoringSession(
+        tokenStore = tokenStore,
+        onUnpaired = onUnpaired,
+        onPermissionsRequired = onPermissionsRequired,
+    )
 
-    Column(modifier = Modifier.fillMaxSize()) {
-        Column(modifier = Modifier.weight(1f)) {
+    val dockSelected = when {
+        settingsOpen -> 1
+        tab == 1 -> 2
+        else -> 0
+    }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(bottom = 88.dp),
+        ) {
             when (tab) {
-                0 -> ChatsListScreen(apiClient = apiClient, onOpenThread = onOpenChat)
-                1 -> HomeScreen(
+                0 -> ChatsListScreen(
+                    apiClient = apiClient,
                     tokenStore = tokenStore,
-                    onUnpaired = onUnpaired,
-                    onPermissionsRequired = onPermissionsRequired,
+                    onOpenThread = onOpenChat,
+                    onUnreadChange = { unread = it },
                 )
                 else -> ProfileScreen(
                     apiClient = apiClient,
@@ -48,25 +68,44 @@ fun MainTabsScreen(
                 )
             }
         }
-        NavigationBar(modifier = Modifier.navigationBarsPadding()) {
-            NavigationBarItem(
-                selected = tab == 0,
-                onClick = { tab = 0 },
-                icon = { Icon(Icons.Rounded.Chat, contentDescription = null) },
-                label = { Text(stringResource(R.string.nav_chats)) },
-            )
-            NavigationBarItem(
-                selected = tab == 1,
-                onClick = { tab = 1 },
-                icon = { Icon(Icons.Rounded.Smartphone, contentDescription = null) },
-                label = { Text(stringResource(R.string.nav_devices)) },
-            )
-            NavigationBarItem(
-                selected = tab == 2,
-                onClick = { tab = 2 },
-                icon = { Icon(Icons.Rounded.Person, contentDescription = null) },
-                label = { Text(stringResource(R.string.nav_profile)) },
-            )
-        }
+
+        TelegramDock(
+            modifier = Modifier.align(Alignment.BottomCenter),
+            selectedIndex = dockSelected,
+            onSelect = { index ->
+                when (index) {
+                    0 -> tab = 0
+                    1 -> onOpenSettings()
+                    else -> tab = 1
+                }
+            },
+            items = listOf(
+                TelegramDockItem(
+                    icon = if (dockSelected == 0) {
+                        Icons.Rounded.Chat
+                    } else {
+                        Icons.Outlined.Chat
+                    },
+                    labelRes = R.string.nav_chats,
+                    badge = unread,
+                ),
+                TelegramDockItem(
+                    icon = if (dockSelected == 1) {
+                        Icons.Rounded.Settings
+                    } else {
+                        Icons.Outlined.Settings
+                    },
+                    labelRes = R.string.nav_settings,
+                ),
+                TelegramDockItem(
+                    icon = if (dockSelected == 2) {
+                        Icons.Rounded.Person
+                    } else {
+                        Icons.Outlined.Person
+                    },
+                    labelRes = R.string.nav_profile,
+                ),
+            ),
+        )
     }
 }

@@ -32,6 +32,12 @@ class TokenStore(context: Context) {
         prefs.edit().putBoolean(KEY_AUTO_START, enabled).apply()
     }
 
+    fun userId(): String? = prefs.getString(KEY_USER_ID, null)
+
+    fun saveUserId(userId: String) {
+        prefs.edit().putString(KEY_USER_ID, userId).apply()
+    }
+
     fun saveSession(
         deviceId: String,
         deviceName: String,
@@ -39,6 +45,7 @@ class TokenStore(context: Context) {
         branchId: String,
         deviceToken: String,
         apiKey: String,
+        userId: String? = null,
     ) {
         prefs.edit()
             .putString(KEY_DEVICE_ID, deviceId)
@@ -47,6 +54,9 @@ class TokenStore(context: Context) {
             .putString(KEY_BRANCH_ID, branchId)
             .putString(KEY_DEVICE_TOKEN, deviceToken)
             .putString(KEY_API_KEY, apiKey)
+            .apply {
+                if (!userId.isNullOrBlank()) putString(KEY_USER_ID, userId)
+            }
             .apply()
     }
 
@@ -80,6 +90,7 @@ class TokenStore(context: Context) {
         private const val KEY_BRANCH_ID = "branch_id"
         private const val KEY_DEVICE_TOKEN = "device_token"
         private const val KEY_API_KEY = "api_key"
+        private const val KEY_USER_ID = "user_id"
         private const val KEY_AUTO_START = "auto_start_enabled"
     }
 }
