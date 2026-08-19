@@ -12,6 +12,7 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { Server, Socket } from 'socket.io';
 import { PrismaService } from '../prisma/prisma.service';
+import { platformOrgId } from '../auth/platform-org';
 
 /**
  * Chat realtime lives on /chat so it never shares rooms or events with
@@ -53,6 +54,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
       let organizationId: string | undefined;
       let userId: string | undefined;
+      let platformAdmin = false;
       try {
         const payload = await this.jwt.verifyAsync<{
           organizationId: string;
@@ -61,6 +63,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         }>(token, { secret: adminSecret });
         organizationId = payload.organizationId;
         userId = payload.sub;
+        platformAdmin = organizationId === platformOrgId();
       } catch {
         const payload = await this.jwt.verifyAsync<{
           organizationId: string;
@@ -83,6 +86,9 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       }
 
       await client.join(`org:${organizationId}`);
+      if (platformAdmin) {
+        await client.join('org:platform');
+      }
       client.data.organizationId = organizationId;
       client.data.userId = userId;
       if (userId) {
@@ -133,10 +139,15 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const organizationId = client.data?.organizationId as string | undefined;
     const userId = client.data?.userId as string | undefined;
     if (!organizationId || !payload?.threadId) return { ok: false };
-    client.to(`org:${organizationId}`).emit('chat.typing', {
+    this.server.to(`org:${organizationId}`).emit('chat.typing', {
       threadId: payload.threadId,
       userId,
-      typing: payload.typing !== false,
+      typing: payload.typing === true,
+    });
+    this.server.to('org:platform').emit('chat.typing', {
+      threadId: payload.threadId,
+      userId,
+      typing: payload.typing === true,
     });
     return { ok: true };
   }
@@ -147,5 +158,6 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   emitToOrg(organizationId: string, event: string, payload: unknown) {
     this.server.to(`org:${organizationId}`).emit(event, payload);
+    this.server.to('org:platform').emit(event, payload);
   }
 }

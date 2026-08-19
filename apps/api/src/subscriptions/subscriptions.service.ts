@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { SubscriptionPlan, SubscriptionStatus } from '../generated/prisma';
 import { PrismaService } from '../prisma/prisma.service';
+import { seesAllOrganizations } from '../auth/platform-org';
 
 export type SubscriptionView = {
   id: string | null;
@@ -104,7 +105,7 @@ export class SubscriptionsService {
 
   async list(organizationId: string) {
     return this.prisma.subscription.findMany({
-      where: { organizationId },
+      where: seesAllOrganizations(organizationId) ? {} : { organizationId },
       orderBy: { createdAt: 'desc' },
     });
   }

@@ -23,6 +23,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { EventsGateway } from '../events/events.gateway';
 import { AuditService } from '../audit/audit.service';
 import { SubscriptionsService } from '../subscriptions/subscriptions.service';
+import { seesAllOrganizations } from '../auth/platform-org';
 import {
   ensureParentDir,
   fileSizeOrZero,
@@ -101,7 +102,9 @@ export class RecordingsService implements OnModuleDestroy {
       throw new ForbiddenException('Pro+ is required for recordings');
     }
     const device = await this.prisma.device.findFirst({
-      where: { id: deviceId, organizationId },
+      where: seesAllOrganizations(organizationId)
+        ? { id: deviceId }
+        : { id: deviceId, organizationId },
     });
     if (!device) {
       throw new NotFoundException('Device not found');
@@ -278,7 +281,9 @@ export class RecordingsService implements OnModuleDestroy {
 
   async deleteOne(organizationId: string, userId: string, id: string) {
     const row = await this.prisma.recordingSegment.findFirst({
-      where: { id, organizationId },
+      where: seesAllOrganizations(organizationId)
+        ? { id }
+        : { id, organizationId },
     });
     if (!row) {
       throw new NotFoundException('Recording not found');
@@ -695,7 +700,9 @@ export class RecordingsService implements OnModuleDestroy {
 
   private async requireReady(organizationId: string, id: string) {
     const row = await this.prisma.recordingSegment.findFirst({
-      where: { id, organizationId },
+      where: seesAllOrganizations(organizationId)
+        ? { id }
+        : { id, organizationId },
     });
     if (!row) {
       throw new NotFoundException('Recording not found');
@@ -719,7 +726,7 @@ export class RecordingsService implements OnModuleDestroy {
     if (query.from) startedAt.gte = new Date(query.from);
     if (query.to) startedAt.lte = new Date(query.to);
     return {
-      organizationId,
+      ...(seesAllOrganizations(organizationId) ? {} : { organizationId }),
       status: { not: RecordingStatus.DELETED },
       ...(query.deviceId ? { deviceId: query.deviceId } : {}),
       ...(query.camera ? { cameraFacing: query.camera as CameraFacing } : {}),

@@ -9,6 +9,7 @@ import { Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { Server, Socket } from 'socket.io';
+import { platformOrgId } from '../auth/platform-org';
 
 type AuthenticatedSocketData = {
   organizationId?: string;
@@ -55,6 +56,9 @@ export class EventsGateway implements OnGatewayConnection {
 
       const room = `org:${payload.organizationId}`;
       await client.join(room);
+      if (payload.organizationId === platformOrgId()) {
+        await client.join('org:platform');
+      }
       const data = client.data as AuthenticatedSocketData;
       data.organizationId = payload.organizationId;
       data.userId = payload.sub;
@@ -76,5 +80,6 @@ export class EventsGateway implements OnGatewayConnection {
 
   emitToOrg(organizationId: string, event: string, payload: unknown) {
     this.server.to(`org:${organizationId}`).emit(event, payload);
+    this.server.to('org:platform').emit(event, payload);
   }
 }

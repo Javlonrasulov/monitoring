@@ -22,6 +22,7 @@ import {
   PairDeviceDto,
   SetCameraFacingDto,
   UploadAvatarDto,
+  UpdateProfileDto,
 } from './dto/devices.dto';
 import { AuditService } from '../audit/audit.service';
 import { AvatarsService } from '../avatars/avatars.service';
@@ -52,6 +53,22 @@ export class DevicesController {
     device: { deviceId: string; organizationId: string },
   ) {
     return this.devicesService.getMe(device.deviceId, device.organizationId);
+  }
+
+  @Patch('me')
+  @ApiBearerAuth()
+  @UseGuards(DeviceAuthGuard)
+  @ApiOperation({ summary: 'Update this user name and phone' })
+  updateProfile(
+    @CurrentDevice()
+    device: { deviceId: string; organizationId: string },
+    @Body() dto: UpdateProfileDto,
+  ) {
+    return this.devicesService.updateProfile(
+      device.deviceId,
+      device.organizationId,
+      dto,
+    );
   }
 
   @Post('me/avatar')
@@ -171,6 +188,24 @@ export class DevicesController {
       user.organizationId,
       user.userId,
       dto,
+    );
+  }
+
+  @Post('me/linked/:id/camera')
+  @ApiBearerAuth()
+  @UseGuards(DeviceAuthGuard)
+  @ApiOperation({ summary: 'Switch camera on a linked device' })
+  setLinkedCamera(
+    @CurrentDevice()
+    device: { deviceId: string; organizationId: string },
+    @Param('id') id: string,
+    @Body() dto: SetCameraFacingDto,
+  ) {
+    return this.devicesService.setCameraFacingForLinkedDevice(
+      device.deviceId,
+      device.organizationId,
+      id,
+      dto.facing,
     );
   }
 

@@ -11,6 +11,7 @@ import { dirname, join, normalize, sep } from 'path';
 import type { Request, Response } from 'express';
 import { PrismaService } from '../prisma/prisma.service';
 import { EventsGateway } from '../events/events.gateway';
+import { seesAllOrganizations } from '../auth/platform-org';
 
 const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
 
@@ -73,7 +74,9 @@ export class AvatarsService {
     userId: string,
   ) {
     const user = await this.prisma.user.findFirst({
-      where: { id: userId, organizationId },
+      where: seesAllOrganizations(organizationId)
+        ? { id: userId }
+        : { id: userId, organizationId },
       select: { avatarKey: true },
     });
     if (!user?.avatarKey) throw new NotFoundException('Photo not found');

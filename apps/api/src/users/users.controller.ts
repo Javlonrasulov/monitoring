@@ -5,6 +5,7 @@ import { AdminRoleGuard } from '../auth/admin-role.guard';
 import { CurrentUser } from '../auth/decorators';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { seesAllOrganizations } from '../auth/platform-org';
 
 @ApiTags('users')
 @ApiBearerAuth()
@@ -19,7 +20,9 @@ export class UsersController {
   @Get()
   async list(@CurrentUser() user: { organizationId: string; userId: string }) {
     const users = await this.prisma.user.findMany({
-      where: { organizationId: user.organizationId },
+      where: seesAllOrganizations(user.organizationId)
+        ? {}
+        : { organizationId: user.organizationId },
       select: {
         id: true,
         email: true,
@@ -51,7 +54,9 @@ export class UsersController {
     @Body() body: { blocked?: boolean },
   ) {
     const target = await this.prisma.user.findFirst({
-      where: { id, organizationId: user.organizationId },
+      where: seesAllOrganizations(user.organizationId)
+        ? { id }
+        : { id, organizationId: user.organizationId },
     });
     if (!target) {
       return { ok: false };

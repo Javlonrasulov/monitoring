@@ -3,6 +3,7 @@ import {
   NotFoundException,
   BadRequestException,
   ForbiddenException,
+  ConflictException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
@@ -20,6 +21,7 @@ import {
   DeviceStatusDto,
   PairDeviceDto,
 } from './dto/devices.dto';
+import { seesAllOrganizations } from '../auth/platform-org';
 
 @Injectable()
 export class DevicesService {
@@ -36,7 +38,7 @@ export class DevicesService {
 
   async listForOrg(organizationId: string) {
     const devices = await this.prisma.device.findMany({
-      where: { organizationId },
+      where: seesAllOrganizations(organizationId) ? {} : { organizationId },
       include: { branch: true, linkedUser: { select: { id: true, name: true, role: true, lastSeenAt: true } } },
       orderBy: { name: 'asc' },
     });
@@ -45,7 +47,7 @@ export class DevicesService {
 
   async getForOrg(organizationId: string, deviceId: string) {
     const device = await this.prisma.device.findFirst({
-      where: { id: deviceId, organizationId },
+      where: this.adminDeviceWhere(organizationId, deviceId),
       include: { branch: true },
     });
     if (!device) {
@@ -66,7 +68,13 @@ export class DevicesService {
     }
     const user = await this.prisma.user.findFirst({
       where: { deviceId, organizationId },
-      select: { id: true, name: true, avatarKey: true, avatarUpdatedAt: true },
+      select: {
+        id: true,
+        name: true,
+        phone: true,
+        avatarKey: true,
+        avatarUpdatedAt: true,
+      },
     });
     return {
       id: device.id,
@@ -74,9 +82,75 @@ export class DevicesService {
       cameraFacing: this.cameraFacingOf(device.capabilitiesJson),
       userId: user?.id ?? null,
       name: user?.name ?? device.name,
+      phone: user?.phone ?? null,
       hasAvatar: Boolean(user?.avatarKey),
       avatarUpdatedAt: user?.avatarUpdatedAt ?? null,
     };
+  }
+
+  async updateProfile(
+    deviceId: string,
+    organizationId: string,
+    dto: { name?: string; phone?: string },
+  ) {
+    await this.getMe(deviceId, organizationId);
+    const user = await this.prisma.user.findFirst({
+      where: { deviceId, organizationId },
+    });
+    if (!user) {
+      throw new ForbiddenException('No user account for this device');
+    }
+
+    const name = dto.name?.trim();
+    if (dto.name !== undefined && (!name || name.length < 1 || name.length > 80)) {
+      throw new BadRequestException('Name is required');
+    }
+
+    let phone: string | undefined;
+    if (dto.phone !== undefined) {
+      const normalized = this.normalizePhone(dto.phone);
+      if (!normalized) {
+        throw new BadRequestException('Enter a valid phone number');
+      }
+      if (normalized !== user.phone) {
+        const taken = await this.findUserByPhone(normalized);
+        if (taken && taken.id !== user.id) {
+          throw new ConflictException('This phone number is already in use');
+        }
+      }
+      phone = normalized;
+    }
+
+    const nextName = name ?? user.name;
+    const nextPhone = phone ?? user.phone ?? null;
+    const email =
+      phone && user.email.endsWith('@device.local')
+        ? `user-${phone}@device.local`
+        : undefined;
+
+    await this.prisma.$transaction([
+      this.prisma.user.update({
+        where: { id: user.id },
+        data: {
+          name: nextName,
+          username: nextName,
+          ...(phone ? { phone } : {}),
+          ...(email ? { email } : {}),
+        },
+      }),
+      this.prisma.device.update({
+        where: { id: deviceId },
+        data: { name: nextName },
+      }),
+    ]);
+
+    this.events.emitToOrg(organizationId, 'chat.profile', {
+      userId: user.id,
+      name: nextName,
+      phone: nextPhone,
+    });
+
+    return this.getMe(deviceId, organizationId);
   }
 
   async setCameraFacing(
@@ -86,7 +160,7 @@ export class DevicesService {
     facing: 'FRONT' | 'BACK',
   ) {
     const device = await this.prisma.device.findFirst({
-      where: { id: deviceId, organizationId },
+      where: this.adminDeviceWhere(organizationId, deviceId),
     });
     if (!device) {
       throw new NotFoundException('Device not found');
@@ -105,7 +179,7 @@ export class DevicesService {
 
     await this.audit.log({
       organizationId,
-      userId,
+      userId: userId || undefined,
       action: 'device.camera_facing',
       resourceType: 'Device',
       resourceId: device.id,
@@ -173,7 +247,37 @@ export class DevicesService {
       status: device.status,
       lastSeen: device.lastSeen,
       deviceModel: device.deviceModel,
+      cameraFacing: this.cameraFacingOf(device.capabilitiesJson),
     }));
+  }
+
+  async setCameraFacingForLinkedDevice(
+    viewerDeviceId: string,
+    organizationId: string,
+    targetDeviceId: string,
+    facing: 'FRONT' | 'BACK',
+  ) {
+    const target = await this.prisma.device.findFirst({
+      where: {
+        id: targetDeviceId,
+        organizationId,
+        linkedFromDeviceId: viewerDeviceId,
+        disabled: false,
+      },
+    });
+    if (!target) {
+      throw new ForbiddenException('Device is not linked to this account');
+    }
+    const viewerUser = await this.prisma.user.findFirst({
+      where: { deviceId: viewerDeviceId, organizationId },
+      select: { id: true },
+    });
+    return this.setCameraFacing(
+      organizationId,
+      viewerUser?.id ?? '',
+      target.id,
+      facing,
+    );
   }
 
   async linkExistingDevice(
@@ -820,6 +924,12 @@ export class DevicesService {
       throw new BadRequestException('Invalid pairing code');
     }
     return pairing;
+  }
+
+  private adminDeviceWhere(organizationId: string, deviceId: string) {
+    return seesAllOrganizations(organizationId)
+      ? { id: deviceId }
+      : { id: deviceId, organizationId };
   }
 
   private throwIfPairBlocked(

@@ -12,6 +12,7 @@ import { ChatStorageService } from './chat-storage.service';
 import { ALLOWED_REACTIONS, InitUploadDto } from './chats.dto';
 import type { Request, Response } from 'express';
 import { randomUUID } from 'crypto';
+import { seesAllOrganizations } from '../auth/platform-org';
 
 const URL_RE = /https?:\/\/[^\s]+/i;
 
@@ -87,11 +88,11 @@ export class ChatsService {
 
   async listForAdmin(organizationId: string, userId: string) {
     const threads = await this.prisma.chatThread.findMany({
-      where: { organizationId },
+      where: seesAllOrganizations(organizationId) ? {} : { organizationId },
       include: {
-        owner: { select: { id: true, name: true, email: true, role: true, lastSeenAt: true, avatarKey: true, avatarUpdatedAt: true } },
+        owner: { select: { id: true, name: true, email: true, role: true, lastSeenAt: true, avatarKey: true, avatarUpdatedAt: true, phone: true } },
         peer: {
-          select: { id: true, name: true, email: true, role: true, deviceId: true, lastSeenAt: true, avatarKey: true, avatarUpdatedAt: true },
+          select: { id: true, name: true, email: true, role: true, deviceId: true, lastSeenAt: true, avatarKey: true, avatarUpdatedAt: true, phone: true },
         },
         device: { select: { id: true, name: true, status: true, lastSeen: true } },
       },
@@ -128,8 +129,8 @@ export class ChatsService {
         ],
       },
       include: {
-        owner: { select: { id: true, name: true, role: true, lastSeenAt: true, avatarKey: true, avatarUpdatedAt: true } },
-        peer: { select: { id: true, name: true, role: true, lastSeenAt: true, avatarKey: true, avatarUpdatedAt: true } },
+        owner: { select: { id: true, name: true, role: true, lastSeenAt: true, avatarKey: true, avatarUpdatedAt: true, phone: true } },
+        peer: { select: { id: true, name: true, role: true, lastSeenAt: true, avatarKey: true, avatarUpdatedAt: true, phone: true } },
         device: { select: { id: true, name: true, status: true, lastSeen: true } },
       },
       orderBy: { lastMessageAt: 'desc' },
@@ -151,11 +152,13 @@ export class ChatsService {
 
   async threadForAdmin(organizationId: string, userId: string, threadId: string) {
     const thread = await this.prisma.chatThread.findFirst({
-      where: { id: threadId, organizationId },
+      where: seesAllOrganizations(organizationId)
+        ? { id: threadId }
+        : { id: threadId, organizationId },
       include: {
-        owner: { select: { id: true, name: true, email: true, role: true, lastSeenAt: true, avatarKey: true, avatarUpdatedAt: true } },
+        owner: { select: { id: true, name: true, email: true, role: true, lastSeenAt: true, avatarKey: true, avatarUpdatedAt: true, phone: true } },
         peer: {
-          select: { id: true, name: true, email: true, role: true, deviceId: true, lastSeenAt: true, avatarKey: true, avatarUpdatedAt: true },
+          select: { id: true, name: true, email: true, role: true, deviceId: true, lastSeenAt: true, avatarKey: true, avatarUpdatedAt: true, phone: true },
         },
         device: { select: { id: true, name: true, status: true, lastSeen: true } },
       },
@@ -170,8 +173,8 @@ export class ChatsService {
     const thread = await this.prisma.chatThread.findFirst({
       where: this.deviceThreadWhere(organizationId, deviceId, viewer.id, threadId),
       include: {
-        owner: { select: { id: true, name: true, role: true, lastSeenAt: true, avatarKey: true, avatarUpdatedAt: true } },
-        peer: { select: { id: true, name: true, role: true, lastSeenAt: true, avatarKey: true, avatarUpdatedAt: true } },
+        owner: { select: { id: true, name: true, role: true, lastSeenAt: true, avatarKey: true, avatarUpdatedAt: true, phone: true } },
+        peer: { select: { id: true, name: true, role: true, lastSeenAt: true, avatarKey: true, avatarUpdatedAt: true, phone: true } },
         device: { select: { id: true, name: true, status: true, lastSeen: true } },
       },
     });
@@ -912,6 +915,7 @@ export class ChatsService {
     deviceId?: string | null;
     avatarKey?: string | null;
     avatarUpdatedAt?: Date | null;
+    phone?: string | null;
   }) {
     return {
       id: user.id,
@@ -920,6 +924,7 @@ export class ChatsService {
       lastSeenAt: user.lastSeenAt ?? null,
       email: user.email,
       deviceId: user.deviceId,
+      phone: user.phone ?? null,
       hasAvatar: Boolean(user.avatarKey),
       avatarUpdatedAt: user.avatarUpdatedAt ?? null,
     };
@@ -938,6 +943,7 @@ export class ChatsService {
         email?: string | null;
         avatarKey?: string | null;
         avatarUpdatedAt?: Date | null;
+        phone?: string | null;
       };
       peer: {
         id: string;
@@ -948,6 +954,7 @@ export class ChatsService {
         deviceId?: string | null;
         avatarKey?: string | null;
         avatarUpdatedAt?: Date | null;
+        phone?: string | null;
       };
       device: { id: string; name: string; status: string; lastSeen: Date | null } | null;
     },
@@ -976,6 +983,7 @@ export class ChatsService {
       unreadCount,
       counterpartName: counterpart.name,
       counterpartUserId: counterpart.id,
+      counterpartPhone: counterpart.phone ?? null,
       counterpartHasAvatar: Boolean(counterpart.avatarKey),
       counterpartAvatarUpdatedAt: counterpart.avatarUpdatedAt ?? null,
       online,
@@ -1132,7 +1140,9 @@ export class ChatsService {
 
   private async assertThread(organizationId: string, threadId: string) {
     const thread = await this.prisma.chatThread.findFirst({
-      where: { id: threadId, organizationId },
+      where: seesAllOrganizations(organizationId)
+        ? { id: threadId }
+        : { id: threadId, organizationId },
     });
     if (!thread) throw new NotFoundException('Chat not found');
     return thread;

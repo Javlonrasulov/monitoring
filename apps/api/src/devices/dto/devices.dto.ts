@@ -74,6 +74,18 @@ export class UploadAvatarDto {
   imageBase64!: string;
 }
 
+export class UpdateProfileDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  name?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  phone?: string;
+}
+
 export class DeviceStatusDto {
   @ApiPropertyOptional({
     enum: ['ONLINE', 'OFFLINE', 'CONNECTING', 'STREAMING', 'ERROR'],

@@ -10,6 +10,7 @@ import { StreamSessionStatus } from '../generated/prisma';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { SubscriptionsService } from '../subscriptions/subscriptions.service';
+import { seesAllOrganizations } from '../auth/platform-org';
 
 @Injectable()
 export class StreamingService {
@@ -84,7 +85,9 @@ export class StreamingService {
       );
     }
     const device = await this.prisma.device.findFirst({
-      where: { id: deviceId, organizationId },
+      where: seesAllOrganizations(organizationId)
+        ? { id: deviceId }
+        : { id: deviceId, organizationId },
     });
     if (!device) {
       throw new NotFoundException('Device not found');
@@ -283,7 +286,7 @@ export class StreamingService {
 
   async listSessions(organizationId: string) {
     return this.prisma.streamSession.findMany({
-      where: { organizationId },
+      where: seesAllOrganizations(organizationId) ? {} : { organizationId },
       include: { device: { select: { id: true, name: true, status: true } } },
       orderBy: { startedAt: 'desc' },
       take: 100,
