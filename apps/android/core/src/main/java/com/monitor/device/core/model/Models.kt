@@ -272,9 +272,61 @@ data class ChunkUploadResponse(
 data class SubscriptionDto(
     val id: String? = null,
     val status: String? = null,
+    val plan: String? = null,
     val maxDevices: Int? = null,
     val deviceCount: Int? = null,
     val devicesUsed: String? = null,
     val expiresAt: String? = null,
+    val startedAt: String? = null,
     val active: Boolean? = null,
+    val trial: Boolean? = null,
+    val canWatchVideo: Boolean? = null,
+    val canWatchAudio: Boolean? = null,
+    val canRecordings: Boolean? = null,
+    val canLinkTwoApps: Boolean? = null,
+    val priceProUsd: Int? = null,
+    val priceProPlusUsd: Int? = null,
+)
+
+@Serializable
+data class CreatePairingCodeRequest(
+    val deviceNameHint: String? = null,
+)
+
+@Serializable
+data class PairingCodeResponse(
+    val id: String? = null,
+    val code: String,
+    val expiresAt: String? = null,
+    val qrPayload: String? = null,
+)
+
+@Serializable
+data class LinkedDeviceDto(
+    val id: String,
+    val name: String,
+    val status: String? = null,
+    val lastSeen: String? = null,
+    val deviceModel: String? = null,
+)
+
+@Serializable
+data class LinkDeviceRequest(
+    val code: String,
+)
+
+@Serializable
+data class PurchasePlanRequest(
+    val plan: String,
+)
+
+@Serializable
+data class ViewerTokenResponse(
+    val token: String,
+    val expiresIn: Int = 120,
+    val path: String? = null,
+    val whepUrl: String,
+    val audioEnabled: Boolean = false,
+    val videoEnabled: Boolean = true,
+    val canRecordings: Boolean = false,
 )

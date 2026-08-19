@@ -2,6 +2,7 @@ package com.monitor.device
 
 import android.content.Context
 import android.os.Bundle
+import android.view.View
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
@@ -19,6 +20,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
+import com.monitor.device.monitoring.service.MonitoringForegroundService
 import com.monitor.device.settings.AppSettings
 import com.monitor.device.settings.ThemeMode
 import com.monitor.device.ui.navigation.MonitorNavHost
@@ -31,6 +33,12 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (Emulator.isEmulator) {
+            // WebRTC/camera EGL on API 36 emulators blanks Compose (solid black
+            // window while the process is still alive). Keep the UI visible.
+            MonitoringForegroundService.stop(this)
+            window.decorView.setLayerType(View.LAYER_TYPE_SOFTWARE, null)
+        }
         enableEdgeToEdge()
         val app = application as MonitorApp
 

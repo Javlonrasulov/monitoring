@@ -37,6 +37,23 @@ fun formatDuration(ms: Int?): String {
     return "%d:%02d".format(m, s)
 }
 
+/** Telegram-style mm:ss with a leading zero on minutes. */
+fun formatVoiceClock(ms: Int?): String {
+    val total = ((ms ?: 0) / 1000).coerceAtLeast(0)
+    val m = total / 60
+    val s = total % 60
+    return "%02d:%02d".format(m, s)
+}
+
+fun defaultVoiceWaveform(seed: String): List<Float> {
+    val hash = seed.hashCode()
+    return List(52) { index ->
+        val mixed = (hash * 1664525 + index * 1013904223)
+        val unit = ((mixed ushr 8) and 0xFF) / 255f
+        0.16f + unit * 0.84f
+    }
+}
+
 fun formatClock(iso: String?): String {
     if (iso.isNullOrBlank()) return ""
     val date = parseIso(iso) ?: return ""

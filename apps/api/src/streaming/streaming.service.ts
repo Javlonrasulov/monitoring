@@ -9,6 +9,7 @@ import { JwtService } from '@nestjs/jwt';
 import { StreamSessionStatus } from '../generated/prisma';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { SubscriptionsService } from '../subscriptions/subscriptions.service';
 
 @Injectable()
 export class StreamingService {
@@ -19,6 +20,7 @@ export class StreamingService {
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
     private readonly audit: AuditService,
+    private readonly subscriptions: SubscriptionsService,
   ) {}
 
   private streamPath(deviceId: string) {
@@ -74,6 +76,14 @@ export class StreamingService {
     userId: string,
     deviceId: string,
   ) {
+    const allowed = await this.subscriptions.assertCanWatch(organizationId, 'video');
+    if (!allowed.ok) {
+      throw new ForbiddenException(
+        allowed.reason === 'upgrade_required'
+          ? 'Upgrade to Pro to watch live video'
+          : 'Trial ended. Buy Pro or Pro+ to keep watching',
+      );
+    }
     const device = await this.prisma.device.findFirst({
       where: { id: deviceId, organizationId },
     });
@@ -117,6 +127,9 @@ export class StreamingService {
       expiresIn: ttl,
       path,
       whepUrl: `${base}/${path}/whep`,
+      audioEnabled: allowed.view.canWatchAudio,
+      videoEnabled: allowed.view.canWatchVideo,
+      canRecordings: allowed.view.canRecordings,
       device: {
         id: device.id,
         name: device.name,
@@ -125,7 +138,32 @@ export class StreamingService {
     };
   }
 
+  async issueDeviceViewerToken(
+    viewerDeviceId: string,
+    organizationId: string,
+    targetDeviceId: string,
+  ) {
+    const target = await this.prisma.device.findFirst({
+      where: {
+        id: targetDeviceId,
+        organizationId,
+        linkedFromDeviceId: viewerDeviceId,
+      },
+    });
+    if (!target) {
+      throw new ForbiddenException('Device is not linked to this account');
+    }
+    return this.issueViewerToken(organizationId, viewerDeviceId, target.id);
+  }
+
   async issueRecorderToken(deviceId: string, organizationId: string) {
+    const allowed = await this.subscriptions.assertCanWatch(
+      organizationId,
+      'recordings',
+    );
+    if (!allowed.ok) {
+      throw new ForbiddenException('Pro+ is required for recordings');
+    }
     const device = await this.prisma.device.findFirst({
       where: { id: deviceId, organizationId },
     });

@@ -2,21 +2,28 @@
 
 package com.monitor.device.ui.screens
 
+import android.Manifest
 import android.content.ClipData
 import android.content.ClipboardManager
+import android.content.ContentUris
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.media.AudioAttributes
 import android.media.MediaPlayer
 import android.net.Uri
+import android.os.Build
+import android.provider.MediaStore
 import android.widget.Toast
 import android.widget.VideoView
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -28,6 +35,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
@@ -35,6 +44,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
@@ -65,6 +76,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -74,6 +86,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -101,6 +116,7 @@ import com.monitor.device.ui.chat.VideoNoteCapture
 import com.monitor.device.ui.chat.VoiceCapture
 import com.monitor.device.ui.chat.compressImage
 import com.monitor.device.ui.chat.copyUriToCache
+import com.monitor.device.ui.chat.defaultVoiceWaveform
 import com.monitor.device.ui.chat.dayKey
 import com.monitor.device.ui.chat.displayName
 import com.monitor.device.ui.chat.formatDayLabel
@@ -131,6 +147,7 @@ private data class PendingMedia(
     val width: Int? = null,
     val height: Int? = null,
     val thumbnail: File? = null,
+    val waveformJson: String? = null,
 )
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
@@ -164,6 +181,10 @@ fun ChatThreadScreen(
     var recordMs by remember { mutableStateOf(0) }
     var videoNote by remember { mutableStateOf(false) }
     var playingId by remember { mutableStateOf<String?>(null) }
+    var voicePaused by remember { mutableStateOf(false) }
+    var playbackProgress by remember { mutableFloatStateOf(0f) }
+    var playbackPositionMs by remember { mutableIntStateOf(0) }
+    var voiceSpeed by remember { mutableFloatStateOf(1f) }
     var fullscreen by remember { mutableStateOf<ChatMessageDto?>(null) }
     var voiceCapture by remember { mutableStateOf<VoiceCapture?>(null) }
     var voiceFile by remember { mutableStateOf<File?>(null) }
@@ -301,9 +322,14 @@ fun ChatThreadScreen(
 
     fun playMessage(message: ChatMessageDto) {
         if (playingId == message.id) {
-            player?.release()
-            player = null
-            playingId = null
+            val mp = player
+            if (mp != null && mp.isPlaying) {
+                mp.pause()
+                voicePaused = true
+            } else {
+                mp?.start()
+                voicePaused = false
+            }
             return
         }
         player?.release()
@@ -311,12 +337,34 @@ fun ChatThreadScreen(
         val mp = MediaPlayer().apply {
             setAudioAttributes(AudioAttributes.Builder().setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build())
             setDataSource(context, Uri.parse(url), mapOf("Authorization" to apiClient.authorizationHeader()))
-            setOnCompletionListener { playingId = null }
+            setOnCompletionListener {
+                playingId = null
+                voicePaused = false
+                playbackProgress = 0f
+                playbackPositionMs = 0
+            }
             prepare()
+            playbackParams = playbackParams.setSpeed(voiceSpeed)
             start()
         }
         player = mp
         playingId = message.id
+        voicePaused = false
+        playbackProgress = 0f
+        playbackPositionMs = 0
+    }
+
+    LaunchedEffect(playingId, voicePaused) {
+        while (playingId != null && !voicePaused) {
+            val mp = player
+            val duration = mp?.duration ?: 0
+            val position = mp?.currentPosition ?: 0
+            if (duration > 0) {
+                playbackProgress = position.toFloat() / duration.toFloat()
+                playbackPositionMs = position
+            }
+            delay(40)
+        }
     }
 
     if (videoNote) {
@@ -438,7 +486,32 @@ fun ChatThreadScreen(
                         imageLoader = imageLoader,
                         threadId = threadId,
                         playingId = playingId,
+                        voicePaused = voicePaused,
+                        playbackProgress = playbackProgress,
+                        playbackPositionMs = playbackPositionMs,
+                        voiceSpeed = voiceSpeed,
                         onPlayToggle = { playMessage(it) },
+                        onVoiceSpeed = {
+                            voiceSpeed = when (voiceSpeed) {
+                                1f -> 1.5f
+                                1.5f -> 2f
+                                else -> 1f
+                            }
+                            val mp = player
+                            if (mp != null) {
+                                runCatching { mp.playbackParams = mp.playbackParams.setSpeed(voiceSpeed) }
+                            }
+                        },
+                        onVoiceSeek = { ratio ->
+                            val mp = player
+                            val duration = mp?.duration ?: 0
+                            if (mp != null && duration > 0 && playingId != null) {
+                                val target = (duration * ratio).toInt()
+                                mp.seekTo(target)
+                                playbackProgress = ratio
+                                playbackPositionMs = target
+                            }
+                        },
                         onOpenMedia = { fullscreen = it },
                         onReplyClick = { id ->
                             val idx = messages.indexOfFirst { it.id == id }
@@ -479,33 +552,61 @@ fun ChatThreadScreen(
         }
         if (recording) {
             Row(
-                modifier = Modifier.fillMaxWidth().padding(12.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(if (colors.isDark) Color(0xFF17201F) else Color(0xFFF7F8F8))
+                    .padding(horizontal = 8.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text("🎤 ${stringResource(R.string.chat_recording)}  ${formatDuration(recordMs)}", color = colors.danger, modifier = Modifier.weight(1f))
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(CircleShape)
+                        .background(colors.danger),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(Icons.Rounded.Mic, contentDescription = null, tint = Color.White)
+                }
+                Spacer(Modifier.width(10.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(stringResource(R.string.chat_recording), color = colors.danger, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                    Text(formatDuration(recordMs), color = colors.textPrimary, fontSize = 16.sp, fontWeight = FontWeight.Medium)
+                }
                 TextButton(onClick = {
                     voiceCapture?.cancel()
                     voiceCapture = null
                     recording = false
                 }) { Text(stringResource(R.string.common_cancel)) }
-                TextButton(onClick = {
-                    val capture = voiceCapture
-                    val file = voiceFile
-                    val duration = capture?.stop() ?: 0
-                    recording = false
-                    voiceCapture = null
-                    voiceFile = null
-                    if (file != null && file.exists()) {
-                        scope.launch {
-                            sendMedia(
-                                apiClient, threadId,
-                                PendingMedia(file, "voice.m4a", "audio/mp4", "VOICE", duration),
-                                replyTo?.id, null,
-                            ) { sent -> messages = mergeMessage(messages, sent) }
-                            replyTo = null
+                IconButton(
+                    onClick = {
+                        val capture = voiceCapture
+                        val file = voiceFile
+                        val duration = capture?.stop() ?: 0
+                        recording = false
+                        voiceCapture = null
+                        voiceFile = null
+                        if (file != null && file.exists()) {
+                            scope.launch {
+                                sendMedia(
+                                    apiClient, threadId,
+                                    PendingMedia(
+                                        file, "voice.m4a", "audio/mp4", "VOICE", duration,
+                                        waveformJson = defaultVoiceWaveform(file.absolutePath)
+                                            .joinToString(prefix = "[", postfix = "]") { "%.3f".format(it) },
+                                    ),
+                                    replyTo?.id, null,
+                                ) { sent -> messages = mergeMessage(messages, sent) }
+                                replyTo = null
+                            }
                         }
-                    }
-                }) { Text(stringResource(R.string.chat_send)) }
+                    },
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primary),
+                ) {
+                    Icon(Icons.AutoMirrored.Rounded.Send, contentDescription = stringResource(R.string.chat_send), tint = Color.White)
+                }
             }
         } else {
             ComposerBar(
@@ -565,24 +666,45 @@ fun ChatThreadScreen(
     }
 
     if (attachOpen) {
-        ModalBottomSheet(onDismissRequest = { attachOpen = false }, sheetState = rememberModalBottomSheetState()) {
-            AttachRow(Icons.Rounded.Image, stringResource(R.string.chat_photo)) {
-                attachOpen = false
-                photoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-            }
-            AttachRow(Icons.Rounded.Videocam, stringResource(R.string.chat_video)) {
-                attachOpen = false
-                videoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly))
-            }
-            AttachRow(Icons.Rounded.Description, stringResource(R.string.chat_file)) {
-                attachOpen = false
-                filePicker.launch("*/*")
-            }
-            AttachRow(Icons.Rounded.Description, stringResource(R.string.chat_document)) {
-                attachOpen = false
-                filePicker.launch("application/*")
-            }
-            Spacer(Modifier.height(24.dp))
+        val colors = MonitorTheme.colors
+        ModalBottomSheet(
+            onDismissRequest = { attachOpen = false },
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+            containerColor = if (colors.isDark) Color(0xFF1C2625) else Color.White,
+        ) {
+            AttachPickerSheet(
+                imageLoader = imageLoader,
+                onGallery = {
+                    attachOpen = false
+                    photoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                },
+                onVideo = {
+                    attachOpen = false
+                    videoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly))
+                },
+                onFile = {
+                    attachOpen = false
+                    filePicker.launch("*/*")
+                },
+                onVideoNote = {
+                    attachOpen = false
+                    videoNote = true
+                },
+                onRecentPhoto = { uri ->
+                    attachOpen = false
+                    scope.launch {
+                        runCatching {
+                            val (file, size) = compressImage(context, uri)
+                            sendMedia(
+                                apiClient, threadId,
+                                PendingMedia(file, displayName(context, uri, "photo.jpg"), "image/jpeg", "IMAGE", width = size.first, height = size.second),
+                                replyTo?.id, null,
+                            ) { sent -> messages = mergeMessage(messages, sent) }
+                            replyTo = null
+                        }
+                    }
+                },
+            )
         }
     }
 
@@ -783,73 +905,198 @@ private fun ComposerBar(
     onCamera: () -> Unit,
 ) {
     val colors = MonitorTheme.colors
+    val empty = draft.isBlank()
+    val bar = if (colors.isDark) Color(0xFF17201F) else Color(0xFFF7F8F8)
+    val field = if (colors.isDark) Color(0xFF24302E) else Color.White
+    val iconTint = colors.textMuted
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 8.dp),
+            .background(bar)
+            .padding(start = 8.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
         verticalAlignment = Alignment.Bottom,
     ) {
         Row(
             modifier = Modifier
                 .weight(1f)
+                .heightIn(min = 48.dp)
                 .clip(RoundedCornerShape(24.dp))
-                .background(if (colors.isDark) Color(0xFF1B2A28) else Color.White)
-                .padding(end = 4.dp),
+                .background(field),
             verticalAlignment = Alignment.Bottom,
         ) {
-            IconButton(onClick = onAttach) {
-                Icon(Icons.Rounded.AttachFile, contentDescription = stringResource(R.string.chat_attach))
-            }
-            OutlinedTextField(
+            BasicTextField(
                 value = draft,
                 onValueChange = onDraft,
-                modifier = Modifier.weight(1f),
-                placeholder = { Text(stringResource(R.string.chat_placeholder)) },
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(start = 16.dp, top = 12.dp, bottom = 12.dp, end = 4.dp),
+                textStyle = TextStyle(color = colors.textPrimary, fontSize = 16.sp),
+                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                 maxLines = 5,
+                decorationBox = { inner ->
+                    Box {
+                        if (empty) {
+                            Text(
+                                stringResource(R.string.chat_placeholder),
+                                color = colors.textMuted,
+                                fontSize = 16.sp,
+                            )
+                        }
+                        inner()
+                    }
+                },
             )
+            if (empty) {
+                IconButton(onClick = onCamera, modifier = Modifier.size(40.dp)) {
+                    Icon(
+                        Icons.Rounded.PhotoCamera,
+                        contentDescription = stringResource(R.string.chat_video_note),
+                        tint = iconTint,
+                    )
+                }
+            }
+            IconButton(onClick = onAttach, modifier = Modifier.size(40.dp)) {
+                Icon(
+                    Icons.Rounded.AttachFile,
+                    contentDescription = stringResource(R.string.chat_attach),
+                    tint = iconTint,
+                )
+            }
         }
-        Spacer(Modifier.width(8.dp))
-        if (draft.isBlank()) {
-            IconButton(
-                onClick = onCamera,
-                modifier = Modifier
-                    .size(48.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primary),
-            ) {
-                Icon(Icons.Rounded.PhotoCamera, contentDescription = stringResource(R.string.chat_video_note), tint = Color.White)
-            }
-            Spacer(Modifier.width(6.dp))
-            IconButton(
-                onClick = onMicDown,
-                modifier = Modifier
-                    .size(48.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primary),
-            ) {
-                Icon(Icons.Rounded.Mic, contentDescription = stringResource(R.string.chat_voice), tint = Color.White)
-            }
-        } else {
-            IconButton(
-                onClick = onSend,
-                modifier = Modifier
-                    .size(48.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primary),
-            ) {
-                Icon(Icons.AutoMirrored.Rounded.Send, contentDescription = stringResource(R.string.chat_send), tint = Color.White)
-            }
+        Spacer(Modifier.width(6.dp))
+        IconButton(
+            onClick = if (empty) onMicDown else onSend,
+            modifier = Modifier
+                .size(48.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.primary),
+        ) {
+            Icon(
+                if (empty) Icons.Rounded.Mic else Icons.AutoMirrored.Rounded.Send,
+                contentDescription = stringResource(if (empty) R.string.chat_voice else R.string.chat_send),
+                tint = Color.White,
+            )
         }
     }
 }
 
 @Composable
-private fun AttachRow(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, onClick: () -> Unit) {
-    TextButton(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
-        Icon(icon, contentDescription = null)
-        Spacer(Modifier.width(12.dp))
-        Text(label)
+private fun AttachPickerSheet(
+    imageLoader: ImageLoader,
+    onGallery: () -> Unit,
+    onVideo: () -> Unit,
+    onFile: () -> Unit,
+    onVideoNote: () -> Unit,
+    onRecentPhoto: (Uri) -> Unit,
+) {
+    val context = LocalContext.current
+    val colors = MonitorTheme.colors
+    var recents by remember { mutableStateOf<List<Uri>>(emptyList()) }
+    LaunchedEffect(Unit) {
+        recents = withContext(Dispatchers.IO) { recentGalleryUris(context) }
     }
+
+    LazyRow(
+        modifier = Modifier.fillMaxWidth(),
+        contentPadding = PaddingValues(horizontal = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        item("gallery") {
+            Box(
+                modifier = Modifier
+                    .size(88.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(Color(0xFF4C9CE2))
+                    .clickable(onClick = onGallery),
+                contentAlignment = Alignment.Center,
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(Icons.Rounded.Image, contentDescription = null, tint = Color.White, modifier = Modifier.size(30.dp))
+                    Spacer(Modifier.height(6.dp))
+                    Text(stringResource(R.string.chat_gallery), color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                }
+            }
+        }
+        items(recents, key = { it.toString() }) { uri ->
+            AsyncImage(
+                model = ImageRequest.Builder(context).data(uri).crossfade(true).size(256).build(),
+                imageLoader = imageLoader,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .size(88.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .clickable { onRecentPhoto(uri) },
+            )
+        }
+    }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 8.dp, end = 8.dp, top = 22.dp, bottom = 28.dp),
+        horizontalArrangement = Arrangement.SpaceEvenly,
+    ) {
+        AttachAction(Icons.Rounded.Image, stringResource(R.string.chat_photo), Color(0xFF5BA8F5), onGallery)
+        AttachAction(Icons.Rounded.Videocam, stringResource(R.string.chat_video), Color(0xFFE45C7A), onVideo)
+        AttachAction(Icons.Rounded.Description, stringResource(R.string.chat_file), Color(0xFF9B6FE8), onFile)
+        AttachAction(Icons.Rounded.PhotoCamera, stringResource(R.string.chat_video_note), Color(0xFF2A9D8F), onVideoNote)
+    }
+}
+
+@Composable
+private fun AttachAction(
+    icon: ImageVector,
+    label: String,
+    circle: Color,
+    onClick: () -> Unit,
+) {
+    val colors = MonitorTheme.colors
+    Column(
+        modifier = Modifier
+            .clickable(onClick = onClick)
+            .padding(horizontal = 4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(56.dp)
+                .clip(CircleShape)
+                .background(circle),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(26.dp))
+        }
+        Spacer(Modifier.height(8.dp))
+        Text(label, color = colors.textPrimary, fontSize = 12.sp, maxLines = 1)
+    }
+}
+
+private fun recentGalleryUris(context: Context, limit: Int = 28): List<Uri> {
+    val permission = if (Build.VERSION.SDK_INT >= 33) {
+        Manifest.permission.READ_MEDIA_IMAGES
+    } else {
+        Manifest.permission.READ_EXTERNAL_STORAGE
+    }
+    if (ContextCompat.checkSelfPermission(context, permission) != PackageManager.PERMISSION_GRANTED) {
+        return emptyList()
+    }
+    val collection = MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+    val result = ArrayList<Uri>(limit)
+    context.contentResolver.query(
+        collection,
+        arrayOf(MediaStore.Images.Media._ID),
+        null,
+        null,
+        "${MediaStore.Images.Media.DATE_ADDED} DESC",
+    )?.use { cursor ->
+        val idIdx = cursor.getColumnIndexOrThrow(MediaStore.Images.Media._ID)
+        while (cursor.moveToNext() && result.size < limit) {
+            result += ContentUris.withAppendedId(collection, cursor.getLong(idIdx))
+        }
+    }
+    return result
 }
 
 @Composable
@@ -887,6 +1134,7 @@ private suspend fun sendMedia(
         replyToId = replyToId,
         clientId = UUID.randomUUID().toString(),
         albumId = albumId,
+        waveformJson = media.waveformJson,
         thumbnail = media.thumbnail,
     )
     onSent(sent)

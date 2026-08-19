@@ -10,13 +10,16 @@ import java.util.Locale
  * Stored in plain prefs because it must be readable from attachBaseContext.
  */
 object AppLocale {
-    const val DEFAULT_TAG = "uz"
+    const val DEFAULT_TAG = "en"
 
     private const val PREFS = "monitor_ui_prefs"
     private const val KEY_LANGUAGE = "app_language"
 
-    fun tag(context: Context): String =
-        prefs(context).getString(KEY_LANGUAGE, null) ?: DEFAULT_TAG
+    fun tag(context: Context): String {
+        val stored = prefs(context).getString(KEY_LANGUAGE, null)
+        if (stored.isNullOrBlank() || stored == "uz") return DEFAULT_TAG
+        return stored
+    }
 
     fun setTag(context: Context, tag: String) {
         prefs(context).edit().putString(KEY_LANGUAGE, tag).apply()

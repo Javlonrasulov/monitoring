@@ -62,9 +62,9 @@ fun ChatsListScreen(
     LaunchedEffect(Unit) {
         while (true) {
             runCatching { apiClient.chats() }.onSuccess { list ->
-                threads = list
                 list.firstOrNull()?.viewerUserId?.let(tokenStore::saveUserId)
-                onUnreadChange(list.sumOf { it.unreadCount })
+                threads = list.filter(::isConnectedUserThread)
+                onUnreadChange(threads.sumOf { it.unreadCount })
             }
             delay(4000)
         }
@@ -181,4 +181,20 @@ fun ChatsListScreen(
             }
         }
     }
+}
+
+private fun isConnectedUserThread(thread: ChatThreadDto): Boolean {
+    val viewer = thread.viewerUserId
+    val ownerId = thread.owner?.id
+    if (viewer != null && ownerId != null && viewer != ownerId && thread.counterpartUserId == ownerId) {
+        return false
+    }
+    val role = when (thread.counterpartUserId) {
+        thread.owner?.id -> thread.owner?.role
+        thread.peer?.id -> thread.peer?.role
+        else -> thread.owner?.role
+    }?.uppercase()
+    if (role == "ADMIN" || role == "OWNER" || role == "VIEWER") return false
+    if (role == "USER") return true
+    return !thread.counterpartName.equals("Admin", ignoreCase = true)
 }

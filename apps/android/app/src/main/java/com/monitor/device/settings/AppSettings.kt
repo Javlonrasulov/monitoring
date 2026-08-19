@@ -4,13 +4,12 @@ import android.content.Context
 import com.monitor.device.core.locale.AppLocale
 
 enum class AppLanguage(val tag: String) {
-    UZBEK("uz"),
-    RUSSIAN("ru"),
     ENGLISH("en"),
+    RUSSIAN("ru"),
     ;
 
     companion object {
-        val Default = UZBEK
+        val Default = ENGLISH
 
         fun fromTag(tag: String?): AppLanguage =
             entries.firstOrNull { it.tag == tag } ?: Default

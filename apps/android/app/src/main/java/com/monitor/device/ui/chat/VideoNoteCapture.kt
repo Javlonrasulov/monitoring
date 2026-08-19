@@ -45,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import com.monitor.device.R
+import com.monitor.device.monitoring.service.MonitoringForegroundService
 import kotlinx.coroutines.delay
 import java.io.File
 import java.util.UUID
@@ -67,8 +68,19 @@ fun VideoNoteCapture(
     var recording by remember { mutableStateOf(false) }
     var active by remember { mutableStateOf<Recording?>(null) }
     var videoCapture by remember { mutableStateOf<VideoCapture<Recorder>?>(null) }
+    var cameraReady by remember { mutableStateOf(false) }
     val output = remember {
         File(context.cacheDir, "video-note-${UUID.randomUUID()}.mp4")
+    }
+
+    LaunchedEffect(Unit) {
+        var waits = 0
+        while (MonitoringForegroundService.isStarted() && waits < 30) {
+            delay(100)
+            waits++
+        }
+        delay(250)
+        cameraReady = true
     }
 
     LaunchedEffect(recording) {
@@ -88,6 +100,7 @@ fun VideoNoteCapture(
     var boundCapture by remember { mutableStateOf<VideoCapture<Recorder>?>(null) }
 
     DisposableEffect(Unit) {
+        MonitoringForegroundService.pauseForChatCamera(context)
         onDispose {
             active?.stop()
             val provider = boundProvider
@@ -96,6 +109,7 @@ fun VideoNoteCapture(
             if (provider != null && preview != null && capture != null) {
                 runCatching { provider.unbind(preview, capture) }
             }
+            MonitoringForegroundService.resumeAfterChatCamera(context)
         }
     }
 
@@ -121,11 +135,15 @@ fun VideoNoteCapture(
                             )
                             scaleType = PreviewView.ScaleType.FILL_CENTER
                         }
-                        val executor: Executor = ContextCompat.getMainExecutor(ctx)
-                        ProcessCameraProvider.getInstance(ctx).addListener(
+                        previewView
+                    },
+                    update = labeled@{ previewView ->
+                        if (!cameraReady || videoCapture != null) return@labeled
+                        val executor: Executor = ContextCompat.getMainExecutor(previewView.context)
+                        ProcessCameraProvider.getInstance(previewView.context).addListener(
                             {
                                 runCatching {
-                                    val provider = ProcessCameraProvider.getInstance(ctx).get()
+                                    val provider = ProcessCameraProvider.getInstance(previewView.context).get()
                                     val preview = Preview.Builder().build().also {
                                         it.setSurfaceProvider(previewView.surfaceProvider)
                                     }
@@ -147,7 +165,6 @@ fun VideoNoteCapture(
                             },
                             executor,
                         )
-                        previewView
                     },
                     modifier = Modifier.fillMaxSize(),
                 )

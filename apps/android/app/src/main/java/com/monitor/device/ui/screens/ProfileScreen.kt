@@ -61,7 +61,7 @@ fun ProfileScreen(
             InfoRow(stringResource(R.string.profile_devices), sub?.devicesUsed ?: "—")
             InfoRow(
                 stringResource(R.string.profile_expires),
-                sub?.expiresAt?.take(10) ?: "—",
+                formatSubscriptionExpiry(sub?.expiresAt),
             )
             if (!active) {
                 Spacer(modifier = Modifier.size(Spacing.sm))

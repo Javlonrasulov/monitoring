@@ -52,6 +52,7 @@ async function main() {
     data: {
       organizationId: org.id,
       status: 'ACTIVE',
+      plan: 'PRO_PLUS',
       maxDevices: 2,
       startedAt: new Date(),
       expiresAt: new Date('2026-09-19T23:59:59.000Z'),

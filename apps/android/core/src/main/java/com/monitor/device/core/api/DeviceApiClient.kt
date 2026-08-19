@@ -13,13 +13,19 @@ import com.monitor.device.core.model.DeviceStatusResponse
 import com.monitor.device.core.model.DeviceStatusUpdate
 import com.monitor.device.core.model.EditChatRequest
 import com.monitor.device.core.model.InitUploadRequest
+import com.monitor.device.core.model.CreatePairingCodeRequest
+import com.monitor.device.core.model.LinkDeviceRequest
+import com.monitor.device.core.model.LinkedDeviceDto
 import com.monitor.device.core.model.OkResponse
+import com.monitor.device.core.model.PairingCodeResponse
 import com.monitor.device.core.model.PairRequest
 import com.monitor.device.core.model.PairResponse
 import com.monitor.device.core.model.PublisherTokenResponse
+import com.monitor.device.core.model.PurchasePlanRequest
 import com.monitor.device.core.model.ReactChatRequest
 import com.monitor.device.core.model.SendChatRequest
 import com.monitor.device.core.model.SubscriptionDto
+import com.monitor.device.core.model.ViewerTokenResponse
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
@@ -137,6 +143,26 @@ class DeviceApiClient(
 
     suspend fun subscription(): SubscriptionDto = authorized { api.subscription(it) }
 
+    suspend fun subscriptionPeek(): SubscriptionDto =
+        authorized(unpairOnFailure = false) { api.subscription(it) }
+
+    suspend fun linkedDevices(): List<LinkedDeviceDto> =
+        authorized(unpairOnFailure = false) { api.linkedDevices(it) }
+
+    suspend fun createPairingCode(): PairingCodeResponse =
+        authorized(unpairOnFailure = false) {
+            api.createPairingCode(it, CreatePairingCodeRequest())
+        }
+
+    suspend fun linkDevice(code: String): OkResponse =
+        authorized(unpairOnFailure = false) { api.linkDevice(it, LinkDeviceRequest(code)) }
+
+    suspend fun purchasePlan(plan: String): SubscriptionDto =
+        authorized(unpairOnFailure = false) { api.purchasePlan(it, PurchasePlanRequest(plan)) }
+
+    suspend fun deviceViewerToken(deviceId: String): ViewerTokenResponse =
+        authorized(unpairOnFailure = false) { api.deviceViewerToken(it, deviceId) }
+
     fun mediaUrl(threadId: String, messageId: String, thumb: Boolean = false, download: Boolean = false): String {
         val path = if (thumb) {
             "device-chats/$threadId/files/$messageId/thumb"
@@ -250,12 +276,17 @@ class DeviceApiClient(
 
     private suspend fun <T> authorized(
         unpairOnNotFound: Boolean = true,
+        unpairOnFailure: Boolean = true,
         call: suspend (String) -> T,
     ): T {
         return try {
             call(bearer())
         } catch (e: HttpException) {
-            val gone = e.code() == 401 || e.code() == 403 || (unpairOnNotFound && e.code() == 404)
+            val gone = unpairOnFailure && (
+                e.code() == 401 ||
+                    e.code() == 403 ||
+                    (unpairOnNotFound && e.code() == 404)
+                )
             if (gone) {
                 tokenStore.clear()
                 throw Unpaired(e)

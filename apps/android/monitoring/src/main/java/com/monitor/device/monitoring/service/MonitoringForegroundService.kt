@@ -241,11 +241,36 @@ class MonitoringForegroundService : LifecycleService() {
         private const val NOTIFICATION_ID = 1001
         private const val NOTIFICATION_ACCENT = 0xFF0F766E.toInt()
         private val started = AtomicBoolean(false)
+        private val chatCameraHold = AtomicBoolean(false)
+        private val resumeAfterChatCamera = AtomicBoolean(false)
 
         fun isStarted(): Boolean = started.get()
 
+        fun isChatCameraHold(): Boolean = chatCameraHold.get()
+
+        /**
+         * Temporarily stop the live camera so chat video notes can use it.
+         * Does not change the user's auto-start preference.
+         */
+        fun pauseForChatCamera(context: Context) {
+            chatCameraHold.set(true)
+            resumeAfterChatCamera.set(started.get())
+            if (started.get()) {
+                stop(context)
+            }
+        }
+
+        fun resumeAfterChatCamera(context: Context) {
+            val shouldResume = resumeAfterChatCamera.getAndSet(false)
+            chatCameraHold.set(false)
+            if (shouldResume) {
+                start(context)
+            }
+        }
+
         /** Returns false when Android refuses the start (background limits). */
         fun start(context: Context): Boolean {
+            if (chatCameraHold.get()) return false
             val intent = Intent(context, MonitoringForegroundService::class.java)
                 .setAction(ACTION_START)
             return runCatching {

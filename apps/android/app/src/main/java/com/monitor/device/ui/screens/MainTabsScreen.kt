@@ -31,8 +31,7 @@ fun MainTabsScreen(
     onOpenChat: (String, String) -> Unit,
     onUnpaired: () -> Unit,
     onPermissionsRequired: () -> Unit,
-    onOpenSettings: () -> Unit,
-    settingsOpen: Boolean,
+    onWatchDevice: (String, String) -> Unit,
 ) {
     var tab by rememberSaveable { mutableIntStateOf(0) }
     var unread by rememberSaveable { mutableIntStateOf(0) }
@@ -41,12 +40,6 @@ fun MainTabsScreen(
         onUnpaired = onUnpaired,
         onPermissionsRequired = onPermissionsRequired,
     )
-
-    val dockSelected = when {
-        settingsOpen -> 1
-        tab == 1 -> 2
-        else -> 0
-    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Box(
@@ -61,6 +54,10 @@ fun MainTabsScreen(
                     onOpenThread = onOpenChat,
                     onUnreadChange = { unread = it },
                 )
+                1 -> SettingsScreen(
+                    apiClient = apiClient,
+                    onWatchDevice = onWatchDevice,
+                )
                 else -> ProfileScreen(
                     apiClient = apiClient,
                     tokenStore = tokenStore,
@@ -71,17 +68,11 @@ fun MainTabsScreen(
 
         TelegramDock(
             modifier = Modifier.align(Alignment.BottomCenter),
-            selectedIndex = dockSelected,
-            onSelect = { index ->
-                when (index) {
-                    0 -> tab = 0
-                    1 -> onOpenSettings()
-                    else -> tab = 1
-                }
-            },
+            selectedIndex = tab,
+            onSelect = { tab = it },
             items = listOf(
                 TelegramDockItem(
-                    icon = if (dockSelected == 0) {
+                    icon = if (tab == 0) {
                         Icons.Rounded.Chat
                     } else {
                         Icons.Outlined.Chat
@@ -90,7 +81,7 @@ fun MainTabsScreen(
                     badge = unread,
                 ),
                 TelegramDockItem(
-                    icon = if (dockSelected == 1) {
+                    icon = if (tab == 1) {
                         Icons.Rounded.Settings
                     } else {
                         Icons.Outlined.Settings
@@ -98,7 +89,7 @@ fun MainTabsScreen(
                     labelRes = R.string.nav_settings,
                 ),
                 TelegramDockItem(
-                    icon = if (dockSelected == 2) {
+                    icon = if (tab == 2) {
                         Icons.Rounded.Person
                     } else {
                         Icons.Outlined.Person

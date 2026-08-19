@@ -17,6 +17,7 @@ import { CurrentDevice, CurrentUser } from '../auth/decorators';
 import {
   CreatePairingCodeDto,
   DeviceStatusDto,
+  LinkDeviceDto,
   PairDeviceDto,
   SetCameraFacingDto,
 } from './dto/devices.dto';
@@ -47,6 +48,53 @@ export class DevicesController {
     device: { deviceId: string; organizationId: string },
   ) {
     return this.devicesService.getMe(device.deviceId, device.organizationId);
+  }
+
+  @Get('me/linked')
+  @ApiBearerAuth()
+  @UseGuards(DeviceAuthGuard)
+  @ApiOperation({ summary: 'Devices linked to this account for live view' })
+  linked(
+    @CurrentDevice()
+    device: { deviceId: string; organizationId: string },
+  ) {
+    return this.devicesService.listLinkedForDevice(
+      device.deviceId,
+      device.organizationId,
+    );
+  }
+
+  @Post('me/pairing-codes')
+  @ApiBearerAuth()
+  @UseGuards(DeviceAuthGuard)
+  @ApiOperation({ summary: 'Create a code so another app can link to this user' })
+  createMyPairingCode(
+    @CurrentDevice()
+    device: { deviceId: string; organizationId: string; branchId: string },
+    @Body() dto: CreatePairingCodeDto = {},
+  ) {
+    return this.devicesService.createPairingCodeForDevice(
+      device.deviceId,
+      device.organizationId,
+      device.branchId,
+      dto,
+    );
+  }
+
+  @Post('me/link')
+  @ApiBearerAuth()
+  @UseGuards(DeviceAuthGuard)
+  @ApiOperation({ summary: 'Enter a link code after sign-in' })
+  link(
+    @CurrentDevice()
+    device: { deviceId: string; organizationId: string },
+    @Body() dto: LinkDeviceDto,
+  ) {
+    return this.devicesService.linkExistingDevice(
+      device.deviceId,
+      device.organizationId,
+      dto.code,
+    );
   }
 
   @Get(':id')

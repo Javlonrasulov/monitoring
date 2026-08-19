@@ -22,6 +22,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { EventsGateway } from '../events/events.gateway';
 import { AuditService } from '../audit/audit.service';
+import { SubscriptionsService } from '../subscriptions/subscriptions.service';
 import {
   ensureParentDir,
   fileSizeOrZero,
@@ -56,6 +57,7 @@ export class RecordingsService implements OnModuleDestroy {
     private readonly audit: AuditService,
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
+    private readonly subscriptions: SubscriptionsService,
   ) {
     this.maintenanceTimer = setInterval(() => {
       void this.runMaintenance();
@@ -91,6 +93,13 @@ export class RecordingsService implements OnModuleDestroy {
   }
 
   async start(organizationId: string, deviceId: string, quality?: RecorderQuality) {
+    const allowed = await this.subscriptions.assertCanWatch(
+      organizationId,
+      'recordings',
+    );
+    if (!allowed.ok) {
+      throw new ForbiddenException('Pro+ is required for recordings');
+    }
     const device = await this.prisma.device.findFirst({
       where: { id: deviceId, organizationId },
     });

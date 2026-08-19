@@ -45,15 +45,26 @@ export class ChatsService {
     deviceId: string;
     deviceName: string;
     peerUserId: string;
+    ownerUserId?: string | null;
   }) {
-    const owner = await this.prisma.user.findFirst({
-      where: {
-        organizationId: params.organizationId,
-        role: { in: [UserRole.ADMIN, UserRole.OWNER] },
-        blocked: false,
-      },
-      orderBy: { createdAt: 'asc' },
-    });
+    const owner =
+      (params.ownerUserId
+        ? await this.prisma.user.findFirst({
+            where: {
+              id: params.ownerUserId,
+              organizationId: params.organizationId,
+              blocked: false,
+            },
+          })
+        : null) ??
+      (await this.prisma.user.findFirst({
+        where: {
+          organizationId: params.organizationId,
+          role: { in: [UserRole.ADMIN, UserRole.OWNER] },
+          blocked: false,
+        },
+        orderBy: { createdAt: 'asc' },
+      }));
     if (!owner) return null;
 
     return this.prisma.chatThread.upsert({
@@ -70,7 +81,6 @@ export class ChatsService {
         ownerUserId: owner.id,
         peerUserId: params.peerUserId,
         deviceId: params.deviceId,
-        lastMessagePreview: params.deviceName,
       },
     });
   }
@@ -105,7 +115,14 @@ export class ChatsService {
   async listForDevice(organizationId: string, deviceId: string) {
     const viewer = await this.deviceUser(organizationId, deviceId);
     const threads = await this.prisma.chatThread.findMany({
-      where: { organizationId, deviceId },
+      where: {
+        organizationId,
+        OR: [
+          { deviceId },
+          { ownerUserId: viewer.id },
+          { peerUserId: viewer.id },
+        ],
+      },
       include: {
         owner: { select: { id: true, name: true, role: true, lastSeenAt: true } },
         peer: { select: { id: true, name: true, role: true, lastSeenAt: true } },
@@ -117,9 +134,15 @@ export class ChatsService {
       threads.map((t) => t.id),
       viewer.id,
     );
-    return threads.map((thread) =>
-      this.presentThread(thread, viewer.id, unread.get(thread.id) ?? 0, false),
-    );
+    return threads
+      .filter((thread) => {
+        const counterpart =
+          thread.owner.id === viewer.id ? thread.peer : thread.owner;
+        return counterpart.role === UserRole.USER;
+      })
+      .map((thread) =>
+        this.presentThread(thread, viewer.id, unread.get(thread.id) ?? 0, false),
+      );
   }
 
   async threadForAdmin(organizationId: string, userId: string, threadId: string) {

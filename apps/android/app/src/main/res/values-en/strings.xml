@@ -13,7 +13,6 @@
     <!-- Settings -->
     <string name="settings_language">Language</string>
     <string name="settings_theme">Theme</string>
-    <string name="language_uz">Oʻzbekcha</string>
     <string name="language_ru">Русский</string>
     <string name="language_en">English</string>
     <string name="theme_system">System</string>
@@ -36,18 +35,21 @@
 
     <!-- Pairing -->
     <string name="pair_title">Pair device</string>
-    <string name="pair_subtitle">Enter a pairing code if you have one. If not, your phone number is enough.</string>
+    <string name="pair_subtitle">Enter your name, phone number, and a code if you have one.</string>
     <string name="pair_section_title">Sign in</string>
-    <string name="pair_code_label">Pairing code</string>
-    <string name="pair_code_placeholder">For example: A1B2C3</string>
-    <string name="pair_code_helper">Optional — leave empty if you don’t have a code</string>
+    <string name="pair_name_label">Name</string>
+    <string name="pair_name_placeholder">Name</string>
+    <string name="pair_name_helper">This name is shown in chat</string>
     <string name="pair_phone_label">Phone number</string>
     <string name="pair_phone_placeholder">Phone number</string>
-    <string name="pair_phone_helper">If there is no code, sign in with this number</string>
+    <string name="pair_phone_helper">Required</string>
+    <string name="pair_code_label">Code</string>
+    <string name="pair_code_placeholder">Code</string>
+    <string name="pair_code_helper">Optional — leave empty if you don’t have a code</string>
     <string name="pair_button">Continue</string>
     <string name="pair_failed">Could not connect. Check the code or phone number.</string>
     <string name="pair_error_title">Something went wrong</string>
-    <string name="pair_footer_hint">Connect with a code or a phone number.</string>
+    <string name="pair_footer_hint">Sign in with your name, phone number, and optional code.</string>
 
     <!-- Home -->
     <string name="home_device_fallback">Device</string>
@@ -77,7 +79,7 @@
     <string name="nav_profile">Profile</string>
     <string name="chats_search">Search</string>
     <string name="chats_empty_title">No chats yet</string>
-    <string name="chats_empty_message">Once this device is paired, your chat with the owner appears here.</string>
+    <string name="chats_empty_message">Pairing does not open a chat. A conversation appears here after an admin writes to this device.</string>
     <string name="chats_untitled">Chat</string>
     <string name="chat_placeholder">Message</string>
     <string name="chat_send">Send</string>
@@ -89,12 +91,16 @@
     <string name="chat_reply">Reply</string>
     <string name="chat_copy">Copy</string>
     <string name="chat_forward">Forward</string>
+    <string name="chat_forwarded">Forwarded</string>
+    <string name="chat_message_deleted">This message was deleted</string>
+    <string name="chat_edited">edited</string>
     <string name="chat_edit">Edit</string>
     <string name="chat_delete">Delete</string>
     <string name="chat_select">Select</string>
     <string name="chat_share">Share</string>
     <string name="chat_delete_me">Delete for me</string>
     <string name="chat_delete_everyone">Delete for everyone</string>
+    <string name="chat_gallery">Gallery</string>
     <string name="chat_photo">Photo</string>
     <string name="chat_video">Video</string>
     <string name="chat_file">File</string>
@@ -125,4 +131,26 @@
     <string name="profile_connected">Connected device</string>
     <string name="profile_logout">Sign out / unpair</string>
     <string name="limit_reached">Device limit reached</string>
+    <string name="settings_link_section">Link a device</string>
+    <string name="settings_share_hint">Generate a code and send it to another phone. Whoever enters it is linked to you — chat and live video are free for 24 hours.</string>
+    <string name="settings_generate_code">Generate link code</string>
+    <string name="settings_copy_code">Copy code</string>
+    <string name="settings_code_copied">Code copied</string>
+    <string name="settings_enter_code_title">Enter a code</string>
+    <string name="settings_enter_code_hint">If you skipped the code at sign-in, enter it here. You connect to the person who created the code.</string>
+    <string name="settings_connect_code">Connect</string>
+    <string name="settings_link_success">Device linked</string>
+    <string name="settings_linked_section">Linked devices</string>
+    <string name="settings_watch_live">Watch live</string>
+    <string name="settings_watch_waiting">Waiting for live stream…</string>
+    <string name="settings_watch_failed">Could not join the live stream</string>
+    <string name="settings_watch_upgrade">The 24-hour trial ended. Buy Pro or Pro+ to keep watching.</string>
+    <string name="settings_plans_section">Subscription</string>
+    <string name="settings_trial_message">Free trial: 24 hours of live video. Then Pro or Pro+ is required.</string>
+    <string name="settings_plan_status">Status: %1$s · expires: %2$s</string>
+    <string name="settings_plan_pro">Pro</string>
+    <string name="settings_plan_pro_body">Live video. One linked pair of apps.</string>
+    <string name="settings_plan_pro_plus">Pro+</string>
+    <string name="settings_plan_pro_plus_body">Video + audio + recordings. Link two apps.</string>
+    <string name="settings_buy">Buy</string>
 </resources>

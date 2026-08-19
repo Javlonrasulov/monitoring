@@ -11,8 +11,8 @@ android {
         applicationId = "com.monitor.device"
         minSdk = 26
         targetSdk = 34
-        versionCode = 4
-        versionName = "1.0.3"
+        versionCode = 5
+        versionName = "1.0.4"
 
         buildConfigField(
             "String",
@@ -84,4 +84,5 @@ dependencies {
     implementation(libs.camera.lifecycle)
     implementation(libs.camera.view)
     implementation(libs.camera.video)
+    implementation(libs.stream.webrtc.android)
 }

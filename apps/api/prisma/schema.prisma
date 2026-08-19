@@ -22,6 +22,12 @@ enum SubscriptionStatus {
   PENDING
 }
 
+enum SubscriptionPlan {
+  TRIAL
+  PRO
+  PRO_PLUS
+}
+
 enum ChatMessageType {
   TEXT
   IMAGE
@@ -156,12 +162,15 @@ model Device {
   androidVersion   String?
   deviceModel      String?
   disabled         Boolean           @default(false)
-  accountKind      DeviceAccountKind @default(USER)
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
+  accountKind        DeviceAccountKind @default(USER)
+  linkedFromDeviceId String?
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
 
   organization      Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   branch            Branch               @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  linkedFromDevice  Device?              @relation("DeviceLink", fields: [linkedFromDeviceId], references: [id], onDelete: SetNull)
+  linkedDevices     Device[]             @relation("DeviceLink")
   linkedUser        User?
   pairingCodes      DevicePairingCode[]
   streamSessions    StreamSession[]
@@ -180,6 +189,8 @@ model DevicePairingCode {
   organizationId String
   branchId       String
   deviceId       String?
+  issuerDeviceId String?
+  issuerUserId   String?
   deviceNameHint String?
   expiresAt      DateTime
   usedAt         DateTime?
@@ -190,6 +201,7 @@ model DevicePairingCode {
 
   @@index([code])
   @@index([branchId])
+  @@index([issuerDeviceId])
 }
 
 model StreamSession {
@@ -276,6 +288,7 @@ model Subscription {
   id             String             @id @default(cuid())
   organizationId String
   status         SubscriptionStatus @default(PENDING)
+  plan           SubscriptionPlan   @default(TRIAL)
   maxDevices     Int                @default(2)
   startedAt      DateTime?
   expiresAt      DateTime?

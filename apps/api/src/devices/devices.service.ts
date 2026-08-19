@@ -118,51 +118,117 @@ export class DevicesService {
     userId: string,
     dto: CreatePairingCodeDto,
   ) {
-    const allowed = await this.subscriptions.assertCanPair(organizationId);
-    if (!allowed.ok) {
-      throw new BadRequestException(
-        allowed.reason === 'device_limit_reached'
-          ? 'Device limit reached'
-          : 'Subscription is not active',
-      );
+    if (!dto.branchId) {
+      throw new BadRequestException('branchId is required');
     }
-
-    const branch = await this.prisma.branch.findFirst({
-      where: { id: dto.branchId, organizationId },
-    });
-    if (!branch) {
-      throw new NotFoundException('Branch not found');
-    }
-
-    const code = this.generatePairingCode();
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
-
-    const pairing = await this.prisma.devicePairingCode.create({
-      data: {
-        code,
-        organizationId,
-        branchId: branch.id,
-        deviceNameHint: dto.deviceNameHint,
-        expiresAt,
-      },
-    });
-
-    await this.audit.log({
+    return this.issuePairingCode({
       organizationId,
       userId,
-      action: 'device.pairing_code_created',
-      resourceType: 'DevicePairingCode',
-      resourceId: pairing.id,
-      metadata: { branchId: branch.id },
+      branchId: dto.branchId,
+      deviceNameHint: dto.deviceNameHint,
+      ttlMs: 10 * 60 * 1000,
+    });
+  }
+
+  async createPairingCodeForDevice(
+    deviceId: string,
+    organizationId: string,
+    branchId: string,
+    dto: CreatePairingCodeDto,
+  ) {
+    const linkedUser = await this.prisma.user.findFirst({
+      where: { deviceId, organizationId, blocked: false },
+    });
+    return this.issuePairingCode({
+      organizationId,
+      userId: linkedUser?.id ?? deviceId,
+      branchId: dto.branchId || branchId,
+      deviceNameHint: dto.deviceNameHint,
+      issuerDeviceId: deviceId,
+      issuerUserId: linkedUser?.id,
+      ttlMs: 24 * 60 * 60 * 1000,
+    });
+  }
+
+  async listLinkedForDevice(deviceId: string, organizationId: string) {
+    const devices = await this.prisma.device.findMany({
+      where: {
+        organizationId,
+        linkedFromDeviceId: deviceId,
+        disabled: false,
+      },
+      orderBy: { lastSeen: 'desc' },
+    });
+    return devices.map((device) => ({
+      id: device.id,
+      name: device.name,
+      status: device.status,
+      lastSeen: device.lastSeen,
+      deviceModel: device.deviceModel,
+    }));
+  }
+
+  async linkExistingDevice(
+    deviceId: string,
+    organizationId: string,
+    rawCode: string,
+  ) {
+    const pairing = await this.findUsablePairing(rawCode);
+    if (pairing.issuerDeviceId === deviceId) {
+      throw new BadRequestException('Cannot link a device to itself');
+    }
+
+    const device = await this.prisma.device.findFirst({
+      where: { id: deviceId, organizationId },
+    });
+    if (!device) {
+      throw new NotFoundException('Device not found');
+    }
+
+    if (device.organizationId !== pairing.organizationId) {
+      const allowed = await this.subscriptions.assertCanPair(
+        pairing.organizationId,
+      );
+      this.throwIfPairBlocked(allowed);
+      await this.prisma.device.update({
+        where: { id: device.id },
+        data: {
+          organizationId: pairing.organizationId,
+          branchId: pairing.branchId,
+        },
+      });
+      await this.prisma.user.updateMany({
+        where: { deviceId: device.id },
+        data: { organizationId: pairing.organizationId },
+      });
+    }
+
+    await this.prisma.device.update({
+      where: { id: device.id },
+      data: { linkedFromDeviceId: pairing.issuerDeviceId ?? undefined },
+    });
+    await this.prisma.devicePairingCode.update({
+      where: { id: pairing.id },
+      data: { usedAt: new Date(), deviceId: device.id },
     });
 
+    const peer = await this.prisma.user.findFirst({
+      where: { deviceId: device.id },
+    });
+    if (peer) {
+      await this.chats.ensureThreadForPairedDevice({
+        organizationId: pairing.organizationId,
+        deviceId: device.id,
+        deviceName: device.name,
+        peerUserId: peer.id,
+        ownerUserId: pairing.issuerUserId,
+      });
+    }
+
     return {
-      id: pairing.id,
-      code: pairing.code,
-      expiresAt: pairing.expiresAt,
-      branchId: pairing.branchId,
-      deviceNameHint: pairing.deviceNameHint,
-      qrPayload: `MONITOR:${pairing.code}`,
+      ok: true,
+      linkedToDeviceId: pairing.issuerDeviceId ?? null,
+      organizationId: pairing.organizationId,
     };
   }
 
@@ -178,26 +244,14 @@ export class DevicesService {
       return this.pairByPhone(phone, dto);
     }
 
-    const pairing = await this.prisma.devicePairingCode.findUnique({
-      where: { code },
-    });
-
-    if (!pairing || pairing.usedAt || pairing.expiresAt <= new Date()) {
-      throw new BadRequestException('Invalid pairing code');
-    }
+    const pairing = await this.findUsablePairing(code);
 
     const allowed = await this.subscriptions.assertCanPair(pairing.organizationId);
-    if (!allowed.ok) {
-      throw new BadRequestException(
-        allowed.reason === 'device_limit_reached'
-          ? 'Device limit reached'
-          : 'Subscription is not active',
-      );
-    }
+    this.throwIfPairBlocked(allowed);
 
     const displayName =
-      phone ||
       dto.name?.trim() ||
+      phone ||
       dto.deviceModel?.trim() ||
       'Device';
 
@@ -208,6 +262,8 @@ export class DevicesService {
       dto,
       phone,
       pairingId: pairing.id,
+      linkedFromDeviceId: pairing.issuerDeviceId,
+      ownerUserId: pairing.issuerUserId,
     });
   }
 
@@ -330,7 +386,7 @@ export class DevicesService {
       return this.createPairedDevice({
         organizationId: existing.organizationId,
         branchId: branch.id,
-        displayName: phone,
+        displayName: dto.name?.trim() || phone,
         dto,
         phone,
         existingUserId: existing.id,
@@ -341,7 +397,7 @@ export class DevicesService {
     return this.createPairedDevice({
       organizationId: target.organizationId,
       branchId: target.branchId,
-      displayName: phone,
+      displayName: dto.name?.trim() || phone,
       dto,
       phone,
     });
@@ -365,13 +421,7 @@ export class DevicesService {
     }
 
     const allowed = await this.subscriptions.assertCanPair(org.id);
-    if (!allowed.ok) {
-      throw new BadRequestException(
-        allowed.reason === 'device_limit_reached'
-          ? 'Device limit reached'
-          : 'Subscription is not active',
-      );
-    }
+    this.throwIfPairBlocked(allowed);
 
     return { organizationId: org.id, branchId: org.branches[0].id };
   }
@@ -384,17 +434,13 @@ export class DevicesService {
     phone: string | null;
     pairingId?: string;
     existingUserId?: string;
+    linkedFromDeviceId?: string | null;
+    ownerUserId?: string | null;
   }) {
     const allowed = await this.subscriptions.assertCanPair(
       params.organizationId,
     );
-    if (!allowed.ok) {
-      throw new BadRequestException(
-        allowed.reason === 'device_limit_reached'
-          ? 'Device limit reached'
-          : 'Subscription is not active',
-      );
-    }
+    this.throwIfPairBlocked(allowed);
 
     const apiKey = randomBytes(32).toString('hex');
     const apiKeyHash = await bcrypt.hash(apiKey, 10);
@@ -413,6 +459,7 @@ export class DevicesService {
           appVersion: params.dto.appVersion,
           androidVersion: params.dto.androidVersion,
           deviceModel: params.dto.deviceModel,
+          linkedFromDeviceId: params.linkedFromDeviceId ?? undefined,
         },
       });
 
@@ -459,6 +506,7 @@ export class DevicesService {
       deviceId: device.id,
       deviceName: device.name,
       peerUserId: linkedUser.id,
+      ownerUserId: params.ownerUserId,
     });
 
     await this.audit.log({
@@ -632,6 +680,80 @@ export class DevicesService {
         deviceId: device.id,
         status: DeviceStatus.OFFLINE,
       });
+    }
+  }
+
+  private async issuePairingCode(params: {
+    organizationId: string;
+    userId: string;
+    branchId: string;
+    deviceNameHint?: string;
+    issuerDeviceId?: string;
+    issuerUserId?: string;
+    ttlMs: number;
+  }) {
+    const allowed = await this.subscriptions.assertCanPair(params.organizationId);
+    this.throwIfPairBlocked(allowed);
+
+    const branch = await this.prisma.branch.findFirst({
+      where: { id: params.branchId, organizationId: params.organizationId },
+    });
+    if (!branch) {
+      throw new NotFoundException('Branch not found');
+    }
+
+    const code = this.generatePairingCode();
+    const pairing = await this.prisma.devicePairingCode.create({
+      data: {
+        code,
+        organizationId: params.organizationId,
+        branchId: branch.id,
+        deviceNameHint: params.deviceNameHint,
+        issuerDeviceId: params.issuerDeviceId,
+        issuerUserId: params.issuerUserId,
+        expiresAt: new Date(Date.now() + params.ttlMs),
+      },
+    });
+
+    await this.audit.log({
+      organizationId: params.organizationId,
+      userId: params.userId,
+      action: 'device.pairing_code_created',
+      resourceType: 'DevicePairingCode',
+      resourceId: pairing.id,
+      metadata: { branchId: branch.id, issuerDeviceId: params.issuerDeviceId },
+    });
+
+    return {
+      id: pairing.id,
+      code: pairing.code,
+      expiresAt: pairing.expiresAt,
+      branchId: pairing.branchId,
+      deviceNameHint: pairing.deviceNameHint,
+      qrPayload: `MONITOR:${pairing.code}`,
+    };
+  }
+
+  private async findUsablePairing(rawCode: string) {
+    const code = rawCode.replace(/^MONITOR:/i, '').trim().toUpperCase();
+    const pairing = await this.prisma.devicePairingCode.findUnique({
+      where: { code },
+    });
+    if (!pairing || pairing.usedAt || pairing.expiresAt <= new Date()) {
+      throw new BadRequestException('Invalid pairing code');
+    }
+    return pairing;
+  }
+
+  private throwIfPairBlocked(
+    allowed: Awaited<ReturnType<SubscriptionsService['assertCanPair']>>,
+  ) {
+    if (!allowed.ok) {
+      throw new BadRequestException(
+        allowed.reason === 'device_limit_reached'
+          ? 'Device limit reached'
+          : 'Subscription is not active',
+      );
     }
   }
 

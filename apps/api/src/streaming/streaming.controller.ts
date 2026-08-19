@@ -43,6 +43,21 @@ export class StreamingController {
     );
   }
 
+  @Post('devices/:id/device-viewer-token')
+  @ApiBearerAuth()
+  @UseGuards(DeviceAuthGuard)
+  @ApiOperation({ summary: 'Issue WHEP viewer token for a linked device' })
+  deviceViewerToken(
+    @CurrentDevice() device: { deviceId: string; organizationId: string },
+    @Param('id') id: string,
+  ) {
+    return this.streamingService.issueDeviceViewerToken(
+      device.deviceId,
+      device.organizationId,
+      id,
+    );
+  }
+
   @Post('publisher-token')
   @ApiBearerAuth()
   @UseGuards(DeviceAuthGuard)

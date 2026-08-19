@@ -11,6 +11,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import com.monitor.device.Emulator
 import com.monitor.device.core.auth.TokenStore
 import com.monitor.device.monitoring.service.MonitoringForegroundService
 import kotlinx.coroutines.delay
@@ -31,7 +32,8 @@ fun rememberMonitoringSession(
             when {
                 !tokenStore.isPaired() -> onUnpaired()
                 !hasCapturePermissions(context) -> onPermissionsRequired()
-                tokenStore.isAutoStartEnabled() -> {
+                tokenStore.isAutoStartEnabled() && !Emulator.isEmulator &&
+                    !MonitoringForegroundService.isChatCameraHold() -> {
                     MonitoringForegroundService.start(context)
                     monitoring = MonitoringForegroundService.isStarted()
                 }
@@ -50,6 +52,8 @@ fun rememberMonitoringSession(
                 !live &&
                 inForeground &&
                 tokenStore.isAutoStartEnabled() &&
+                !Emulator.isEmulator &&
+                !MonitoringForegroundService.isChatCameraHold() &&
                 hasCapturePermissions(context)
             ) {
                 MonitoringForegroundService.start(context)

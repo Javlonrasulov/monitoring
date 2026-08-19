@@ -11,6 +11,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -54,8 +55,10 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -63,6 +66,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import coil.ImageLoader
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.monitor.device.R
 import com.monitor.device.core.api.DeviceApiClient
 import com.monitor.device.core.model.ChatMessageDto
 import com.monitor.device.ui.theme.MonitorTheme
@@ -76,7 +80,13 @@ fun MessageBubble(
     imageLoader: ImageLoader,
     threadId: String,
     playingId: String?,
+    voicePaused: Boolean = false,
+    playbackProgress: Float = 0f,
+    playbackPositionMs: Int = 0,
+    voiceSpeed: Float = 1f,
     onPlayToggle: (ChatMessageDto) -> Unit,
+    onVoiceSpeed: () -> Unit = {},
+    onVoiceSeek: (Float) -> Unit = {},
     onOpenMedia: (ChatMessageDto) -> Unit,
     onReplyClick: (String) -> Unit,
     modifier: Modifier = Modifier,
@@ -111,7 +121,7 @@ fun MessageBubble(
         ) {
             Column {
                 if (message.forwarded) {
-                    Text("Forwarded", color = muted, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+                    Text(stringResource(R.string.chat_forwarded), color = muted, fontSize = 11.sp, fontWeight = FontWeight.Medium)
                 }
                 message.replyTo?.let { reply ->
                     Box(
@@ -134,11 +144,25 @@ fun MessageBubble(
                     Spacer(Modifier.height(6.dp))
                 }
                 when {
-                    deleted -> Text("This message was deleted", color = muted, fontSize = 14.sp)
+                    deleted -> Text(stringResource(R.string.chat_message_deleted), color = muted, fontSize = 14.sp)
                     type == "IMAGE" -> MediaImage(message, apiClient, imageLoader, threadId, onOpenMedia)
                     type == "VIDEO" -> VideoThumb(message, apiClient, imageLoader, threadId, onOpenMedia, muted, onBubble)
                     type == "VIDEO_NOTE" -> VideoNoteBubble(message, apiClient, threadId, playingId, onPlayToggle)
-                    type == "VOICE" -> VoiceBubble(message, playingId == message.id, muted, onBubble, onPlayToggle)
+                    type == "VOICE" -> VoiceBubble(
+                        message = message,
+                        playing = playingId == message.id && !voicePaused,
+                        active = playingId == message.id,
+                        progress = if (playingId == message.id) playbackProgress else 0f,
+                        positionMs = if (playingId == message.id) playbackPositionMs else message.durationMs ?: 0,
+                        speed = voiceSpeed,
+                        mine = mine,
+                        bubble = bubble,
+                        muted = muted,
+                        onBubble = onBubble,
+                        onPlayToggle = onPlayToggle,
+                        onSpeed = onVoiceSpeed,
+                        onSeek = onVoiceSeek,
+                    )
                     type == "FILE" -> FileBubble(message, muted, onBubble) { onOpenMedia(message) }
                     else -> Text(message.text.orEmpty(), color = onBubble, fontSize = 16.sp)
                 }
@@ -151,7 +175,7 @@ fun MessageBubble(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     if (message.editedAt != null) {
-                        Text("edited", color = muted, fontSize = 10.sp)
+                        Text(stringResource(R.string.chat_edited), color = muted, fontSize = 10.sp)
                         Spacer(Modifier.width(6.dp))
                     }
                     Text(formatClock(message.createdAt), color = muted, fontSize = 11.sp)
@@ -169,7 +193,7 @@ fun MessageBubble(
             ) {
                 Icon(Icons.Rounded.ErrorOutline, contentDescription = null, tint = colors.danger, modifier = Modifier.size(14.dp))
                 Spacer(Modifier.width(4.dp))
-                Text("Upload failed", color = colors.danger, fontSize = 11.sp)
+                Text(stringResource(R.string.chat_upload_failed), color = colors.danger, fontSize = 11.sp)
             }
         }
         message.uploadProgress?.let { progress ->
@@ -325,41 +349,104 @@ private fun VideoNoteBubble(
 private fun VoiceBubble(
     message: ChatMessageDto,
     playing: Boolean,
+    active: Boolean,
+    progress: Float,
+    positionMs: Int,
+    speed: Float,
+    mine: Boolean,
+    bubble: Color,
     muted: Color,
     onBubble: Color,
     onPlayToggle: (ChatMessageDto) -> Unit,
+    onSpeed: () -> Unit,
+    onSeek: (Float) -> Unit,
 ) {
-    val bars = message.waveform?.map { it.toFloat() } ?: List(28) { 0.25f + (it % 5) * 0.12f }
-    Row(verticalAlignment = Alignment.CenterVertically) {
+    val bars = remember(message.id, message.waveform) {
+        val raw = message.waveform?.map { it.toFloat() }
+        if (raw.isNullOrEmpty()) defaultVoiceWaveform(message.id) else raw
+    }
+    val playBg = if (mine) Color.White else onBubble
+    val playFg = if (mine) bubble else Color.White
+    val played = onBubble.copy(alpha = if (mine) 1f else 0.92f)
+    val upcoming = onBubble.copy(alpha = if (mine) 0.32f else 0.28f)
+    val clamped = progress.coerceIn(0f, 1f)
+
+    Row(
+        modifier = Modifier.widthIn(min = 196.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         Box(
             modifier = Modifier
-                .size(36.dp)
+                .size(44.dp)
                 .clip(CircleShape)
-                .background(onBubble.copy(alpha = 0.18f))
+                .background(playBg)
                 .clickable { onPlayToggle(message) },
             contentAlignment = Alignment.Center,
         ) {
             Icon(
-                if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                imageVector = if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
                 contentDescription = null,
-                tint = onBubble,
+                tint = playFg,
+                modifier = Modifier.size(26.dp),
             )
         }
-        Spacer(Modifier.width(8.dp))
-        Canvas(modifier = Modifier.weight(1f).height(28.dp)) {
-            val w = size.width / bars.size
-            bars.forEachIndexed { i, amp ->
-                val h = (amp.coerceIn(0.08f, 1f) * size.height)
-                drawRoundRect(
-                    color = onBubble.copy(alpha = 0.85f),
-                    topLeft = Offset(i * w + 1f, (size.height - h) / 2f),
-                    size = Size(w - 2f, h),
-                    cornerRadius = CornerRadius(2f, 2f),
+        Spacer(Modifier.width(10.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Canvas(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(26.dp)
+                    .pointerInput(message.id) {
+                        detectTapGestures { offset ->
+                            val ratio = (offset.x / size.width).coerceIn(0f, 1f)
+                            onSeek(ratio)
+                        }
+                    },
+            ) {
+                val count = bars.size.coerceAtLeast(1)
+                val slot = size.width / count
+                val barWidth = (slot * 0.42f).coerceIn(1.6f, 3.2f)
+                bars.forEachIndexed { i, amp ->
+                    val h = (amp.coerceIn(0.12f, 1f) * size.height)
+                    val filled = active && i <= (clamped * count)
+                    drawRoundRect(
+                        color = if (filled) played else upcoming,
+                        topLeft = Offset(i * slot + (slot - barWidth) / 2f, (size.height - h) / 2f),
+                        size = Size(barWidth, h),
+                        cornerRadius = CornerRadius(barWidth / 2f, barWidth / 2f),
+                    )
+                }
+            }
+            Spacer(Modifier.height(4.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = formatVoiceClock(if (active) positionMs else message.durationMs),
+                    color = muted,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium,
                 )
+                Spacer(Modifier.weight(1f))
+                if (active) {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(onBubble.copy(alpha = 0.16f))
+                            .clickable(onClick = onSpeed)
+                            .padding(horizontal = 7.dp, vertical = 2.dp),
+                    ) {
+                        Text(
+                            text = if (speed == 1f) "1×" else if (speed == 1.5f) "1.5×" else "2×",
+                            color = onBubble,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    }
+                }
             }
         }
-        Spacer(Modifier.width(8.dp))
-        Text(formatDuration(message.durationMs), color = muted, fontSize = 12.sp)
     }
 }
 
@@ -402,5 +489,5 @@ private fun statusTicks(message: ChatMessageDto): String = when {
 fun TypingDots(color: Color) {
     val t = rememberInfiniteTransition(label = "typing")
     val a by t.animateFloat(0.3f, 1f, infiniteRepeatable(tween(420, easing = LinearEasing), RepeatMode.Reverse), label = "a")
-    Text("typing…", color = color.copy(alpha = a), fontSize = 13.sp)
+    Text(stringResource(R.string.chat_typing), color = color.copy(alpha = a), fontSize = 13.sp)
 }

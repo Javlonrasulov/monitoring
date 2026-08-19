@@ -5,19 +5,25 @@ import com.monitor.device.core.model.ChatMessageDto
 import com.monitor.device.core.model.ChatMessagesPage
 import com.monitor.device.core.model.ChatSearchPage
 import com.monitor.device.core.model.ChatThreadDto
+import com.monitor.device.core.model.CreatePairingCodeRequest
 import com.monitor.device.core.model.DeviceMeResponse
 import com.monitor.device.core.model.DeviceStatusResponse
 import com.monitor.device.core.model.DeviceStatusUpdate
 import com.monitor.device.core.model.EditChatRequest
 import com.monitor.device.core.model.InitUploadRequest
 import com.monitor.device.core.model.InitUploadResponse
+import com.monitor.device.core.model.LinkDeviceRequest
+import com.monitor.device.core.model.LinkedDeviceDto
 import com.monitor.device.core.model.OkResponse
+import com.monitor.device.core.model.PairingCodeResponse
 import com.monitor.device.core.model.PairRequest
 import com.monitor.device.core.model.PairResponse
 import com.monitor.device.core.model.PublisherTokenResponse
+import com.monitor.device.core.model.PurchasePlanRequest
 import com.monitor.device.core.model.ReactChatRequest
 import com.monitor.device.core.model.SendChatRequest
 import com.monitor.device.core.model.SubscriptionDto
+import com.monitor.device.core.model.ViewerTokenResponse
 import retrofit2.http.Body
 import retrofit2.http.DELETE
 import retrofit2.http.GET
@@ -35,6 +41,29 @@ interface DeviceApi {
     suspend fun me(
         @Header("Authorization") authorization: String,
     ): DeviceMeResponse
+
+    @GET("devices/me/linked")
+    suspend fun linkedDevices(
+        @Header("Authorization") authorization: String,
+    ): List<LinkedDeviceDto>
+
+    @POST("devices/me/pairing-codes")
+    suspend fun createPairingCode(
+        @Header("Authorization") authorization: String,
+        @Body body: CreatePairingCodeRequest = CreatePairingCodeRequest(),
+    ): PairingCodeResponse
+
+    @POST("devices/me/link")
+    suspend fun linkDevice(
+        @Header("Authorization") authorization: String,
+        @Body body: LinkDeviceRequest,
+    ): OkResponse
+
+    @POST("streaming/devices/{id}/device-viewer-token")
+    suspend fun deviceViewerToken(
+        @Header("Authorization") authorization: String,
+        @Path("id") id: String,
+    ): ViewerTokenResponse
 
     @PATCH("devices/me/status")
     suspend fun updateStatus(
@@ -134,5 +163,11 @@ interface DeviceApi {
     @GET("device-subscriptions/me")
     suspend fun subscription(
         @Header("Authorization") authorization: String,
+    ): SubscriptionDto
+
+    @POST("device-subscriptions/purchase")
+    suspend fun purchasePlan(
+        @Header("Authorization") authorization: String,
+        @Body body: PurchasePlanRequest,
     ): SubscriptionDto
 }

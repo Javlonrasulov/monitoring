@@ -11,14 +11,21 @@ import {
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreatePairingCodeDto {
-  @ApiProperty()
+  @ApiPropertyOptional()
+  @IsOptional()
   @IsString()
-  branchId!: string;
+  branchId?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
   deviceNameHint?: string;
+}
+
+export class LinkDeviceDto {
+  @ApiProperty({ example: 'A1B2C3' })
+  @IsString()
+  code!: string;
 }
 
 export class PairDeviceDto {

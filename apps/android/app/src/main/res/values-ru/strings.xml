@@ -13,7 +13,6 @@
     <!-- Settings -->
     <string name="settings_language">Язык</string>
     <string name="settings_theme">Тема</string>
-    <string name="language_uz">Oʻzbekcha</string>
     <string name="language_ru">Русский</string>
     <string name="language_en">English</string>
     <string name="theme_system">Системная</string>
@@ -36,18 +35,21 @@
 
     <!-- Pairing -->
     <string name="pair_title">Привязка устройства</string>
-    <string name="pair_subtitle">Если есть код, введите его. Если кода нет, достаточно номера телефона.</string>
+    <string name="pair_subtitle">Введите имя, номер телефона и код, если он есть.</string>
     <string name="pair_section_title">Вход</string>
-    <string name="pair_code_label">Код привязки</string>
-    <string name="pair_code_placeholder">Например: A1B2C3</string>
-    <string name="pair_code_helper">Необязательно — если кода нет, оставьте пустым</string>
-    <string name="pair_phone_label">Номер телефона</string>
+    <string name="pair_name_label">Имя</string>
+    <string name="pair_name_placeholder">Имя</string>
+    <string name="pair_name_helper">Это имя видно в чате</string>
+    <string name="pair_phone_label">Телефон</string>
     <string name="pair_phone_placeholder">Номер телефона</string>
-    <string name="pair_phone_helper">Если кода нет, войдите по этому номеру</string>
+    <string name="pair_phone_helper">Обязательно</string>
+    <string name="pair_code_label">Код</string>
+    <string name="pair_code_placeholder">Код</string>
+    <string name="pair_code_helper">Необязательно — если кода нет, оставьте пустым</string>
     <string name="pair_button">Войти</string>
     <string name="pair_failed">Не удалось подключить. Проверьте код или номер телефона.</string>
     <string name="pair_error_title">Произошла ошибка</string>
-    <string name="pair_footer_hint">Подключение по коду или по номеру телефона.</string>
+    <string name="pair_footer_hint">Вход по имени, телефону и коду (если есть).</string>
 
     <!-- Home -->
     <string name="home_device_fallback">Устройство</string>
@@ -77,7 +79,7 @@
     <string name="nav_profile">Профиль</string>
     <string name="chats_search">Поиск</string>
     <string name="chats_empty_title">Чатов пока нет</string>
-    <string name="chats_empty_message">После привязки устройства чат с OWNER появится здесь.</string>
+    <string name="chats_empty_message">Привязка устройства чат не создаёт. Диалог появится, когда оператор (админ) напишет вам.</string>
     <string name="chats_untitled">Чат</string>
     <string name="chat_placeholder">Сообщение</string>
     <string name="chat_send">Отправить</string>
@@ -89,12 +91,16 @@
     <string name="chat_reply">Ответить</string>
     <string name="chat_copy">Копировать</string>
     <string name="chat_forward">Переслать</string>
+    <string name="chat_forwarded">Переслано</string>
+    <string name="chat_message_deleted">Сообщение удалено</string>
+    <string name="chat_edited">изм.</string>
     <string name="chat_edit">Изменить</string>
     <string name="chat_delete">Удалить</string>
     <string name="chat_select">Выбрать</string>
     <string name="chat_share">Поделиться</string>
     <string name="chat_delete_me">Удалить у меня</string>
     <string name="chat_delete_everyone">Удалить у всех</string>
+    <string name="chat_gallery">Галерея</string>
     <string name="chat_photo">Фото</string>
     <string name="chat_video">Видео</string>
     <string name="chat_file">Файл</string>
@@ -124,5 +130,27 @@
     <string name="profile_notifications">Уведомления</string>
     <string name="profile_connected">Подключённое устройство</string>
     <string name="profile_logout">Выйти / отвязать</string>
-    <string name="limit_reached">Device limit reached</string>
+    <string name="limit_reached">Достигнут лимит устройств</string>
+    <string name="settings_link_section">Подключение устройства</string>
+    <string name="settings_share_hint">Создайте код и отправьте его на другой телефон. Кто введёт код, подключится к вам — чат и эфир бесплатны 24 часа.</string>
+    <string name="settings_generate_code">Создать код</string>
+    <string name="settings_copy_code">Скопировать код</string>
+    <string name="settings_code_copied">Код скопирован</string>
+    <string name="settings_enter_code_title">Ввести код</string>
+    <string name="settings_enter_code_hint">Если не ввели код при входе, сделайте это здесь. Вы подключитесь к тому, кто создал код.</string>
+    <string name="settings_connect_code">Подключить</string>
+    <string name="settings_link_success">Устройство подключено</string>
+    <string name="settings_linked_section">Подключённые устройства</string>
+    <string name="settings_watch_live">Смотреть эфир</string>
+    <string name="settings_watch_waiting">Ожидание эфира…</string>
+    <string name="settings_watch_failed">Не удалось подключиться к эфиру</string>
+    <string name="settings_watch_upgrade">24 часа истекли. Чтобы смотреть дальше, купите Pro или Pro+.</string>
+    <string name="settings_plans_section">Подписка</string>
+    <string name="settings_trial_message">Пробный период: 24 часа видео. Затем нужен Pro или Pro+.</string>
+    <string name="settings_plan_status">Статус: %1$s · до: %2$s</string>
+    <string name="settings_plan_pro">Pro</string>
+    <string name="settings_plan_pro_body">Видеоэфир. Одна пара приложений.</string>
+    <string name="settings_plan_pro_plus">Pro+</string>
+    <string name="settings_plan_pro_plus_body">Видео + звук + записи. Можно связать два приложения.</string>
+    <string name="settings_buy">Купить</string>
 </resources>

@@ -100,22 +100,16 @@ fun SettingsSheet(
             )
             Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
                 LanguageOption(
-                    label = stringResource(R.string.language_uz),
-                    caption = "Oʻzbek tili",
-                    selected = language == AppLanguage.UZBEK,
-                    onClick = { onLanguageChange(AppLanguage.UZBEK) },
-                )
-                LanguageOption(
-                    label = stringResource(R.string.language_ru),
-                    caption = "Русский язык",
-                    selected = language == AppLanguage.RUSSIAN,
-                    onClick = { onLanguageChange(AppLanguage.RUSSIAN) },
-                )
-                LanguageOption(
                     label = stringResource(R.string.language_en),
                     caption = "English",
                     selected = language == AppLanguage.ENGLISH,
                     onClick = { onLanguageChange(AppLanguage.ENGLISH) },
+                )
+                LanguageOption(
+                    label = stringResource(R.string.language_ru),
+                    caption = "Русский",
+                    selected = language == AppLanguage.RUSSIAN,
+                    onClick = { onLanguageChange(AppLanguage.RUSSIAN) },
                 )
             }
         }

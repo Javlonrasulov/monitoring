@@ -20,6 +20,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Link
+import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Phone
 import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.VpnKey
@@ -63,6 +64,7 @@ fun PairingScreen(
     apiClient: DeviceApiClient,
     onPaired: () -> Unit,
 ) {
+    var displayName by remember { mutableStateOf("") }
     var code by remember { mutableStateOf("") }
     var phone by remember { mutableStateOf("") }
     var loading by remember { mutableStateOf(false) }
@@ -74,7 +76,9 @@ fun PairingScreen(
 
     val failureMessage = stringResource(R.string.pair_failed)
     val phoneDigits = phone.filter { it.isDigit() }
-    val canSubmit = !loading && (code.isNotBlank() || phoneDigits.length >= 9)
+    val canSubmit = !loading &&
+        displayName.isNotBlank() &&
+        (code.isNotBlank() || phoneDigits.length >= 9)
 
     fun submit() {
         if (!canSubmit) return
@@ -87,7 +91,7 @@ fun PairingScreen(
                 apiClient.pair(
                     PairRequest(
                         code = code.replace("MONITOR:", "", ignoreCase = true).trim(),
-                        name = phone.trim(),
+                        name = displayName.trim(),
                         phone = phone.trim().ifBlank { null },
                         appVersion = BuildConfig.VERSION_NAME,
                         androidVersion = Build.VERSION.RELEASE,
@@ -144,18 +148,18 @@ fun PairingScreen(
             Spacer(modifier = Modifier.size(Spacing.md))
 
             MonitorTextField(
-                value = code,
+                value = displayName,
                 onValueChange = {
-                    code = it.uppercase().replace(" ", "").take(24)
+                    displayName = it.take(48)
                     if (error.value != null) error.value = null
                 },
-                label = stringResource(R.string.pair_code_label),
-                placeholder = stringResource(R.string.pair_code_placeholder),
-                helperText = stringResource(R.string.pair_code_helper),
+                label = stringResource(R.string.pair_name_label),
+                placeholder = stringResource(R.string.pair_name_placeholder),
+                helperText = stringResource(R.string.pair_name_helper),
                 enabled = !loading,
-                leadingIcon = Icons.Rounded.VpnKey,
+                leadingIcon = Icons.Rounded.Person,
                 keyboardOptions = KeyboardOptions(
-                    capitalization = KeyboardCapitalization.Characters,
+                    capitalization = KeyboardCapitalization.Words,
                     imeAction = ImeAction.Next,
                 ),
                 keyboardActions = KeyboardActions(
@@ -178,6 +182,28 @@ fun PairingScreen(
                 leadingIcon = Icons.Rounded.Phone,
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Phone,
+                    imeAction = ImeAction.Next,
+                ),
+                keyboardActions = KeyboardActions(
+                    onNext = { focusManager.moveFocus(FocusDirection.Down) },
+                ),
+            )
+
+            Spacer(modifier = Modifier.size(Spacing.md))
+
+            MonitorTextField(
+                value = code,
+                onValueChange = {
+                    code = it.uppercase().replace(" ", "").take(24)
+                    if (error.value != null) error.value = null
+                },
+                label = stringResource(R.string.pair_code_label),
+                placeholder = stringResource(R.string.pair_code_placeholder),
+                helperText = stringResource(R.string.pair_code_helper),
+                enabled = !loading,
+                leadingIcon = Icons.Rounded.VpnKey,
+                keyboardOptions = KeyboardOptions(
+                    capitalization = KeyboardCapitalization.Characters,
                     imeAction = ImeAction.Done,
                 ),
                 keyboardActions = KeyboardActions(onDone = { submit() }),

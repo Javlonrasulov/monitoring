@@ -34,6 +34,7 @@ import com.monitor.device.ui.components.IconPillButton
 import com.monitor.device.ui.components.MonitorTopBar
 import com.monitor.device.ui.components.SettingsSheet
 import com.monitor.device.ui.screens.ChatThreadScreen
+import com.monitor.device.ui.screens.LiveWatchScreen
 import com.monitor.device.ui.screens.MainTabsScreen
 import com.monitor.device.ui.screens.PairingScreen
 import com.monitor.device.ui.screens.PermissionsScreen
@@ -68,9 +69,11 @@ fun MonitorNavHost(
     var showSettings by remember { mutableStateOf(false) }
     var chatThreadId by remember { mutableStateOf<String?>(null) }
     var chatTitle by remember { mutableStateOf("") }
+    var watchDeviceId by remember { mutableStateOf<String?>(null) }
+    var watchTitle by remember { mutableStateOf("") }
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route ?: start
-    val showTopBar = currentRoute != Routes.Permissions && chatThreadId == null
+    val showTopBar = currentRoute != Routes.Permissions && chatThreadId == null && watchDeviceId == null
 
     AppShell(
         topBar = if (!showTopBar) {
@@ -133,6 +136,7 @@ fun MonitorNavHost(
             }
             composable(Routes.Home) {
                 val threadId = chatThreadId
+                val liveId = watchDeviceId
                 if (threadId != null) {
                     ChatThreadScreen(
                         apiClient = apiClient,
@@ -140,6 +144,13 @@ fun MonitorNavHost(
                         threadId = threadId,
                         title = chatTitle.ifBlank { stringResource(R.string.chats_untitled) },
                         onBack = { chatThreadId = null },
+                    )
+                } else if (liveId != null) {
+                    LiveWatchScreen(
+                        apiClient = apiClient,
+                        deviceId = liveId,
+                        title = watchTitle,
+                        onBack = { watchDeviceId = null },
                     )
                 } else {
                     MainTabsScreen(
@@ -153,6 +164,7 @@ fun MonitorNavHost(
                             MonitoringForegroundService.stop(context)
                             tokenStore.clear()
                             chatThreadId = null
+                            watchDeviceId = null
                             navController.navigate(Routes.Permissions) {
                                 popUpTo(Routes.Home) { inclusive = true }
                             }
@@ -162,8 +174,10 @@ fun MonitorNavHost(
                                 popUpTo(Routes.Home) { inclusive = true }
                             }
                         },
-                        onOpenSettings = { showSettings = true },
-                        settingsOpen = showSettings,
+                        onWatchDevice = { id, title ->
+                            watchTitle = title
+                            watchDeviceId = id
+                        },
                     )
                 }
             }
