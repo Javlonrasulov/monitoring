@@ -13,7 +13,7 @@ import com.monitor.device.core.model.DeviceStatusResponse
 import com.monitor.device.core.model.DeviceStatusUpdate
 import com.monitor.device.core.model.EditChatRequest
 import com.monitor.device.core.model.InitUploadRequest
-import com.monitor.device.core.model.CreatePairingCodeRequest
+import com.monitor.device.core.model.EmptyJsonBody
 import com.monitor.device.core.model.LinkDeviceRequest
 import com.monitor.device.core.model.LinkedDeviceDto
 import com.monitor.device.core.model.OkResponse
@@ -156,7 +156,7 @@ class DeviceApiClient(
 
     suspend fun createPairingCode(): PairingCodeResponse =
         authorized(unpairOnFailure = false) {
-            api.createPairingCode(it, CreatePairingCodeRequest())
+            api.createPairingCode(it, EmptyJsonBody())
         }
 
     suspend fun linkDevice(code: String): OkResponse =
@@ -329,6 +329,25 @@ class DeviceApiClient(
 
     companion object {
         val DEFAULT_BASE_URL: String = BuildConfig.API_BASE_URL
+
+        fun errorMessage(error: Throwable, fallback: String): String {
+            val http = error as? HttpException
+            val raw = http?.response()?.errorBody()?.string().orEmpty()
+            if (raw.isNotBlank()) {
+                val parsed = runCatching { Json { ignoreUnknownKeys = true }.parseToJsonElement(raw) }.getOrNull()
+                val obj = parsed as? kotlinx.serialization.json.JsonObject
+                val value = obj?.get("message")
+                val message = when (value) {
+                    is kotlinx.serialization.json.JsonPrimitive -> value.content
+                    is kotlinx.serialization.json.JsonArray ->
+                        value.mapNotNull { (it as? kotlinx.serialization.json.JsonPrimitive)?.content }
+                            .joinToString("\n")
+                    else -> null
+                }
+                if (!message.isNullOrBlank()) return message
+            }
+            return error.message?.takeIf { it.isNotBlank() } ?: fallback
+        }
 
         fun defaultOkHttpClient(): OkHttpClient {
             val logging = HttpLoggingInterceptor().apply {

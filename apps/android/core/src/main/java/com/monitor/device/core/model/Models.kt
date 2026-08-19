@@ -297,9 +297,7 @@ data class SubscriptionDto(
 )
 
 @Serializable
-data class CreatePairingCodeRequest(
-    val deviceNameHint: String? = null,
-)
+class EmptyJsonBody
 
 @Serializable
 data class PairingCodeResponse(

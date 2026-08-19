@@ -8,17 +8,20 @@ import {
   Min,
   Max,
 } from 'class-validator';
+import { Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreatePairingCodeDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  @Transform(({ value }) => (value == null || value === '' ? undefined : value))
   branchId?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  @Transform(({ value }) => (value == null || value === '' ? undefined : value))
   deviceNameHint?: string;
 }
 

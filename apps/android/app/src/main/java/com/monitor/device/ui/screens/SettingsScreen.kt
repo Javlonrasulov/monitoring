@@ -29,7 +29,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardCapitalization
-import com.monitor.device.R
 import com.monitor.device.core.api.DeviceApiClient
 import com.monitor.device.core.model.LinkedDeviceDto
 import com.monitor.device.core.model.PairingCodeResponse
@@ -130,7 +129,7 @@ fun SettingsScreen(
                     scope.launch {
                         runCatching { apiClient.createPairingCode() }
                             .onSuccess { invite = it }
-                            .onFailure { error = failGeneric }
+                            .onFailure { error = DeviceApiClient.errorMessage(it, failGeneric) }
                         loadingCode = false
                     }
                 },
@@ -173,7 +172,7 @@ fun SettingsScreen(
                                 joinCode = ""
                                 reload()
                             }
-                            .onFailure { error = failGeneric }
+                            .onFailure { error = DeviceApiClient.errorMessage(it, failGeneric) }
                         loadingLink = false
                     }
                 },
@@ -251,7 +250,7 @@ fun SettingsScreen(
                 scope.launch {
                     runCatching { apiClient.purchasePlan("PRO") }
                         .onSuccess { sub = it }
-                        .onFailure { error = failGeneric }
+                        .onFailure { error = DeviceApiClient.errorMessage(it, failGeneric) }
                     buying = null
                 }
             },
@@ -269,7 +268,7 @@ fun SettingsScreen(
                 scope.launch {
                     runCatching { apiClient.purchasePlan("PRO_PLUS") }
                         .onSuccess { sub = it }
-                        .onFailure { error = failGeneric }
+                        .onFailure { error = DeviceApiClient.errorMessage(it, failGeneric) }
                     buying = null
                 }
             },

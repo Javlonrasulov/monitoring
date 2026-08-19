@@ -5,7 +5,7 @@ import com.monitor.device.core.model.ChatMessageDto
 import com.monitor.device.core.model.ChatMessagesPage
 import com.monitor.device.core.model.ChatSearchPage
 import com.monitor.device.core.model.ChatThreadDto
-import com.monitor.device.core.model.CreatePairingCodeRequest
+import com.monitor.device.core.model.EmptyJsonBody
 import com.monitor.device.core.model.DeviceMeResponse
 import com.monitor.device.core.model.DeviceStatusResponse
 import com.monitor.device.core.model.DeviceStatusUpdate
@@ -55,7 +55,7 @@ interface DeviceApi {
     @POST("devices/me/pairing-codes")
     suspend fun createPairingCode(
         @Header("Authorization") authorization: String,
-        @Body body: CreatePairingCodeRequest = CreatePairingCodeRequest(),
+        @Body body: EmptyJsonBody = EmptyJsonBody(),
     ): PairingCodeResponse
 
     @POST("devices/me/link")

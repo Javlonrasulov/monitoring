@@ -141,7 +141,7 @@ export class DevicesService {
   async createPairingCodeForDevice(
     deviceId: string,
     organizationId: string,
-    branchId: string,
+    branchId: string | undefined,
     dto: CreatePairingCodeDto,
   ) {
     const linkedUser = await this.prisma.user.findFirst({
@@ -149,7 +149,7 @@ export class DevicesService {
     });
     return this.issuePairingCode({
       organizationId,
-      userId: linkedUser?.id ?? deviceId,
+      userId: linkedUser?.id,
       branchId: dto.branchId || branchId,
       deviceNameHint: dto.deviceNameHint,
       issuerDeviceId: deviceId,
@@ -693,35 +693,58 @@ export class DevicesService {
 
   private async issuePairingCode(params: {
     organizationId: string;
-    userId: string;
-    branchId: string;
+    userId?: string;
+    branchId?: string;
     deviceNameHint?: string;
     issuerDeviceId?: string;
     issuerUserId?: string;
     ttlMs: number;
   }) {
-    const allowed = await this.subscriptions.assertCanPair(params.organizationId);
-    this.throwIfPairBlocked(allowed);
+    await this.subscriptions.ensureTrial(params.organizationId);
+    const view = await this.subscriptions.forOrganization(params.organizationId);
+    if (!view.active) {
+      throw new BadRequestException('Subscription is not active');
+    }
 
-    const branch = await this.prisma.branch.findFirst({
-      where: { id: params.branchId, organizationId: params.organizationId },
-    });
+    const branch =
+      (params.branchId
+        ? await this.prisma.branch.findFirst({
+            where: {
+              id: params.branchId,
+              organizationId: params.organizationId,
+            },
+          })
+        : null) ??
+      (await this.prisma.branch.findFirst({
+        where: { organizationId: params.organizationId },
+        orderBy: { createdAt: 'asc' },
+      }));
     if (!branch) {
       throw new NotFoundException('Branch not found');
     }
 
     const code = this.generatePairingCode();
-    const pairing = await this.prisma.devicePairingCode.create({
-      data: {
-        code,
-        organizationId: params.organizationId,
-        branchId: branch.id,
-        deviceNameHint: params.deviceNameHint,
-        issuerDeviceId: params.issuerDeviceId,
-        issuerUserId: params.issuerUserId,
-        expiresAt: new Date(Date.now() + params.ttlMs),
-      },
-    });
+    const expiresAt = new Date(Date.now() + params.ttlMs);
+    const baseData = {
+      code,
+      organizationId: params.organizationId,
+      branchId: branch.id,
+      deviceNameHint: params.deviceNameHint,
+      expiresAt,
+    };
+    const pairing = await this.prisma.devicePairingCode
+      .create({
+        data: {
+          ...baseData,
+          issuerDeviceId: params.issuerDeviceId,
+          issuerUserId: params.issuerUserId,
+        },
+      })
+      .catch(() =>
+        this.prisma.devicePairingCode.create({
+          data: baseData,
+        }),
+      );
 
     await this.audit.log({
       organizationId: params.organizationId,
