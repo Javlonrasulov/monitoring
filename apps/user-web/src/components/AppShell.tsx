@@ -8,9 +8,12 @@ import {
   UserRound,
   Moon,
   Sun,
+  SlidersHorizontal,
+  Send,
   type LucideIcon,
 } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { AppearanceSheet } from "@/components/AppearanceSheet";
 import { isPaired } from "@/lib/auth";
 import { deviceApi } from "@/lib/device-api";
 import { useI18n } from "@/lib/i18n";
@@ -28,10 +31,13 @@ export function AppShell({
   title,
   children,
   hideChrome = false,
+  brandHeader = true,
 }: {
   title?: string;
   children: ReactNode;
   hideChrome?: boolean;
+  /** Android-style brand top bar (logo + name + tagline). */
+  brandHeader?: boolean;
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -40,6 +46,7 @@ export function AppShell({
   const [chatUnread, setChatUnread] = useState(0);
   const [supportUnread, setSupportUnread] = useState(0);
   const [ready, setReady] = useState(false);
+  const [showAppearance, setShowAppearance] = useState(false);
 
   useEffect(() => {
     if (!isPaired()) {
@@ -102,7 +109,9 @@ export function AppShell({
     <div className="app-shell">
       <aside className="sidebar">
         <div className="sidebar-brand">
-          <span className="brand-mark" aria-hidden />
+          <span className="brand-mark brand-mark-plane" aria-hidden>
+            <Send size={16} />
+          </span>
           {t("appName")}
         </div>
         {NAV.map((item) => {
@@ -128,16 +137,38 @@ export function AppShell({
       </aside>
 
       <div className="main-col">
-        <header className="topbar">
-          <h1>{title || t(active)}</h1>
-          <button
-            type="button"
-            className="icon-btn"
-            onClick={toggleLightDark}
-            aria-label={t("theme")}
-          >
-            {resolved === "dark" ? <Sun size={18} /> : <Moon size={18} />}
-          </button>
+        <header className={`topbar ${brandHeader ? "topbar-brand" : ""}`}>
+          {brandHeader ? (
+            <div className="topbar-brand-block">
+              <span className="brand-mark brand-mark-plane" aria-hidden>
+                <Send size={18} />
+              </span>
+              <div className="topbar-titles">
+                <h1>{t("appName")}</h1>
+                <p>{t("brandTagline")}</p>
+              </div>
+            </div>
+          ) : (
+            <h1>{title || t(active)}</h1>
+          )}
+          <div className="topbar-actions">
+            <button
+              type="button"
+              className="icon-pill"
+              onClick={toggleLightDark}
+              aria-label={t("changeTheme")}
+            >
+              {resolved === "dark" ? <Sun size={18} /> : <Moon size={18} />}
+            </button>
+            <button
+              type="button"
+              className="icon-pill"
+              onClick={() => setShowAppearance(true)}
+              aria-label={t("changeLanguage")}
+            >
+              <SlidersHorizontal size={18} />
+            </button>
+          </div>
         </header>
         <div className="page">{children}</div>
       </div>
@@ -159,11 +190,17 @@ export function AppShell({
             >
               <Icon size={20} />
               <span>{t(item.key)}</span>
-              {count > 0 ? <span className="badge">{count > 99 ? "99+" : count}</span> : null}
+              {count > 0 ? (
+                <span className="badge">{count > 99 ? "99+" : count}</span>
+              ) : null}
             </Link>
           );
         })}
       </nav>
+
+      {showAppearance ? (
+        <AppearanceSheet onClose={() => setShowAppearance(false)} />
+      ) : null}
     </div>
   );
 }

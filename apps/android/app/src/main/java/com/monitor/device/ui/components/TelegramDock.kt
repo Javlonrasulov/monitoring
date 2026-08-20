@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -105,16 +104,20 @@ private fun TelegramDockTab(
 
     Column(
         modifier = Modifier
-            .clip(RoundedCornerShape(18.dp))
             .clickable(
                 interactionSource = interaction,
                 indication = null,
                 onClick = onClick,
             )
-            .padding(horizontal = 10.dp, vertical = 2.dp),
+            .padding(horizontal = 10.dp, vertical = 4.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Box(contentAlignment = Alignment.Center) {
+        Box(
+            modifier = Modifier
+                .padding(top = 4.dp, end = 8.dp)
+                .size(28.dp),
+            contentAlignment = Alignment.Center,
+        ) {
             Icon(
                 imageVector = item.icon,
                 contentDescription = stringResource(item.labelRes),
@@ -122,20 +125,24 @@ private fun TelegramDockTab(
                 modifier = Modifier.size(24.dp),
             )
             if (item.badge > 0) {
+                val label = if (item.badge > 9) "9+" else item.badge.toString()
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
-                        .offset(x = 10.dp, y = (-6).dp)
-                        .size(18.dp)
-                        .clip(CircleShape)
-                        .background(accent),
+                        .offset(x = 8.dp, y = (-4).dp)
+                        .height(16.dp)
+                        .widthIn(min = 16.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(accent)
+                        .padding(horizontal = if (label.length > 1) 4.dp else 0.dp),
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
-                        text = if (item.badge > 9) "9+" else item.badge.toString(),
+                        text = label,
                         color = Color.White,
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
+                        lineHeight = 12.sp,
                     )
                 }
             }

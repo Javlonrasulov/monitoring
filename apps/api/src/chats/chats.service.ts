@@ -1313,10 +1313,27 @@ export class ChatsService {
     actorUserId: string,
   ) {
     const session = await this.storage.loadSession(uploadId);
+    // Linked peers keep separate device orgs; session stores the thread org.
+    // Auth is sender + thread (not the caller's JWT organizationId).
     if (
-      session.organizationId !== organizationId ||
       session.threadId !== threadId ||
       session.senderUserId !== actorUserId
+    ) {
+      throw new ForbiddenException('Upload not found');
+    }
+    if (
+      session.organizationId !== organizationId &&
+      !(await this.prisma.chatThread.findFirst({
+        where: {
+          id: threadId,
+          organizationId: session.organizationId,
+          OR: [
+            { ownerUserId: actorUserId },
+            { peerUserId: actorUserId },
+          ],
+        },
+        select: { id: true },
+      }))
     ) {
       throw new ForbiddenException('Upload not found');
     }

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { Search } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { avatarUrl } from "@/lib/api";
 import { getSession } from "@/lib/auth";
@@ -49,12 +50,13 @@ export default function ChatsPage() {
   }, [threads, q, session?.userId]);
 
   return (
-    <AppShell title={t("chats")}>
+    <AppShell>
       <div className="stack" style={{ gap: 14 }}>
-        <div className="field">
+        <div className="field search-field">
           <label className="sr-only" htmlFor="search">
             {t("search")}
           </label>
+          <Search size={16} aria-hidden />
           <input
             id="search"
             value={q}

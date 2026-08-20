@@ -330,7 +330,7 @@ fun ChatThreadScreen(
 
     LaunchedEffect(typing) {
         if (!typing) return@LaunchedEffect
-        delay(2500)
+            delay(2500)
         typing = false
     }
 
@@ -349,7 +349,7 @@ fun ChatThreadScreen(
                     nextCursor = page.nextCursor
                     messages = (page.items + messages).distinctBy { it.id }
                 }
-            }
+        }
     }
 
     LaunchedEffect(messages.size) {
@@ -526,7 +526,7 @@ fun ChatThreadScreen(
                 }
                 if (message.system) {
                     Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                        Text(
+                    Text(
                             message.text.orEmpty(),
                             modifier = Modifier
                                 .clip(RoundedCornerShape(12.dp))
@@ -541,7 +541,7 @@ fun ChatThreadScreen(
                 }
                 var offsetX by remember(message.id) { mutableFloatStateOf(0f) }
                 Box(
-                    modifier = Modifier
+                        modifier = Modifier
                         .fillMaxWidth()
                         .offset { IntOffset(offsetX.roundToInt(), 0) }
                         .pointerInput(message.id) {
@@ -632,13 +632,13 @@ fun ChatThreadScreen(
             }
         }
         if (recording) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
                     .background(if (colors.isDark) Color(0xFF17201F) else Color(0xFFF7F8F8))
                     .padding(horizontal = 8.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
                 Box(
                     modifier = Modifier
                         .size(48.dp)
@@ -659,8 +659,8 @@ fun ChatThreadScreen(
                     recording = false
                     MonitoringForegroundService.resumeAfterChatCamera(context)
                 }) { Text(stringResource(R.string.common_cancel)) }
-                IconButton(
-                    onClick = {
+            IconButton(
+                onClick = {
                         val capture = voiceCapture
                         val file = voiceFile
                         val duration = capture?.stop() ?: 0
@@ -723,7 +723,7 @@ fun ChatThreadScreen(
                                 .onSuccess { messages = mergeMessage(messages, it) }
                         }
                     } else {
-                        draft = ""
+                    draft = ""
                         messages = messages + optimistic
                         val replyId = replyTo?.id
                         replyTo = null

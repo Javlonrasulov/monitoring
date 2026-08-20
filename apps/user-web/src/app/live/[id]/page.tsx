@@ -42,8 +42,9 @@ export default function LiveWatchPage() {
 
   useEffect(() => {
     let cancelled = false;
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
 
-    async function start() {
+    async function start(attempt = 0) {
       setStatus("connecting");
       setBlocked(false);
       try {
@@ -63,17 +64,28 @@ export default function LiveWatchPage() {
           const list = await deviceApi.deviceRecordings(id).catch(() => []);
           if (!cancelled) setRecordings(list);
         }
-      } catch {
-        if (!cancelled) {
-          setStatus("error");
-          toast.push(t("liveUnavailable"), "err");
+      } catch (err) {
+        if (cancelled) return;
+        const waiting =
+          err instanceof Error &&
+          (err as Error & { waitingForPublisher?: boolean }).waitingForPublisher;
+        if (waiting || attempt < 5) {
+          setStatus(waiting ? "connecting" : "error");
+          const delay = waiting ? 2_000 : Math.min(8_000, 1_500 * 2 ** attempt);
+          retryTimer = setTimeout(() => {
+            if (!cancelled) void start(attempt + 1);
+          }, delay);
+          return;
         }
+        setStatus("error");
+        toast.push(t("liveUnavailable"), "err");
       }
     }
 
     void start();
     return () => {
       cancelled = true;
+      if (retryTimer) clearTimeout(retryTimer);
       pcRef.current?.close();
       pcRef.current = null;
     };
@@ -219,6 +231,14 @@ export default function LiveWatchPage() {
   );
 }
 
+/**
+ * MediaMTX only forwards HTTP basic credentials to its external auth endpoint,
+ * so the short-lived stream token travels as the password.
+ */
+function streamCredentials(streamToken: string): string {
+  return `Basic ${btoa(`monitor:${streamToken}`)}`;
+}
+
 async function playWhep(
   whepUrl: string,
   token: string,
@@ -237,8 +257,9 @@ async function playWhep(
   pc.ontrack = (ev) => {
     const el = videoRef.current;
     if (!el) return;
-    if (!el.srcObject) el.srcObject = new MediaStream();
-    (el.srcObject as MediaStream).addTrack(ev.track);
+    const stream = ev.streams[0] ?? new MediaStream([ev.track]);
+    el.srcObject = stream;
+    void el.play().catch(() => undefined);
   };
 
   const offer = await pc.createOffer();
@@ -249,11 +270,19 @@ async function playWhep(
     method: "POST",
     headers: {
       "Content-Type": "application/sdp",
-      Authorization: `Bearer ${token}`,
+      Authorization: streamCredentials(token),
     },
     body: pc.localDescription?.sdp || offer.sdp,
   });
-  if (!res.ok) throw new Error(`WHEP ${res.status}`);
+  if (!res.ok) {
+    const text = await res.text();
+    const waiting = text.includes("no one is publishing");
+    const error = new Error(
+      waiting ? "waiting" : text.trim() || `WHEP ${res.status}`,
+    ) as Error & { waitingForPublisher?: boolean };
+    error.waitingForPublisher = waiting;
+    throw error;
+  }
   const answer = await res.text();
   await pc.setRemoteDescription({ type: "answer", sdp: answer });
 }
@@ -268,6 +297,9 @@ function waitIceGathering(pc: RTCPeerConnection): Promise<void> {
       }
     };
     pc.addEventListener("icegatheringstatechange", check);
-    window.setTimeout(() => resolve(), 2000);
+    window.setTimeout(() => {
+      pc.removeEventListener("icegatheringstatechange", check);
+      resolve();
+    }, 8000);
   });
 }

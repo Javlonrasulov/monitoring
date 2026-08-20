@@ -10,12 +10,12 @@ const manrope = Manrope({
 });
 
 export const metadata: Metadata = {
-  title: "Telegram Monitor",
-  description: "Telegram Monitor — chats, devices, subscription",
-  applicationName: "Telegram Monitor",
+  title: "Monitoring Telegram",
+  description: "Monitoring Telegram — chat + device monitoring",
+  applicationName: "Monitoring Telegram",
   appleWebApp: {
     capable: true,
-    title: "Telegram Monitor",
+    title: "Monitoring Telegram",
     statusBarStyle: "default",
   },
   icons: {

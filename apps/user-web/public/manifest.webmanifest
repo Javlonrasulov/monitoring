@@ -1,6 +1,6 @@
 {
-  "name": "Telegram Monitor",
-  "short_name": "Telegram Monitor",
+  "name": "Monitoring Telegram",
+  "short_name": "Monitoring Telegram",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#f4f7f7",
