@@ -24,9 +24,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.monitor.device.R
 import com.monitor.device.core.api.DeviceApiClient
 import com.monitor.device.core.auth.TokenStore
@@ -40,6 +43,7 @@ import com.monitor.device.ui.components.IconPillButton
 import com.monitor.device.ui.components.MonitorTopBar
 import com.monitor.device.ui.components.SettingsSheet
 import com.monitor.device.ui.screens.ChatThreadScreen
+import com.monitor.device.ui.screens.DeviceHistoryScreen
 import com.monitor.device.ui.screens.LiveWatchScreen
 import com.monitor.device.ui.screens.MainTabsScreen
 import com.monitor.device.ui.screens.PairingScreen
@@ -47,6 +51,11 @@ import com.monitor.device.ui.screens.PairingScreen
 object Routes {
     const val Pairing = "pairing"
     const val Home = "home"
+    const val Live = "live/{deviceId}"
+    const val History = "history/{deviceId}"
+
+    fun live(deviceId: String) = "live/$deviceId"
+    fun history(deviceId: String) = "history/$deviceId"
 }
 
 private const val TransitionMillis = 300
@@ -67,21 +76,22 @@ fun MonitorNavHost(
     val start = remember {
         if (tokenStore.isPaired()) Routes.Home else Routes.Pairing
     }
+    val backStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = backStackEntry?.destination?.route
 
     var showSettings by remember { mutableStateOf(false) }
     var chatThreadId by remember { mutableStateOf<String?>(null) }
     var chatTitle by remember { mutableStateOf("") }
-    var watchDeviceId by remember { mutableStateOf<String?>(null) }
     var watchTitle by remember { mutableStateOf("") }
     var watchFacing by remember { mutableStateOf<String?>(null) }
-    val showTopBar = chatThreadId == null && watchDeviceId == null
+    val onSubPage = currentRoute == Routes.Live || currentRoute == Routes.History
+    val showTopBar = chatThreadId == null && !onSubPage
 
     LaunchedEffect(openChatThreadId) {
         val id = openChatThreadId?.takeIf { it.isNotBlank() } ?: return@LaunchedEffect
         if (!tokenStore.isPaired()) return@LaunchedEffect
         chatTitle = ""
         chatThreadId = id
-        watchDeviceId = null
         if (navController.currentDestination?.route != Routes.Home) {
             navController.navigate(Routes.Home) {
                 popUpTo(0) { inclusive = false }
@@ -139,7 +149,6 @@ fun MonitorNavHost(
                 BackHandler {
                     when {
                         showSettings -> showSettings = false
-                        watchDeviceId != null -> watchDeviceId = null
                         chatThreadId != null -> chatThreadId = null
                         else -> (context as? Activity)?.moveTaskToBack(true)
                     }
@@ -160,7 +169,6 @@ fun MonitorNavHost(
                             MonitoringForegroundService.stop(context)
                             tokenStore.clear()
                             chatThreadId = null
-                            watchDeviceId = null
                             navController.navigate(Routes.Pairing) {
                                 popUpTo(0) { inclusive = true }
                             }
@@ -168,11 +176,14 @@ fun MonitorNavHost(
                         onWatchDevice = { id, name, facing ->
                             watchTitle = name
                             watchFacing = facing
-                            watchDeviceId = id
+                            navController.navigate(Routes.live(id))
+                        },
+                        onOpenHistory = { id, name ->
+                            watchTitle = name
+                            navController.navigate(Routes.history(id))
                         },
                     )
                     val threadId = chatThreadId
-                    val liveId = watchDeviceId
                     if (threadId != null) {
                         ChatThreadScreen(
                             apiClient = apiClient,
@@ -181,16 +192,36 @@ fun MonitorNavHost(
                             title = chatTitle.ifBlank { stringResource(R.string.chats_untitled) },
                             onBack = { chatThreadId = null },
                         )
-                    } else if (liveId != null) {
-                        LiveWatchScreen(
-                            apiClient = apiClient,
-                            deviceId = liveId,
-                            title = watchTitle,
-                            initialFacing = watchFacing,
-                            onBack = { watchDeviceId = null },
-                        )
                     }
                 }
+            }
+            composable(
+                route = Routes.Live,
+                arguments = listOf(navArgument("deviceId") { type = NavType.StringType }),
+            ) { entry ->
+                val deviceId = entry.arguments?.getString("deviceId").orEmpty()
+                LiveWatchScreen(
+                    apiClient = apiClient,
+                    deviceId = deviceId,
+                    title = watchTitle,
+                    initialFacing = watchFacing,
+                    onBack = { navController.popBackStack() },
+                    onOpenHistory = {
+                        navController.navigate(Routes.history(deviceId))
+                    },
+                )
+            }
+            composable(
+                route = Routes.History,
+                arguments = listOf(navArgument("deviceId") { type = NavType.StringType }),
+            ) { entry ->
+                val deviceId = entry.arguments?.getString("deviceId").orEmpty()
+                DeviceHistoryScreen(
+                    apiClient = apiClient,
+                    deviceId = deviceId,
+                    title = watchTitle,
+                    onBack = { navController.popBackStack() },
+                )
             }
         }
     }

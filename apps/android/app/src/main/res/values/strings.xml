@@ -124,6 +124,7 @@
     <string name="chat_voice">Voice message</string>
     <string name="chat_video_note">Video note</string>
     <string name="chat_upload_failed">Upload failed</string>
+    <string name="chat_history_failed">Could not load chat history</string>
     <string name="chat_today">Today</string>
     <string name="chat_yesterday">Yesterday</string>
     <string name="chat_search_messages">Search messages</string>
@@ -187,6 +188,12 @@
     <string name="settings_camera_back">Orqa</string>
     <string name="settings_watch_waiting">Waiting for live stream…</string>
     <string name="settings_watch_failed">Could not join the live stream</string>
+    <string name="live_sound_on">Ovozni yoqish</string>
+    <string name="live_sound_off">Ovozni o‘chirish</string>
+    <string name="history_title">Tarix</string>
+    <string name="history_hint">So‘nggi 3 kunlik yozuvlar (Pro+)</string>
+    <string name="history_empty">Hali yozuvlar yo‘q</string>
+    <string name="history_load_failed">Tarixni yuklab bo‘lmadi</string>
     <string name="settings_watch_not_publishing">Qurilma hozir efirda emas. Ikkinchi telefonda monitoring yoqilganini tekshiring.</string>
     <string name="settings_watch_upgrade">The 24-hour trial ended. Buy Pro or Pro+ to keep watching.</string>
     <string name="settings_plans_section">Subscription</string>

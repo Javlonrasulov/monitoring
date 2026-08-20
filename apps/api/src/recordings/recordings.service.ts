@@ -112,15 +112,118 @@ export class RecordingsService implements OnModuleDestroy {
     if (device.disabled) {
       throw new ForbiddenException('Device disabled');
     }
+    return this.beginJob(device.organizationId, device, quality);
+  }
 
-    const existing = this.jobs.get(deviceId);
+  /**
+   * Pro+ device viewer: record the linked phone using the viewer's entitlement.
+   */
+  async startForLinkedViewer(
+    viewerDeviceId: string,
+    viewerOrganizationId: string,
+    targetDeviceId: string,
+    quality?: RecorderQuality,
+  ) {
+    const allowed = await this.subscriptions.assertCanWatch(
+      viewerOrganizationId,
+      'recordings',
+    );
+    if (!allowed.ok) {
+      throw new ForbiddenException('Pro+ is required for recordings');
+    }
+    const target = await this.requireLinkedTarget(viewerDeviceId, targetDeviceId);
+    await this.prisma.organization.update({
+      where: { id: target.organizationId },
+      data: { recordingRetentionDays: 3 },
+    });
+    return this.beginJob(target.organizationId, target, quality);
+  }
+
+  async listForLinkedViewer(
+    viewerDeviceId: string,
+    viewerOrganizationId: string,
+    targetDeviceId: string,
+  ) {
+    const allowed = await this.subscriptions.assertCanWatch(
+      viewerOrganizationId,
+      'recordings',
+    );
+    if (!allowed.ok) {
+      throw new ForbiddenException('Pro+ is required for recordings');
+    }
+    const target = await this.requireLinkedTarget(viewerDeviceId, targetDeviceId);
+    const from = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
+    return this.list(target.organizationId, {
+      deviceId: target.id,
+      from,
+      page: 1,
+      pageSize: 100,
+    });
+  }
+
+  async playbackTokenForLinkedViewer(
+    viewerDeviceId: string,
+    viewerOrganizationId: string,
+    viewerUserId: string | undefined,
+    recordingId: string,
+  ) {
+    const allowed = await this.subscriptions.assertCanWatch(
+      viewerOrganizationId,
+      'recordings',
+    );
+    if (!allowed.ok) {
+      throw new ForbiddenException('Pro+ is required for recordings');
+    }
+    const row = await this.prisma.recordingSegment.findFirst({
+      where: { id: recordingId, status: { not: RecordingStatus.DELETED } },
+      include: { device: true },
+    });
+    if (!row?.device) {
+      throw new NotFoundException('Recording not found');
+    }
+    await this.requireLinkedTarget(viewerDeviceId, row.deviceId);
+    if (row.status !== RecordingStatus.READY) {
+      throw new BadRequestException('Recording is not ready');
+    }
+    const ageMs = Date.now() - row.startedAt.getTime();
+    if (ageMs > 3 * 24 * 60 * 60 * 1000) {
+      throw new ForbiddenException('Recordings older than 3 days are not available');
+    }
+    return this.playbackToken(
+      row.organizationId,
+      viewerUserId ?? viewerDeviceId,
+      row.id,
+      false,
+    );
+  }
+
+  private async requireLinkedTarget(viewerDeviceId: string, targetDeviceId: string) {
+    const target = await this.prisma.device.findFirst({
+      where: {
+        id: targetDeviceId,
+        linkedFromDeviceId: viewerDeviceId,
+        disabled: false,
+      },
+    });
+    if (!target) {
+      throw new ForbiddenException('Device is not linked to this account');
+    }
+    return target;
+  }
+
+  private beginJob(
+    organizationId: string,
+    device: { id: string; name: string; capabilitiesJson: Prisma.JsonValue | null },
+    quality?: RecorderQuality,
+  ) {
+    const existing = this.jobs.get(device.id);
     if (existing?.running) {
-      return { ok: true, alreadyRunning: true, deviceId };
+      return { ok: true, alreadyRunning: true, deviceId: device.id };
     }
 
     const camera = this.cameraOf(device.capabilitiesJson);
     const job: ActiveJob = {
-      deviceId,
+      deviceId: device.id,
       organizationId,
       quality: quality ?? 'MEDIUM',
       camera,
@@ -128,13 +231,18 @@ export class RecordingsService implements OnModuleDestroy {
       proc: null,
       segmentId: null,
     };
-    this.jobs.set(deviceId, job);
+    this.jobs.set(device.id, job);
     void this.loop(job, device.name);
     this.emit(organizationId, {
-      deviceId,
+      deviceId: device.id,
       status: RecordingStatus.RECORDING,
     });
-    return { ok: true, alreadyRunning: false, deviceId, camera };
+    return {
+      ok: true,
+      alreadyRunning: false,
+      deviceId: device.id,
+      camera,
+    };
   }
 
   async stop(organizationId: string, deviceId: string) {

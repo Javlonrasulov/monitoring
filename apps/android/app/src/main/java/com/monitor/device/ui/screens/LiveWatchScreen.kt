@@ -15,6 +15,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.rounded.VolumeOff
+import androidx.compose.material.icons.rounded.VolumeUp
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -51,6 +54,7 @@ fun LiveWatchScreen(
     title: String,
     initialFacing: String? = null,
     onBack: () -> Unit,
+    onOpenHistory: () -> Unit = {},
 ) {
     val colors = MonitorTheme.colors
     val context = LocalContext.current
@@ -63,6 +67,9 @@ fun LiveWatchScreen(
     }
     var cameraBusy by remember { mutableStateOf(false) }
     var watchGeneration by remember { mutableStateOf(0) }
+    var audioAllowed by remember { mutableStateOf(false) }
+    var audioMuted by remember { mutableStateOf(false) }
+    var canHistory by remember { mutableStateOf(false) }
     val waiting = stringResource(R.string.settings_watch_waiting)
     val failed = stringResource(R.string.settings_watch_failed)
     val notPublishing = stringResource(R.string.settings_watch_not_publishing)
@@ -82,8 +89,18 @@ fun LiveWatchScreen(
                     status = upgrade
                     return@LaunchedEffect
                 }
+                audioAllowed = token.audioEnabled
+                canHistory = token.canRecordings
+                audioMuted = !token.audioEnabled
+                if (token.canRecordings) {
+                    runCatching { apiClient.startLinkedRecording(deviceId) }
+                }
                 val whepUrl = publicStreamUrl(token.whepUrl, apiClient.apiBaseUrl)
                 viewer.start(whepUrl, token.token, token.audioEnabled, view)
+                if (token.audioEnabled) {
+                    viewer.setAudioMuted(false)
+                    audioMuted = false
+                }
                 status = ""
                 return@LaunchedEffect
             }.onFailure { lastError = it }
@@ -144,6 +161,31 @@ fun LiveWatchScreen(
                         text = title,
                         style = MaterialTheme.typography.bodySmall,
                         color = colors.textMuted,
+                    )
+                }
+            }
+            Row(
+                modifier = Modifier.align(Alignment.CenterEnd),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
+            ) {
+                if (audioAllowed) {
+                    IconPillButton(
+                        icon = if (audioMuted) Icons.Rounded.VolumeOff else Icons.Rounded.VolumeUp,
+                        contentDescription = stringResource(
+                            if (audioMuted) R.string.live_sound_on else R.string.live_sound_off,
+                        ),
+                        onClick = {
+                            val next = !audioMuted
+                            audioMuted = next
+                            viewer.setAudioMuted(next)
+                        },
+                    )
+                }
+                if (canHistory) {
+                    IconPillButton(
+                        icon = Icons.Rounded.History,
+                        contentDescription = stringResource(R.string.history_title),
+                        onClick = onOpenHistory,
                     )
                 }
             }

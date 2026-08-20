@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -79,9 +80,13 @@ export class DeviceSubscriptionsController {
     @CurrentDevice() device: { organizationId: string; deviceId: string },
     @Body() dto: PurchasePlanDto,
   ) {
+    const plan = this.subscriptions.parsePlan(dto.plan);
+    if (plan === 'TRIAL') {
+      throw new BadRequestException('Use PRO or PRO_PLUS for card payment');
+    }
     return this.subscriptions.createInvoice(
       device.organizationId,
-      this.subscriptions.parsePlan(dto.plan),
+      plan,
       device.deviceId,
     );
   }

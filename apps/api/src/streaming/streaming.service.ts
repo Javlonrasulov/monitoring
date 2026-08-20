@@ -147,14 +147,74 @@ export class StreamingService {
     const target = await this.prisma.device.findFirst({
       where: {
         id: targetDeviceId,
-        organizationId,
         linkedFromDeviceId: viewerDeviceId,
       },
     });
     if (!target) {
       throw new ForbiddenException('Device is not linked to this account');
     }
-    return this.issueViewerToken(organizationId, viewerDeviceId, target.id);
+    if (target.disabled) {
+      throw new ForbiddenException('Device disabled');
+    }
+
+    const allowed = await this.subscriptions.assertCanWatch(
+      organizationId,
+      'video',
+    );
+    if (!allowed.ok) {
+      throw new ForbiddenException(
+        allowed.reason === 'upgrade_required'
+          ? 'Upgrade to Pro to watch live video'
+          : 'Trial ended. Buy Pro or Pro+ to keep watching',
+      );
+    }
+
+    const ttl = Number(this.config.get('STREAM_TOKEN_TTL_SECONDS') ?? 120);
+    const path = this.streamPath(target.id);
+    const token = await this.jwt.signAsync(
+      {
+        sub: viewerDeviceId,
+        organizationId,
+        deviceId: target.id,
+        path,
+        action: 'read',
+        typ: 'stream',
+      },
+      {
+        secret: this.config.getOrThrow<string>('STREAM_TOKEN_SECRET'),
+        expiresIn: ttl,
+      },
+    );
+
+    const auditUser = await this.prisma.user.findFirst({
+      where: { deviceId: viewerDeviceId },
+      select: { id: true },
+    });
+
+    await this.audit.log({
+      organizationId,
+      userId: auditUser?.id,
+      action: 'stream.viewer_token',
+      resourceType: 'Device',
+      resourceId: target.id,
+    });
+
+    const base = this.publicStreamHttpBase();
+
+    return {
+      token,
+      expiresIn: ttl,
+      path,
+      whepUrl: `${base}/${path}/whep`,
+      audioEnabled: allowed.view.canWatchAudio,
+      videoEnabled: allowed.view.canWatchVideo,
+      canRecordings: allowed.view.canRecordings,
+      device: {
+        id: target.id,
+        name: target.name,
+        status: target.status,
+      },
+    };
   }
 
   async issueRecorderToken(deviceId: string, organizationId: string) {

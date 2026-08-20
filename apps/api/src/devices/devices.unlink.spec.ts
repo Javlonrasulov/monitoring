@@ -134,8 +134,8 @@ describe('device link and unlink', () => {
     prisma.device.update.mockResolvedValue({
       id: 'user-3',
       name: 'New',
-      organizationId: 'org-1',
-      branchId: 'b1',
+      organizationId: 'org-x',
+      branchId: 'bx',
       linkedFromDeviceId: 'user-1',
     });
     prisma.user.findFirst.mockResolvedValue({ id: 'peer-3' });
@@ -144,14 +144,12 @@ describe('device link and unlink', () => {
     expect(result).toMatchObject({
       ok: true,
       linkedToDeviceId: 'user-1',
-      organizationId: 'org-1',
+      organizationId: 'org-x',
       deviceToken: 'new-device-jwt',
     });
     expect(prisma.device.update).toHaveBeenCalledWith({
       where: { id: 'user-3' },
       data: {
-        organizationId: 'org-1',
-        branchId: 'b1',
         linkedFromDeviceId: 'user-1',
       },
     });

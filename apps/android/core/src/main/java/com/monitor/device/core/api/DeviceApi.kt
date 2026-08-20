@@ -32,6 +32,9 @@ import com.monitor.device.core.model.SubscriptionDto
 import com.monitor.device.core.model.SupportSummaryDto
 import com.monitor.device.core.model.UpdateProfileRequest
 import com.monitor.device.core.model.UploadAvatarRequest
+import com.monitor.device.core.model.RecordingListResponse
+import com.monitor.device.core.model.RecordingPlaybackRequest
+import com.monitor.device.core.model.RecordingPlaybackResponse
 import com.monitor.device.core.model.ViewerTokenResponse
 import retrofit2.http.Body
 import retrofit2.http.DELETE
@@ -117,6 +120,24 @@ interface DeviceApi {
         @Path("id") id: String,
         @Body body: SetCameraFacingRequest,
     ): DeviceStatusResponse
+
+    @GET("recordings/device/{deviceId}")
+    suspend fun linkedRecordings(
+        @Header("Authorization") authorization: String,
+        @Path("deviceId") deviceId: String,
+    ): RecordingListResponse
+
+    @POST("recordings/device/{deviceId}/start")
+    suspend fun startLinkedRecording(
+        @Header("Authorization") authorization: String,
+        @Path("deviceId") deviceId: String,
+    ): OkResponse
+
+    @POST("recordings/device/playback-url")
+    suspend fun linkedRecordingPlayback(
+        @Header("Authorization") authorization: String,
+        @Body body: RecordingPlaybackRequest,
+    ): RecordingPlaybackResponse
 
     @PATCH("devices/me/status")
     suspend fun updateStatus(

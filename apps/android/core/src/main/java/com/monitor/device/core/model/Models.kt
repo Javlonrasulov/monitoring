@@ -213,6 +213,7 @@ data class ChatMessageDto(
     val durationMs: Int? = null,
     val width: Int? = null,
     val height: Int? = null,
+    @Serializable(with = WaveformSerializer::class)
     val waveform: List<Double>? = null,
     val hasFile: Boolean = false,
     val hasThumbnail: Boolean = false,
@@ -419,4 +420,33 @@ data class ViewerTokenResponse(
     val audioEnabled: Boolean = false,
     val videoEnabled: Boolean = true,
     val canRecordings: Boolean = false,
+)
+
+@Serializable
+data class RecordingSegmentDto(
+    val id: String,
+    val deviceId: String? = null,
+    val status: String? = null,
+    val cameraFacing: String? = null,
+    val startedAt: String? = null,
+    val endedAt: String? = null,
+    val durationSec: Int? = null,
+    val fileSize: Int? = null,
+)
+
+@Serializable
+data class RecordingListResponse(
+    val items: List<RecordingSegmentDto> = emptyList(),
+    val total: Int = 0,
+)
+
+@Serializable
+data class RecordingPlaybackRequest(
+    val id: String,
+)
+
+@Serializable
+data class RecordingPlaybackResponse(
+    val token: String? = null,
+    val url: String,
 )

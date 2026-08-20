@@ -123,6 +123,7 @@
     <string name="chat_voice">Voice message</string>
     <string name="chat_video_note">Video note</string>
     <string name="chat_upload_failed">Upload failed</string>
+    <string name="chat_history_failed">Could not load chat history</string>
     <string name="chat_today">Today</string>
     <string name="chat_yesterday">Yesterday</string>
     <string name="chat_search_messages">Search messages</string>
@@ -186,6 +187,12 @@
     <string name="settings_camera_back">Back</string>
     <string name="settings_watch_waiting">Waiting for live stream…</string>
     <string name="settings_watch_failed">Could not join the live stream</string>
+    <string name="live_sound_on">Unmute</string>
+    <string name="live_sound_off">Mute</string>
+    <string name="history_title">History</string>
+    <string name="history_hint">Last 3 days of recordings (Pro+)</string>
+    <string name="history_empty">No recordings yet</string>
+    <string name="history_load_failed">Could not load history</string>
     <string name="settings_watch_not_publishing">The device is not broadcasting right now. Check that monitoring is on on the other phone.</string>
     <string name="settings_watch_upgrade">The 24-hour trial ended. Buy Pro or Pro+ to keep watching.</string>
     <string name="settings_plans_section">Subscription</string>

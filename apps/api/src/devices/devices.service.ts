@@ -268,10 +268,9 @@ export class DevicesService {
     });
   }
 
-  async listLinkedForDevice(deviceId: string, organizationId: string) {
+  async listLinkedForDevice(deviceId: string, _organizationId: string) {
     const devices = await this.prisma.device.findMany({
       where: {
-        organizationId,
         linkedFromDeviceId: deviceId,
         disabled: false,
       },
@@ -296,7 +295,6 @@ export class DevicesService {
     const target = await this.prisma.device.findFirst({
       where: {
         id: targetDeviceId,
-        organizationId,
         linkedFromDeviceId: viewerDeviceId,
         disabled: false,
       },
@@ -309,7 +307,7 @@ export class DevicesService {
       select: { id: true },
     });
     return this.setCameraFacing(
-      organizationId,
+      target.organizationId,
       viewerUser?.id ?? '',
       target.id,
       facing,
@@ -324,7 +322,6 @@ export class DevicesService {
     const target = await this.prisma.device.findFirst({
       where: {
         id: targetDeviceId,
-        organizationId,
         linkedFromDeviceId: viewerDeviceId,
       },
     });
@@ -348,6 +345,9 @@ export class DevicesService {
       metadata: { fromDeviceId: viewerDeviceId, name: target.name },
     });
     this.events.emitToOrg(organizationId, 'device.updated', {
+      deviceId: target.id,
+    });
+    this.events.emitToOrg(target.organizationId, 'device.updated', {
       deviceId: target.id,
     });
     return { ok: true };
@@ -410,13 +410,89 @@ export class DevicesService {
         existingUserId = existing.id;
       }
       await this.assertCanAcceptDeviceInvite(pairing.issuerDeviceId);
-    } else {
-      await this.assertPairingPassword(pairing, phone, pin);
-      const allowed = await this.subscriptions.assertCanPair(
-        pairing.organizationId,
-      );
-      this.throwIfPairBlocked(allowed);
+
+      const displayName =
+        dto.name?.trim() ||
+        phone ||
+        dto.deviceModel?.trim() ||
+        'Device';
+      if (!existingUserId) {
+        if (!phone) {
+          throw new BadRequestException('Phone is required');
+        }
+        if (!dto.name?.trim()) {
+          throw new BadRequestException('Name is required');
+        }
+        await this.subscriptions.assertInstallMayCreateAccount(
+          dto.installId,
+          dto.installSignals,
+        );
+        const target = await this.createAccountForPhone(phone, displayName);
+        try {
+          const trial = await this.subscriptions.ensureTrial(
+            target.organizationId,
+          );
+          const expiresAt =
+            trial.expiresAt ?? new Date(Date.now() + 24 * 60 * 60 * 1000);
+          await this.subscriptions.claimTrialForInstall(
+            dto.installId,
+            target.organizationId,
+            expiresAt,
+            dto.installSignals,
+          );
+          return this.createPairedDevice({
+            organizationId: target.organizationId,
+            branchId: target.branchId,
+            displayName,
+            dto,
+            phone,
+            pairingId: pairing.id,
+            linkedFromDeviceId: pairing.issuerDeviceId,
+            ownerUserId: pairing.issuerUserId,
+            skipOrgDeviceLimit: true,
+            claimTrialInstall: false,
+          });
+        } catch (error) {
+          await this.cleanupFailedSignup(target.organizationId);
+          throw error;
+        }
+      }
+
+      // Existing user without device: stay on their org, only link.
+      const home =
+        existingUserId
+          ? await this.prisma.user.findUnique({ where: { id: existingUserId } })
+          : null;
+      if (!home) {
+        throw new NotFoundException('User not found');
+      }
+      const homeBranch =
+        (await this.prisma.branch.findFirst({
+          where: { organizationId: home.organizationId },
+          orderBy: { createdAt: 'asc' },
+        })) ?? null;
+      if (!homeBranch) {
+        throw new BadRequestException('Branch not found');
+      }
+      return this.createPairedDevice({
+        organizationId: home.organizationId,
+        branchId: homeBranch.id,
+        displayName,
+        dto,
+        phone,
+        pairingId: pairing.id,
+        existingUserId,
+        linkedFromDeviceId: pairing.issuerDeviceId,
+        ownerUserId: pairing.issuerUserId,
+        skipOrgDeviceLimit: true,
+      });
     }
+
+    await this.assertPairingPassword(pairing, phone, pin);
+    const allowed = await this.subscriptions.assertCanPair(
+      pairing.organizationId,
+    );
+    this.throwIfPairBlocked(allowed);
 
     const displayName =
       dto.name?.trim() ||
@@ -434,7 +510,7 @@ export class DevicesService {
       existingUserId,
       linkedFromDeviceId: pairing.issuerDeviceId,
       ownerUserId: pairing.issuerUserId,
-      skipOrgDeviceLimit: Boolean(pairing.issuerDeviceId),
+      skipOrgDeviceLimit: false,
     });
   }
 
@@ -1143,17 +1219,13 @@ export class DevicesService {
       throw new ForbiddenException('Device disabled');
     }
     await this.assertCanAcceptDeviceInvite(pairing.issuerDeviceId, device.id);
+    // Keep each account on its own organization so subscriptions stay separate.
+    // Linking only sets linkedFromDeviceId for live view.
     const updated = await this.prisma.device.update({
       where: { id: device.id },
       data: {
-        organizationId: pairing.organizationId,
-        branchId: pairing.branchId,
         linkedFromDeviceId: pairing.issuerDeviceId,
       },
-    });
-    await this.prisma.user.updateMany({
-      where: { deviceId: device.id },
-      data: { organizationId: pairing.organizationId },
     });
     await this.prisma.devicePairingCode.update({
       where: { id: pairing.id },
@@ -1171,6 +1243,9 @@ export class DevicesService {
         ownerUserId: pairing.issuerUserId,
       });
     }
+    this.events.emitToOrg(device.organizationId, 'device.updated', {
+      deviceId: updated.id,
+    });
     this.events.emitToOrg(pairing.organizationId, 'device.updated', {
       deviceId: updated.id,
     });

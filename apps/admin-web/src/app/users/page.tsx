@@ -47,7 +47,7 @@ export default function UsersPage() {
     }
   }
 
-  async function grant(id: string, plan: "PRO" | "PRO_PLUS") {
+  async function grant(id: string, plan: "TRIAL" | "PRO" | "PRO_PLUS") {
     setBusyId(id);
     setError(null);
     try {
@@ -128,11 +128,19 @@ export default function UsersPage() {
                   <div className="table-actions">
                     <button
                       type="button"
+                      className={`btn btn-sm${row.planActive && row.plan === "TRIAL" ? " btn-active" : " btn-secondary"}`}
+                      disabled={busyId === row.id}
+                      onClick={() => void grant(row.id, "TRIAL")}
+                    >
+                      {busyId === row.id ? t("usersGranting") : t("usersGrantTrial")}
+                    </button>
+                    <button
+                      type="button"
                       className={`btn btn-sm${row.planActive && row.plan === "PRO" ? " btn-active" : " btn-secondary"}`}
                       disabled={busyId === row.id}
                       onClick={() => void grant(row.id, "PRO")}
                     >
-                      {busyId === row.id ? t("usersGranting") : t("usersGrantPro")}
+                      {t("usersGrantPro")}
                     </button>
                     <button
                       type="button"

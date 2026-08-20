@@ -123,6 +123,7 @@
     <string name="chat_voice">Голосовое</string>
     <string name="chat_video_note">Видеосообщение</string>
     <string name="chat_upload_failed">Не удалось загрузить</string>
+    <string name="chat_history_failed">Не удалось загрузить историю чата</string>
     <string name="chat_today">Сегодня</string>
     <string name="chat_yesterday">Вчера</string>
     <string name="chat_search_messages">Поиск по сообщениям</string>
@@ -186,6 +187,12 @@
     <string name="settings_camera_back">Задняя</string>
     <string name="settings_watch_waiting">Ожидание эфира…</string>
     <string name="settings_watch_failed">Не удалось подключиться к эфиру</string>
+    <string name="live_sound_on">Включить звук</string>
+    <string name="live_sound_off">Выключить звук</string>
+    <string name="history_title">История</string>
+    <string name="history_hint">Записи за последние 3 дня (Pro+)</string>
+    <string name="history_empty">Записей пока нет</string>
+    <string name="history_load_failed">Не удалось загрузить историю</string>
     <string name="settings_watch_not_publishing">Устройство сейчас не в эфире. Проверьте, что на втором телефоне включён мониторинг.</string>
     <string name="settings_watch_upgrade">24 часа истекли. Чтобы смотреть дальше, купите Pro или Pro+.</string>
     <string name="settings_plans_section">Подписка</string>

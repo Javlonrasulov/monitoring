@@ -1,6 +1,10 @@
 package com.monitor.device.monitoring.stream
 
 import android.content.Context
+import android.media.AudioAttributes
+import android.media.AudioFocusRequest
+import android.media.AudioManager
+import android.os.Build
 import android.util.Log
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
@@ -45,9 +49,11 @@ class WhepViewer(
     private var peerConnection: PeerConnection? = null
     private var videoTrack: VideoTrack? = null
     private var audioTrack: AudioTrack? = null
+    private var audioMuted: Boolean = false
     private var renderer: SurfaceViewRenderer? = null
     private var resourceUrl: String? = null
     private var sessionToken: String? = null
+    private var audioFocusRequested: Boolean = false
 
     fun eglContext(): EglBase.Context? = eglBase?.eglBaseContext
 
@@ -59,10 +65,14 @@ class WhepViewer(
     ) = withContext(Dispatchers.Main) {
         if (!active.compareAndSet(false, true)) return@withContext
         sessionToken = bearerToken
+        audioMuted = !audioEnabled
         renderer = rendererView
         releasePeer(keepFactory = true)
         try {
             ensureFactory()
+            if (audioEnabled) {
+                configurePlaybackAudio()
+            }
             rendererView.initForViewer(eglContext())
             val pcFactory = factory ?: error("PeerConnectionFactory missing")
             val iceServers = listOf(
@@ -125,6 +135,48 @@ class WhepViewer(
             }
         }
         releasePeer(keepFactory = false)
+        clearPlaybackAudio()
+    }
+
+    private fun configurePlaybackAudio() {
+        val am = appContext.getSystemService(Context.AUDIO_SERVICE) as? AudioManager ?: return
+        runCatching {
+            am.mode = AudioManager.MODE_IN_COMMUNICATION
+            @Suppress("DEPRECATION")
+            am.isSpeakerphoneOn = true
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val attrs = AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                    .build()
+                val req = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
+                    .setAudioAttributes(attrs)
+                    .setOnAudioFocusChangeListener { }
+                    .build()
+                am.requestAudioFocus(req)
+            } else {
+                @Suppress("DEPRECATION")
+                am.requestAudioFocus(
+                    null,
+                    AudioManager.STREAM_VOICE_CALL,
+                    AudioManager.AUDIOFOCUS_GAIN_TRANSIENT,
+                )
+            }
+            audioFocusRequested = true
+        }
+    }
+
+    private fun clearPlaybackAudio() {
+        if (!audioFocusRequested) return
+        audioFocusRequested = false
+        val am = appContext.getSystemService(Context.AUDIO_SERVICE) as? AudioManager ?: return
+        runCatching {
+            @Suppress("DEPRECATION")
+            am.isSpeakerphoneOn = false
+            am.mode = AudioManager.MODE_NORMAL
+            @Suppress("DEPRECATION")
+            am.abandonAudioFocus(null)
+        }
     }
 
     private fun attachRemote(track: MediaStreamTrack) {
@@ -137,9 +189,17 @@ class WhepViewer(
             }
             is AudioTrack -> {
                 audioTrack = track
-                track.setEnabled(true)
+                track.setEnabled(!audioMuted)
             }
         }
+    }
+
+    fun setAudioMuted(muted: Boolean) {
+        audioMuted = muted
+        if (!muted) {
+            configurePlaybackAudio()
+        }
+        audioTrack?.setEnabled(!muted)
     }
 
     private fun observer(gathered: CompletableDeferred<Unit>) =

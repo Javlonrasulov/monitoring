@@ -34,6 +34,9 @@ import com.monitor.device.core.model.SubscriptionDto
 import com.monitor.device.core.model.SupportSummaryDto
 import com.monitor.device.core.model.UpdateProfileRequest
 import com.monitor.device.core.model.UploadAvatarRequest
+import com.monitor.device.core.model.RecordingListResponse
+import com.monitor.device.core.model.RecordingPlaybackRequest
+import com.monitor.device.core.model.RecordingPlaybackResponse
 import com.monitor.device.core.model.ViewerTokenResponse
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -66,6 +69,7 @@ class DeviceApiClient(
         ignoreUnknownKeys = true
         isLenient = true
         encodeDefaults = true
+        coerceInputValues = true
     }
 
     private val http = okHttpClient
@@ -147,19 +151,19 @@ class DeviceApiClient(
         return authorized { api.publisherToken(it) }
     }
 
-    suspend fun chats(): List<ChatThreadDto> = authorized { api.chats(it) }
+    suspend fun chats(): List<ChatThreadDto> = authorized(unpairOnFailure = false) { api.chats(it) }
 
     suspend fun chatThread(threadId: String): ChatThreadDto =
-        authorized { api.chatThread(it, threadId) }
+        authorized(unpairOnFailure = false) { api.chatThread(it, threadId) }
 
     suspend fun chatMessages(threadId: String, cursor: String? = null, take: Int = 40): ChatMessagesPage =
-        authorized { api.chatMessages(it, threadId, cursor, take) }
+        authorized(unpairOnFailure = false) { api.chatMessages(it, threadId, cursor, take) }
 
     suspend fun searchChat(threadId: String, query: String): ChatSearchPage =
-        authorized { api.searchChat(it, threadId, query) }
+        authorized(unpairOnFailure = false) { api.searchChat(it, threadId, query) }
 
     suspend fun chatMedia(threadId: String, kind: String): ChatMediaPage =
-        authorized { api.chatMedia(it, threadId, kind) }
+        authorized(unpairOnFailure = false) { api.chatMedia(it, threadId, kind) }
 
     suspend fun sendChat(
         threadId: String,
@@ -168,7 +172,7 @@ class DeviceApiClient(
         clientId: String? = null,
         forwardedFromId: String? = null,
     ): ChatMessageDto =
-        authorized {
+        authorized(unpairOnFailure = false) {
             api.sendChat(
                 it,
                 threadId,
@@ -191,7 +195,7 @@ class DeviceApiClient(
         authorized { api.reactChat(it, threadId, messageId, ReactChatRequest(emoji)) }
 
     suspend fun readChat(threadId: String) {
-        authorized { api.readChat(it, threadId) }
+        authorized(unpairOnFailure = false) { api.readChat(it, threadId) }
     }
 
     suspend fun subscription(): SubscriptionDto = authorized { api.subscription(it) }
@@ -253,6 +257,24 @@ class DeviceApiClient(
         authorized(unpairOnFailure = false) {
             api.setLinkedCamera(it, deviceId, SetCameraFacingRequest(facing))
         }
+
+    suspend fun linkedRecordings(deviceId: String): RecordingListResponse =
+        authorized(unpairOnFailure = false) { api.linkedRecordings(it, deviceId) }
+
+    suspend fun startLinkedRecording(deviceId: String): OkResponse =
+        authorized(unpairOnFailure = false) { api.startLinkedRecording(it, deviceId) }
+
+    suspend fun linkedRecordingPlayback(recordingId: String): RecordingPlaybackResponse =
+        authorized(unpairOnFailure = false) {
+            api.linkedRecordingPlayback(it, RecordingPlaybackRequest(recordingId))
+        }
+
+    fun absoluteApiUrl(path: String): String {
+        if (path.startsWith("http://") || path.startsWith("https://")) return path
+        val base = apiBaseUrl.trimEnd('/')
+        val cleaned = path.trimStart('/').removePrefix("api/v1/")
+        return "$base/$cleaned"
+    }
 
     fun mediaUrl(threadId: String, messageId: String, thumb: Boolean = false, download: Boolean = false): String {
         val path = if (thumb) {

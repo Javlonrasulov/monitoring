@@ -190,12 +190,43 @@ export default function ProfilePage() {
         <section className="card stack">
           <h2 style={{ margin: 0, fontSize: "1.05rem" }}>{t("subscription")}</h2>
           <div className="status-pill">
-            {(sub?.status || "inactive").toString()}
-            {sub?.expiresAt ? ` · ${new Date(sub.expiresAt).toLocaleDateString()}` : ""}
+            {(sub?.plan || sub?.status || "NONE").toString()}
+            {sub?.active ? ` · ${t("active")}` : ` · ${t("inactive")}`}
+            {sub?.expiresAt
+              ? ` · ${new Date(sub.expiresAt).toLocaleDateString()}`
+              : ""}
           </div>
           {sub?.devicesUsed ? (
-            <span className="muted">Devices: {sub.devicesUsed}</span>
+            <span className="muted">{sub.devicesUsed}</span>
           ) : null}
+          {!sub?.active ? (
+            <p style={{ margin: 0, color: "var(--warning)", fontSize: "0.9rem" }}>
+              {t("subscriptionInactive")}
+            </p>
+          ) : null}
+          <div className="feature-grid">
+            {[
+              { key: "video", label: t("featVideo"), ok: Boolean(sub?.canWatchVideo) },
+              { key: "audio", label: t("featAudio"), ok: Boolean(sub?.canWatchAudio) },
+              {
+                key: "recordings",
+                label: t("featRecordings"),
+                ok: Boolean(sub?.canRecordings),
+              },
+              {
+                key: "link",
+                label: t("featLinkApps"),
+                ok: Boolean(sub?.canLinkTwoApps),
+              },
+            ].map((f) => (
+              <div
+                key={f.key}
+                className={`feature-chip ${f.ok ? "on" : "off"}`}
+              >
+                <span>{f.ok ? "✓" : "–"}</span> {f.label}
+              </div>
+            ))}
+          </div>
         </section>
 
         <section className="card stack">

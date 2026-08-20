@@ -66,6 +66,7 @@ import kotlinx.coroutines.launch
 fun SettingsScreen(
     apiClient: DeviceApiClient,
     onWatchDevice: (String, String, String?) -> Unit,
+    onOpenHistory: (String, String) -> Unit = { _, _ -> },
 ) {
     val colors = MonitorTheme.colors
     val context = LocalContext.current
@@ -274,6 +275,13 @@ fun SettingsScreen(
                         text = stringResource(R.string.settings_watch_live),
                         onClick = { onWatchDevice(device.id, device.name, device.cameraFacing) },
                     )
+                    if (sub?.canRecordings == true) {
+                        Spacer(modifier = Modifier.size(Spacing.sm))
+                        SecondaryButton(
+                            text = stringResource(R.string.history_title),
+                            onClick = { onOpenHistory(device.id, device.name) },
+                        )
+                    }
                     Spacer(modifier = Modifier.size(Spacing.sm))
                     DangerButton(
                         text = stringResource(R.string.settings_unlink),
@@ -321,51 +329,55 @@ fun SettingsScreen(
         val planName = sub?.plan.orEmpty()
         val hasActivePro = active && planName == "PRO"
         val hasActiveProPlus = active && planName == "PRO_PLUS"
-        Spacer(modifier = Modifier.size(Spacing.sm))
-        PlanCard(
-            title = stringResource(R.string.settings_plan_pro),
-            price = "$${sub?.priceProUsd ?: 25}",
-            body = stringResource(R.string.settings_plan_pro_body),
-            loading = buying == "PRO",
-            enabled = buying == null && !hasActivePro && !hasActiveProPlus,
-            hint = null,
-            onBuy = {
-                buying = "PRO"
-                error = null
-                scope.launch {
-                    runCatching { apiClient.createPaymentInvoice("PRO") }
-                        .onSuccess {
-                            invoice = it
-                            openPayGuide(it.checkoutUrl?.takeIf { url -> url.isNotBlank() } ?: it.guardarianUrl)
-                        }
-                        .onFailure { error = DeviceApiClient.errorMessage(it, failGeneric) }
-                    buying = null
-                }
-            },
-        )
-        Spacer(modifier = Modifier.size(Spacing.sm))
-        PlanCard(
-            title = stringResource(R.string.settings_plan_pro_plus),
-            price = "$${sub?.priceProPlusUsd ?: 25}",
-            body = stringResource(R.string.settings_plan_pro_plus_body),
-            loading = buying == "PRO_PLUS",
-            enabled = buying == null && hasActivePro,
-            hint = if (hasActivePro || hasActiveProPlus) null
-            else stringResource(R.string.settings_pro_plus_locked),
-            onBuy = {
-                buying = "PRO_PLUS"
-                error = null
-                scope.launch {
-                    runCatching { apiClient.createPaymentInvoice("PRO_PLUS") }
-                        .onSuccess {
-                            invoice = it
-                            openPayGuide(it.checkoutUrl?.takeIf { url -> url.isNotBlank() } ?: it.guardarianUrl)
-                        }
-                        .onFailure { error = DeviceApiClient.errorMessage(it, failGeneric) }
-                    buying = null
-                }
-            },
-        )
+        if (!hasActivePro && !hasActiveProPlus) {
+            Spacer(modifier = Modifier.size(Spacing.sm))
+            PlanCard(
+                title = stringResource(R.string.settings_plan_pro),
+                price = "$${sub?.priceProUsd ?: 25}",
+                body = stringResource(R.string.settings_plan_pro_body),
+                loading = buying == "PRO",
+                enabled = buying == null,
+                hint = null,
+                onBuy = {
+                    buying = "PRO"
+                    error = null
+                    scope.launch {
+                        runCatching { apiClient.createPaymentInvoice("PRO") }
+                            .onSuccess {
+                                invoice = it
+                                openPayGuide(it.checkoutUrl?.takeIf { url -> url.isNotBlank() } ?: it.guardarianUrl)
+                            }
+                            .onFailure { error = DeviceApiClient.errorMessage(it, failGeneric) }
+                        buying = null
+                    }
+                },
+            )
+        }
+        if (!hasActiveProPlus) {
+            Spacer(modifier = Modifier.size(Spacing.sm))
+            PlanCard(
+                title = stringResource(R.string.settings_plan_pro_plus),
+                price = "$${sub?.priceProPlusUsd ?: 25}",
+                body = stringResource(R.string.settings_plan_pro_plus_body),
+                loading = buying == "PRO_PLUS",
+                enabled = buying == null && hasActivePro,
+                hint = if (hasActivePro) null
+                else stringResource(R.string.settings_pro_plus_locked),
+                onBuy = {
+                    buying = "PRO_PLUS"
+                    error = null
+                    scope.launch {
+                        runCatching { apiClient.createPaymentInvoice("PRO_PLUS") }
+                            .onSuccess {
+                                invoice = it
+                                openPayGuide(it.checkoutUrl?.takeIf { url -> url.isNotBlank() } ?: it.guardarianUrl)
+                            }
+                            .onFailure { error = DeviceApiClient.errorMessage(it, failGeneric) }
+                        buying = null
+                    }
+                },
+            )
+        }
 
         invoice?.let { pay ->
             Spacer(modifier = Modifier.size(Spacing.lg))

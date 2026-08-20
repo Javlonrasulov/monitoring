@@ -147,7 +147,6 @@ export class ChatsService {
     });
     const threads = await this.prisma.chatThread.findMany({
       where: {
-        organizationId,
         OR: [
           { deviceId },
           { ownerUserId: viewer.id },
@@ -995,13 +994,17 @@ export class ChatsService {
       ),
       nextCursor:
         items.length === limited
-          ? chronological[0]?.createdAt.toISOString() ?? null
+          ? chronological[0]?.createdAt
+            ? new Date(chronological[0].createdAt).toISOString()
+            : null
           : null,
     };
   }
 
   private presentMessage(item: MessageInclude, viewerUserId: string, audit: boolean) {
     const deleted = item.deletedForEveryone && !audit;
+    const iso = (value: Date | null | undefined) =>
+      value ? new Date(value).toISOString() : null;
     return {
       id: item.id,
       threadId: item.threadId,
@@ -1009,11 +1012,11 @@ export class ChatsService {
       receiverUserId: item.receiverUserId,
       messageType: deleted ? ChatMessageType.TEXT : item.messageType,
       text: deleted ? null : item.text,
-      createdAt: item.createdAt,
-      deliveredAt: item.deliveredAt,
-      readAt: item.readAt,
-      editedAt: deleted ? null : item.editedAt,
-      deletedAt: item.deletedAt,
+      createdAt: iso(item.createdAt),
+      deliveredAt: iso(item.deliveredAt),
+      readAt: iso(item.readAt),
+      editedAt: deleted ? null : iso(item.editedAt),
+      deletedAt: iso(item.deletedAt),
       deletedForEveryone: item.deletedForEveryone,
       clientId: item.clientId,
       albumId: deleted ? null : item.albumId,
@@ -1159,7 +1162,11 @@ export class ChatsService {
     if (!raw) return null;
     try {
       const parsed = JSON.parse(raw) as unknown;
-      return Array.isArray(parsed) ? parsed.slice(0, 64) : null;
+      if (!Array.isArray(parsed)) return null;
+      return parsed
+        .slice(0, 64)
+        .map((value) => Number(value))
+        .filter((value) => Number.isFinite(value));
     } catch {
       return null;
     }
@@ -1189,7 +1196,8 @@ export class ChatsService {
     body: string;
   }) {
     if (!params.receiverUserId) return;
-    if (this.chatGateway.isUserOnline(params.receiverUserId)) return;
+    // Always send FCM: Android/web sockets often stay connected in background,
+    // so "online" would incorrectly suppress the notification the user expects.
     try {
       let title = 'Chat';
       if (params.senderUserId) {

@@ -1,81 +1,145 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { Eye, EyeOff } from "lucide-react";
 import { isPaired, savePairSession } from "@/lib/auth";
 import { ApiError } from "@/lib/api";
 import { deviceApi } from "@/lib/device-api";
 import { useI18n } from "@/lib/i18n";
 import { useToast } from "@/lib/toast";
-import { Suspense } from "react";
 
+/**
+ * Login UX mirrors Android PairingScreen exactly:
+ * - Phone + password always
+ * - Name + link code only when NOT a returning (registered) account
+ * - Returning account: knownAccount === true → hide name and code
+ */
 function LoginForm() {
   const router = useRouter();
   const params = useSearchParams();
   const { t } = useI18n();
   const toast = useToast();
 
+  const inviteFromUrl = (params.get("code") || "")
+    .replace(/^MONITOR:/i, "")
+    .replace(/\s+/g, "")
+    .toUpperCase();
+
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
-  const [name, setName] = useState("");
-  const [code, setCode] = useState(params.get("code") || "");
-  const [exists, setExists] = useState<boolean | null>(null);
+  const [passwordVisible, setPasswordVisible] = useState(false);
+  const [displayName, setDisplayName] = useState("");
+  const [code, setCode] = useState(inviteFromUrl);
+  const [knownAccount, setKnownAccount] = useState<boolean | null>(null);
+  const [trialBlocked, setTrialBlocked] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const phoneDigits = phone.replace(/\D/g, "");
+  const pinOk = password.length >= 4 && /^\d+$/.test(password);
+  // Android: returningUser = knownAccount == true
+  const returningUser = knownAccount === true;
+  // Android: name + code visible when !returningUser
+  const showNameAndCode = !returningUser;
+
+  const canSubmit = useMemo(() => {
+    if (busy || phoneDigits.length < 9 || !pinOk) return false;
+    // Android: returningUser || (displayName.isNotBlank() && !trialBlocked)
+    if (returningUser) return true;
+    return displayName.trim().length > 0 && !trialBlocked;
+  }, [busy, phoneDigits, pinOk, returningUser, displayName, trialBlocked]);
 
   useEffect(() => {
     if (isPaired()) router.replace("/chats");
   }, [router]);
 
+  // Android LaunchedEffect(phoneDigits): pair-status → knownAccount
   useEffect(() => {
-    const digits = phone.replace(/\D/g, "");
-    if (digits.length < 9) {
-      setExists(null);
+    if (phoneDigits.length < 9) {
+      setKnownAccount(null);
+      setTrialBlocked(false);
       return;
     }
+
+    let cancelled = false;
     const timer = window.setTimeout(() => {
       deviceApi
-        .pairStatus(digits)
-        .then((res) => setExists(res.exists))
-        .catch(() => setExists(null));
+        .pairStatus(phone.trim() || phoneDigits)
+        .then((status) => {
+          if (cancelled) return;
+          setKnownAccount(status.exists);
+          if (status.exists) {
+            // Registered: never ask name or share code again
+            setCode("");
+            setDisplayName("");
+            setTrialBlocked(false);
+            setError(null);
+            return;
+          }
+          const blocked = Boolean(status.trialBlocked) && !status.exists;
+          setTrialBlocked(blocked);
+          if (blocked) {
+            setError(
+              status.trialEnded
+                ? t("pairTrialEnded")
+                : status.message || t("pairTrialUsed"),
+            );
+          }
+        })
+        .catch(() => {
+          if (!cancelled) {
+            setKnownAccount(null);
+            setTrialBlocked(false);
+          }
+        });
     }, 350);
-    return () => window.clearTimeout(timer);
-  }, [phone]);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [phone, phoneDigits, t]);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
+    if (!canSubmit) return;
     setError(null);
-    const digits = phone.replace(/\D/g, "");
-    if (digits.length < 9) {
-      setError("Phone must be at least 9 digits");
-      return;
-    }
-    if (password.length < 4 || !/^\d+$/.test(password)) {
-      setError("PIN must be at least 4 digits");
-      return;
-    }
-    if (exists === false && !name.trim()) {
-      setError("Name is required for new accounts");
-      return;
-    }
 
     setBusy(true);
     try {
+      const cleanedCode = returningUser
+        ? ""
+        : code
+            .replace(/^MONITOR:/i, "")
+            .replace(/\s+/g, "")
+            .trim()
+            .toUpperCase();
+
       const res = await deviceApi.pair({
-        phone: digits,
+        phone: phone.trim() || phoneDigits,
         password,
-        name: exists ? "" : name.trim(),
-        code: code.trim().replace(/^MONITOR:/i, ""),
+        // Android: name/code empty for returning users
+        name: returningUser ? "" : displayName.trim(),
+        code: cleanedCode,
         appVersion: "user-web/0.1.0",
         deviceModel:
-          typeof navigator !== "undefined" ? navigator.userAgent.slice(0, 80) : "web",
+          typeof navigator !== "undefined"
+            ? navigator.userAgent.slice(0, 80)
+            : "web",
       });
       savePairSession(res);
       toast.push(t("login"), "ok");
       router.replace("/chats");
     } catch (err) {
-      const msg =
-        err instanceof ApiError ? err.message : "Login failed";
+      let msg = err instanceof ApiError ? err.message : t("pairFailed");
+      if (/trial ended/i.test(msg)) msg = t("pairTrialEnded");
+      else if (/free trial already used/i.test(msg)) msg = t("pairTrialUsed");
+      else if (/invalid password/i.test(msg)) msg = t("pairPasswordWrong");
+      else if (/at least 4 digits/i.test(msg)) msg = t("pairPasswordInvalid");
+      else if (/invalid pairing|invalid.*code|already used/i.test(msg)) {
+        msg = t("pairInvalidCode");
+      } else if (/name is required/i.test(msg)) msg = t("pairNameRequired");
       setError(msg);
       toast.push(msg, "err");
     } finally {
@@ -91,7 +155,7 @@ function LoginForm() {
           <div>
             <h1>{t("appName")}</h1>
             <p className="muted" style={{ margin: 0, fontSize: "0.9rem" }}>
-              {exists === false ? t("newUserHint") : t("returningHint")}
+              {t("pairSubtitle")}
             </p>
           </div>
         </div>
@@ -103,59 +167,139 @@ function LoginForm() {
             inputMode="tel"
             autoComplete="tel"
             value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            placeholder="+998…"
+            onChange={(e) => {
+              setPhone(
+                e.target.value.replace(/[^\d+\s]/g, "").slice(0, 16),
+              );
+              if (error) setError(null);
+            }}
+            placeholder={t("phonePlaceholder")}
             required
+            disabled={busy}
           />
+          <span className="muted" style={{ fontSize: "0.78rem" }}>
+            {t("phoneHelper")}
+          </span>
         </div>
-
-        {exists === false ? (
-          <div className="field">
-            <label htmlFor="name">{t("name")}</label>
-            <input
-              id="name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              autoComplete="name"
-              required
-            />
-          </div>
-        ) : null}
 
         <div className="field">
           <label htmlFor="pin">{t("password")}</label>
-          <input
-            id="pin"
-            type="password"
-            inputMode="numeric"
-            pattern="[0-9]*"
-            autoComplete="current-password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value.replace(/\D/g, ""))}
-            required
-            minLength={4}
-          />
+          <div className="row" style={{ gap: 8 }}>
+            <input
+              id="pin"
+              type={passwordVisible ? "text" : "password"}
+              inputMode="numeric"
+              pattern="[0-9]*"
+              autoComplete="current-password"
+              value={password}
+              onChange={(e) => {
+                setPassword(e.target.value.replace(/\D/g, "").slice(0, 12));
+                if (error) setError(null);
+              }}
+              placeholder={t("passwordPlaceholder")}
+              required
+              minLength={4}
+              disabled={busy}
+              style={{ flex: 1 }}
+            />
+            <button
+              type="button"
+              className="icon-btn"
+              aria-label={
+                passwordVisible ? t("passwordHide") : t("passwordShow")
+              }
+              onClick={() => setPasswordVisible((v) => !v)}
+            >
+              {passwordVisible ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
+          </div>
+          <span className="muted" style={{ fontSize: "0.78rem" }}>
+            {returningUser
+              ? t("passwordReturningHelper")
+              : t("passwordHelper")}
+          </span>
         </div>
 
-        <div className="field">
-          <label htmlFor="code">{t("inviteCode")}</label>
-          <input
-            id="code"
-            value={code}
-            onChange={(e) => setCode(e.target.value)}
-            placeholder="MONITOR:…"
-          />
-        </div>
+        {showNameAndCode ? (
+          <>
+            <div className="field">
+              <label htmlFor="name">{t("name")}</label>
+              <input
+                id="name"
+                value={displayName}
+                onChange={(e) => {
+                  setDisplayName(e.target.value.slice(0, 48));
+                  if (error) setError(null);
+                }}
+                autoComplete="name"
+                placeholder={t("namePlaceholder")}
+                disabled={busy || trialBlocked}
+              />
+              <span className="muted" style={{ fontSize: "0.78rem" }}>
+                {t("nameHelper")}
+              </span>
+            </div>
 
-        {error ? (
-          <p style={{ color: "var(--danger)", margin: 0, fontSize: "0.9rem" }}>
-            {error}
+            <div className="field">
+              <label htmlFor="code">{t("inviteCode")}</label>
+              <input
+                id="code"
+                value={code}
+                onChange={(e) => {
+                  setCode(
+                    e.target.value
+                      .toUpperCase()
+                      .replace(/\s+/g, "")
+                      .replace(/^MONITOR:/i, "")
+                      .slice(0, 24),
+                  );
+                  if (error) setError(null);
+                }}
+                placeholder={t("codePlaceholder")}
+                disabled={busy || trialBlocked}
+                autoCapitalize="characters"
+              />
+              <span className="muted" style={{ fontSize: "0.78rem" }}>
+                {t("codeHelper")}
+              </span>
+            </div>
+          </>
+        ) : null}
+
+        {returningUser ? (
+          <p className="muted" style={{ margin: 0, fontSize: "0.85rem" }}>
+            {t("returningAccountHint")}
           </p>
         ) : null}
 
-        <button className="btn btn-primary" type="submit" disabled={busy}>
+        {error ? (
+          <div
+            style={{
+              padding: "10px 12px",
+              borderRadius: 12,
+              background: "color-mix(in srgb, var(--danger) 12%, transparent)",
+              color: "var(--danger)",
+              fontSize: "0.9rem",
+            }}
+          >
+            <strong style={{ display: "block", marginBottom: 4 }}>
+              {t("pairErrorTitle")}
+            </strong>
+            {error}
+          </div>
+        ) : null}
+
+        <button
+          className="btn btn-primary"
+          type="submit"
+          disabled={!canSubmit}
+        >
           {busy ? t("loading") : t("continue")}
         </button>
+
+        <p className="muted" style={{ margin: 0, fontSize: "0.8rem" }}>
+          {t("pairFooter")}
+        </p>
       </form>
     </div>
   );

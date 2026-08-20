@@ -53,7 +53,7 @@ export type SubscriptionView = {
 const PRO_PRICE = 25;
 const PRO_PLUS_PRICE = 25;
 const TRIAL_HOURS = 24;
-const PAID_DAYS = 30;
+const PAID_DAYS = 365;
 
 const PAID_PROVIDER_STATUSES = new Set([
   'confirming',
@@ -748,13 +748,27 @@ export class SubscriptionsService {
 
   async grantManual(
     organizationId: string,
-    plan: 'PRO' | 'PRO_PLUS',
-    days = 3650,
+    plan: 'TRIAL' | 'PRO' | 'PRO_PLUS',
+    days?: number,
   ) {
     const nextPlan =
-      plan === 'PRO_PLUS' ? SubscriptionPlan.PRO_PLUS : SubscriptionPlan.PRO;
+      plan === 'PRO_PLUS'
+        ? SubscriptionPlan.PRO_PLUS
+        : plan === 'PRO'
+          ? SubscriptionPlan.PRO
+          : SubscriptionPlan.TRIAL;
     const now = new Date();
-    const expiresAt = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
+    const expiresAt =
+      nextPlan === SubscriptionPlan.TRIAL
+        ? new Date(
+            now.getTime() +
+              (days != null
+                ? days * 24 * 60 * 60 * 1000
+                : TRIAL_HOURS * 60 * 60 * 1000),
+          )
+        : new Date(
+            now.getTime() + (days ?? PAID_DAYS) * 24 * 60 * 60 * 1000,
+          );
     await this.prisma.subscription.create({
       data: {
         organizationId,
@@ -789,11 +803,12 @@ export class SubscriptionsService {
     return this.purchase(organizationId, 'PRO_PLUS');
   }
 
-  parsePlan(value?: string): 'PRO' | 'PRO_PLUS' {
+  parsePlan(value?: string): 'TRIAL' | 'PRO' | 'PRO_PLUS' {
     const plan = (value ?? '').trim().toUpperCase().replace('+', '_PLUS');
     if (plan === 'PRO_PLUS' || plan === 'PROPLUS') return 'PRO_PLUS';
     if (plan === 'PRO') return 'PRO';
-    throw new BadRequestException('Plan must be PRO or PRO_PLUS');
+    if (plan === 'TRIAL') return 'TRIAL';
+    throw new BadRequestException('Plan must be TRIAL, PRO or PRO_PLUS');
   }
 
   private maxDevicesFor(plan: SubscriptionPlan | 'NONE') {

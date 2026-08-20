@@ -10,6 +10,7 @@ import {
   Req,
   Res,
   UseGuards,
+  BadRequestException,
   ForbiddenException,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
@@ -17,7 +18,8 @@ import type { Request, Response } from 'express';
 import { RecordingsService } from './recordings.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { AdminRoleGuard } from '../auth/admin-role.guard';
-import { CurrentUser } from '../auth/decorators';
+import { DeviceAuthGuard } from '../auth/device-auth.guard';
+import { CurrentDevice, CurrentUser } from '../auth/decorators';
 import {
   DeleteRangeDto,
   DeleteRecordingsDto,
@@ -38,6 +40,56 @@ type AdminUser = {
 @Controller('recordings')
 export class RecordingsController {
   constructor(private readonly recordings: RecordingsService) {}
+
+  @Post('device/playback-url')
+  @ApiBearerAuth()
+  @UseGuards(DeviceAuthGuard)
+  @ApiOperation({ summary: 'Playback URL for a linked-device recording (Pro+)' })
+  devicePlayback(
+    @CurrentDevice() device: { deviceId: string; organizationId: string },
+    @Body() body: { id?: string; recordingId?: string },
+  ) {
+    const recordingId = body.id ?? body.recordingId;
+    if (!recordingId) {
+      throw new BadRequestException('Recording id required');
+    }
+    return this.recordings.playbackTokenForLinkedViewer(
+      device.deviceId,
+      device.organizationId,
+      device.deviceId,
+      recordingId,
+    );
+  }
+
+  @Get('device/:deviceId')
+  @ApiBearerAuth()
+  @UseGuards(DeviceAuthGuard)
+  @ApiOperation({ summary: 'Pro+ linked-device recordings (last 3 days)' })
+  deviceList(
+    @CurrentDevice() device: { deviceId: string; organizationId: string },
+    @Param('deviceId') deviceId: string,
+  ) {
+    return this.recordings.listForLinkedViewer(
+      device.deviceId,
+      device.organizationId,
+      deviceId,
+    );
+  }
+
+  @Post('device/:deviceId/start')
+  @ApiBearerAuth()
+  @UseGuards(DeviceAuthGuard)
+  @ApiOperation({ summary: 'Start recording a linked device (Pro+)' })
+  deviceStart(
+    @CurrentDevice() device: { deviceId: string; organizationId: string },
+    @Param('deviceId') deviceId: string,
+  ) {
+    return this.recordings.startForLinkedViewer(
+      device.deviceId,
+      device.organizationId,
+      deviceId,
+    );
+  }
 
   @Get()
   @ApiBearerAuth()

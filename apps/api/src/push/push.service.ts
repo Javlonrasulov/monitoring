@@ -77,7 +77,10 @@ export class PushService implements OnModuleInit {
       where: { userId: params.receiverUserId },
       select: { id: true, token: true },
     });
-    if (!tokens.length) return;
+    if (!tokens.length) {
+      this.logger.debug(`No push tokens for user ${params.receiverUserId}`);
+      return;
+    }
 
     const title = (params.title || 'Chat').slice(0, 80);
     const body = (params.body || 'New message').slice(0, 180);
@@ -86,6 +89,10 @@ export class PushService implements OnModuleInit {
       threadId: params.threadId,
       messageId: params.messageId,
     };
+
+    this.logger.log(
+      `Sending chat push to ${tokens.length} device(s) user=${params.receiverUserId} thread=${params.threadId}`,
+    );
 
     await Promise.all(
       tokens.map(async (row) => {

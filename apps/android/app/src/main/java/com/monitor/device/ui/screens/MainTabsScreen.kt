@@ -38,6 +38,7 @@ fun MainTabsScreen(
     onOpenCallCenter: (String, String) -> Unit,
     onUnpaired: () -> Unit,
     onWatchDevice: (String, String, String?) -> Unit,
+    onOpenHistory: (String, String) -> Unit = { _, _ -> },
 ) {
     var tab by rememberSaveable { mutableIntStateOf(0) }
     var unread by rememberSaveable { mutableIntStateOf(0) }
@@ -80,6 +81,7 @@ fun MainTabsScreen(
                 1 -> SettingsScreen(
                     apiClient = apiClient,
                     onWatchDevice = onWatchDevice,
+                    onOpenHistory = onOpenHistory,
                 )
                 else -> ProfileScreen(
                     apiClient = apiClient,

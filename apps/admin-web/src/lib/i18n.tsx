@@ -163,6 +163,7 @@ const uz = {
   usersConfirmDelete:
     "Bu user butunlay o‘chirilsinmi? Qurilmasi ham o‘chadi. Qaytarib bo‘lmaydi.",
   usersDeleteError: "User o‘chirilmadi",
+  usersGrantTrial: "Trial",
   usersGrantPro: "Pro",
   usersGrantProPlus: "Pro+",
   usersGranting: "Yoqilmoqda…",
@@ -372,6 +373,7 @@ const ru: { [K in keyof typeof uz]: string } = {
   usersConfirmDelete:
     "Удалить этого пользователя полностью? Устройство тоже будет удалено. Это нельзя отменить.",
   usersDeleteError: "Не удалось удалить пользователя",
+  usersGrantTrial: "Trial",
   usersGrantPro: "Pro",
   usersGrantProPlus: "Pro+",
   usersGranting: "Включение…",
@@ -472,6 +474,7 @@ const en: { [K in keyof typeof uz]: string } = {
   usersConfirmDelete:
     "Delete this user permanently? Their device will also be removed. This cannot be undone.",
   usersDeleteError: "Could not delete user",
+  usersGrantTrial: "Trial",
   usersGrantPro: "Pro",
   usersGrantProPlus: "Pro+",
   usersGranting: "Enabling…",

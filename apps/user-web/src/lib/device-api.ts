@@ -1,9 +1,12 @@
 import { api, fileUrl } from "./api";
 import type {
+  ChatMediaPage,
   ChatMessageDto,
   ChatMessagesPage,
+  ChatSearchPage,
   ChatThreadDto,
   DeviceMeResponse,
+  DeviceRecordingDto,
   InitUploadResponse,
   LinkDeviceResponse,
   LinkedDeviceDto,
@@ -11,6 +14,7 @@ import type {
   PairResponse,
   PairStatusResponse,
   PaymentInvoiceDto,
+  PlaybackUrlResponse,
   SubscriptionDto,
   SupportSummaryDto,
   ViewerTokenResponse,
@@ -48,7 +52,8 @@ export const deviceApi = {
 
   linked: () => api.get<LinkedDeviceDto[]>("/devices/me/linked"),
 
-  unlink: (id: string) => api.delete<{ ok?: boolean }>(`/devices/me/linked/${id}`),
+  unlink: (id: string) =>
+    api.delete<{ ok?: boolean }>(`/devices/me/linked/${id}`),
 
   createPairingCode: () =>
     api.post<PairingCodeResponse>("/devices/me/pairing-codes", {}),
@@ -74,6 +79,16 @@ export const deviceApi = {
     return api.get<ChatMessagesPage>(`/device-chats/${id}/messages?${q}`);
   },
 
+  searchMessages: (id: string, q: string) =>
+    api.get<ChatSearchPage>(
+      `/device-chats/${id}/search?q=${encodeURIComponent(q)}`,
+    ),
+
+  media: (id: string, kind: string) =>
+    api.get<ChatMediaPage>(
+      `/device-chats/${id}/media?kind=${encodeURIComponent(kind)}`,
+    ),
+
   sendMessage: (
     id: string,
     body: {
@@ -85,9 +100,10 @@ export const deviceApi = {
   ) => api.post<ChatMessageDto>(`/device-chats/${id}/messages`, body),
 
   editMessage: (threadId: string, messageId: string, text: string) =>
-    api.patch<ChatMessageDto>(`/device-chats/${threadId}/messages/${messageId}`, {
-      text,
-    }),
+    api.patch<ChatMessageDto>(
+      `/device-chats/${threadId}/messages/${messageId}`,
+      { text },
+    ),
 
   deleteMessage: (
     threadId: string,
@@ -107,6 +123,11 @@ export const deviceApi = {
   markRead: (threadId: string) =>
     api.post<{ ok?: boolean }>(`/device-chats/${threadId}/read`),
 
+  cancelUpload: (threadId: string, uploadId: string) =>
+    api.delete<{ ok?: boolean }>(
+      `/device-chats/${threadId}/uploads/${uploadId}`,
+    ),
+
   subscription: () =>
     api.get<SubscriptionDto>("/device-subscriptions/me"),
 
@@ -120,18 +141,38 @@ export const deviceApi = {
     api.post<ViewerTokenResponse>(
       `/streaming/devices/${deviceId}/device-viewer-token`,
     ),
+
+  deviceRecordings: async (deviceId: string) => {
+    const res = await api.get<{ items?: DeviceRecordingDto[] } | DeviceRecordingDto[]>(
+      `/recordings/device/${deviceId}`,
+    );
+    return Array.isArray(res) ? res : (res.items ?? []);
+  },
+
+  startRecording: (deviceId: string) =>
+    api.post<{ ok?: boolean }>(`/recordings/device/${deviceId}/start`, {}),
+
+  playbackUrl: (body: { id: string }) =>
+    api.post<PlaybackUrlResponse>("/recordings/device/playback-url", body),
+};
+
+export type UploadOpts = {
+  messageType: string;
+  replyToId?: string;
+  clientId?: string;
+  text?: string;
+  albumId?: string;
+  durationMs?: number;
+  width?: number;
+  height?: number;
+  waveformJson?: string;
+  onProgress?: (ratio: number) => void;
 };
 
 export async function uploadChatFile(
   threadId: string,
   file: File,
-  opts: {
-    messageType: string;
-    replyToId?: string;
-    clientId?: string;
-    text?: string;
-    onProgress?: (ratio: number) => void;
-  },
+  opts: UploadOpts,
 ): Promise<ChatMessageDto> {
   const init = await api.post<InitUploadResponse>(
     `/device-chats/${threadId}/uploads`,
@@ -143,6 +184,11 @@ export async function uploadChatFile(
       replyToId: opts.replyToId,
       clientId: opts.clientId,
       text: opts.text,
+      albumId: opts.albumId,
+      durationMs: opts.durationMs,
+      width: opts.width,
+      height: opts.height,
+      waveformJson: opts.waveformJson,
     },
   );
 

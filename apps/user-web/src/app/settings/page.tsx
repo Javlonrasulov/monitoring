@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { updateSessionToken } from "@/lib/auth";
 import { deviceApi } from "@/lib/device-api";
@@ -23,6 +23,8 @@ export default function SettingsPage() {
   const [linkInput, setLinkInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [showCrypto, setShowCrypto] = useState(false);
+  const [payGuideUrl, setPayGuideUrl] = useState<string | null>(null);
+  const [now, setNow] = useState(Date.now());
   const pollRef = useRef<number | null>(null);
 
   async function refresh() {
@@ -35,11 +37,17 @@ export default function SettingsPage() {
   }
 
   useEffect(() => {
-    refresh().catch(() => toast.push("Failed to load settings", "err"));
+    refresh().catch(() => toast.push(t("settingsLoadFailed"), "err"));
     return () => {
       if (pollRef.current) window.clearInterval(pollRef.current);
     };
-  }, [toast]);
+  }, [toast, t]);
+
+  useEffect(() => {
+    if (!invoice || invoice.paid) return;
+    const id = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, [invoice]);
 
   useEffect(() => {
     if (!invoice || invoice.paid) return;
@@ -51,7 +59,8 @@ export default function SettingsPage() {
         .then((next) => {
           setInvoice(next);
           if (next.paid || next.status === "FINISHED") {
-            toast.push("Payment confirmed", "ok");
+            toast.push(t("paySuccess"), "ok");
+            setPayGuideUrl(null);
             void refresh();
             if (pollRef.current) window.clearInterval(pollRef.current);
           }
@@ -61,17 +70,21 @@ export default function SettingsPage() {
     return () => {
       if (pollRef.current) window.clearInterval(pollRef.current);
     };
-  }, [invoice, toast]);
+  }, [invoice, toast, t]);
 
   async function generateCode() {
+    if (!sub?.canLinkTwoApps) {
+      toast.push(t("subscriptionInactive"), "err");
+      return;
+    }
     setBusy(true);
     try {
       const res = await deviceApi.createPairingCode();
       setCode(res.code);
-      toast.push(t("copied"), "ok");
       await navigator.clipboard.writeText(res.code);
+      toast.push(t("copied"), "ok");
     } catch {
-      toast.push("Could not create code", "err");
+      toast.push(t("codeCreateFailed"), "err");
     } finally {
       setBusy(false);
     }
@@ -85,23 +98,24 @@ export default function SettingsPage() {
       const res = await deviceApi.linkDevice(value);
       if (res.deviceToken) updateSessionToken(res.deviceToken);
       setLinkInput("");
-      toast.push("Linked", "ok");
+      toast.push(t("linkSuccess"), "ok");
       await refresh();
     } catch {
-      toast.push("Link failed", "err");
+      toast.push(t("linkFailed"), "err");
     } finally {
       setBusy(false);
     }
   }
 
   async function unlink(id: string) {
-    if (!window.confirm(t("unlink") + "?")) return;
+    if (!window.confirm(`${t("unlink")}?`)) return;
     setBusy(true);
     try {
       await deviceApi.unlink(id);
+      toast.push(t("unlinkSuccess"), "ok");
       await refresh();
     } catch {
-      toast.push("Unlink failed", "err");
+      toast.push(t("unlinkFailed"), "err");
     } finally {
       setBusy(false);
     }
@@ -112,24 +126,64 @@ export default function SettingsPage() {
     try {
       const inv = await deviceApi.createInvoice(plan);
       setInvoice(inv);
-      const url = inv.checkoutUrl || inv.guardarianUrl;
       if (inv.payAddress) {
-        await navigator.clipboard.writeText(inv.payAddress);
+        await navigator.clipboard.writeText(inv.payAddress).catch(() => undefined);
       }
-      if (url) window.open(url, "_blank", "noopener,noreferrer");
-      toast.push("Checkout opened", "ok");
+      const url = inv.checkoutUrl || inv.guardarianUrl || null;
+      setPayGuideUrl(url);
     } catch {
-      toast.push("Invoice failed", "err");
+      toast.push(t("invoiceFailed"), "err");
     } finally {
       setBusy(false);
     }
   }
 
+  const active = sub?.active === true;
+  const plan = (sub?.plan || "NONE").toUpperCase();
+  const hasActivePro = active && plan === "PRO";
+  const hasActiveProPlus = active && plan === "PRO_PLUS";
+  const showProCard = !hasActivePro && !hasActiveProPlus;
+  const showProPlusCard = !hasActiveProPlus;
   const pricePro = sub?.priceProUsd ?? 25;
   const pricePlus = sub?.priceProPlusUsd ?? 25;
-  const plan = (sub?.plan || "").toUpperCase();
-  const canPro = plan !== "PRO" && plan !== "PRO_PLUS";
-  const canProPlus = plan === "PRO";
+
+  const remainingLabel = useMemo(() => {
+    if (!invoice?.expiresAt) {
+      return invoice?.remainingSeconds
+        ? `${Math.max(0, invoice.remainingSeconds)}s`
+        : "";
+    }
+    const left = Math.max(
+      0,
+      Math.floor((new Date(invoice.expiresAt).getTime() - now) / 1000),
+    );
+    const m = Math.floor(left / 60);
+    const s = left % 60;
+    return `${m}:${String(s).padStart(2, "0")}`;
+  }, [invoice, now]);
+
+  const features = [
+    {
+      key: "video",
+      label: t("featVideo"),
+      ok: Boolean(sub?.canWatchVideo),
+    },
+    {
+      key: "audio",
+      label: t("featAudio"),
+      ok: Boolean(sub?.canWatchAudio),
+    },
+    {
+      key: "recordings",
+      label: t("featRecordings"),
+      ok: Boolean(sub?.canRecordings),
+    },
+    {
+      key: "link",
+      label: t("featLinkApps"),
+      ok: Boolean(sub?.canLinkTwoApps),
+    },
+  ];
 
   return (
     <AppShell title={t("settings")}>
@@ -137,7 +191,7 @@ export default function SettingsPage() {
         <section className="card stack">
           <h2 style={{ margin: 0, fontSize: "1.05rem" }}>{t("linkedDevices")}</h2>
           <p className="muted" style={{ margin: 0, fontSize: "0.88rem" }}>
-            {t("trialHint")}
+            {t("shareHint")}
           </p>
           <div className="row" style={{ flexWrap: "wrap" }}>
             <button
@@ -165,8 +219,12 @@ export default function SettingsPage() {
           <div className="row" style={{ flexWrap: "wrap" }}>
             <input
               value={linkInput}
-              onChange={(e) => setLinkInput(e.target.value)}
-              placeholder={t("enterCode")}
+              onChange={(e) =>
+                setLinkInput(
+                  e.target.value.toUpperCase().replace(/\s+/g, "").slice(0, 24),
+                )
+              }
+              placeholder={t("codePlaceholder")}
               style={{
                 flex: 1,
                 minWidth: 180,
@@ -180,7 +238,7 @@ export default function SettingsPage() {
             <button
               type="button"
               className="btn btn-secondary"
-              disabled={busy}
+              disabled={busy || linkInput.length < 4}
               onClick={() => void linkDevice()}
             >
               {t("enterCode")}
@@ -194,31 +252,43 @@ export default function SettingsPage() {
               {linked.map((d) => (
                 <div
                   key={d.id}
-                  className="row"
+                  className="card"
                   style={{
-                    justifyContent: "space-between",
-                    padding: "10px 0",
-                    borderTop: "1px solid var(--border)",
-                    flexWrap: "wrap",
+                    background: "var(--surface-muted)",
+                    boxShadow: "none",
                   }}
                 >
-                  <div>
-                    <strong>{d.name}</strong>
-                    <div className="muted" style={{ fontSize: "0.8rem" }}>
-                      {d.deviceModel || d.status || "—"}
+                  <div className="stack" style={{ gap: 8 }}>
+                    <div>
+                      <strong>{d.name}</strong>
+                      <div className="muted" style={{ fontSize: "0.8rem" }}>
+                        {d.status || "—"}
+                        {d.deviceModel ? ` · ${d.deviceModel}` : ""}
+                        {d.lastSeen
+                          ? ` · ${new Date(d.lastSeen).toLocaleString()}`
+                          : ""}
+                      </div>
                     </div>
-                  </div>
-                  <div className="row">
-                    <Link className="btn btn-primary" href={`/live/${d.id}`}>
-                      {t("watchLive")}
-                    </Link>
-                    <button
-                      type="button"
-                      className="btn btn-danger"
-                      onClick={() => void unlink(d.id)}
-                    >
-                      {t("unlink")}
-                    </button>
+                    <div className="row" style={{ flexWrap: "wrap" }}>
+                      <Link className="btn btn-primary" href={`/live/${d.id}`}>
+                        {t("watchLive")}
+                      </Link>
+                      {sub?.canRecordings ? (
+                        <Link
+                          className="btn btn-secondary"
+                          href={`/history/${d.id}?name=${encodeURIComponent(d.name)}`}
+                        >
+                          {t("history")}
+                        </Link>
+                      ) : null}
+                      <button
+                        type="button"
+                        className="btn btn-danger"
+                        onClick={() => void unlink(d.id)}
+                      >
+                        {t("unlink")}
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -229,51 +299,107 @@ export default function SettingsPage() {
         <section className="card stack">
           <h2 style={{ margin: 0, fontSize: "1.05rem" }}>{t("subscription")}</h2>
           <div className="status-pill">
-            {(sub?.status || "inactive").toString()}
-            {sub?.plan ? ` · ${sub.plan}` : ""}
+            {(sub?.plan || "TRIAL").toString()}
+            {active ? ` · ${t("active")}` : ` · ${t("inactive")}`}
             {sub?.devicesUsed ? ` · ${sub.devicesUsed}` : ""}
           </div>
+          <p className="muted" style={{ margin: 0, fontSize: "0.88rem" }}>
+            {t("planStatus")
+              .replace("%1", sub?.status || "—")
+              .replace(
+                "%2",
+                sub?.expiresAt
+                  ? new Date(sub.expiresAt).toLocaleString()
+                  : "—",
+              )}
+          </p>
+          {sub?.trial ? (
+            <p className="muted" style={{ margin: 0, fontSize: "0.88rem" }}>
+              {t("trialMessage")}
+            </p>
+          ) : null}
+          {!active ? (
+            <p style={{ margin: 0, color: "var(--warning)", fontSize: "0.9rem" }}>
+              {t("subscriptionInactive")}
+            </p>
+          ) : null}
+
+          <div className="feature-grid">
+            {features.map((f) => (
+              <div
+                key={f.key}
+                className={`feature-chip ${f.ok ? "on" : "off"}`}
+              >
+                <span>{f.ok ? "✓" : "–"}</span> {f.label}
+              </div>
+            ))}
+          </div>
+
           <div className="grid-2">
-            <div className="plan-card">
-              <h3>{t("pro")}</h3>
-              <div className="price">${pricePro}</div>
-              <button
-                type="button"
-                className="btn btn-primary"
-                disabled={busy || !canPro}
-                onClick={() => void startPay("PRO")}
-              >
-                {t("payCard")}
-              </button>
-            </div>
-            <div className="plan-card">
-              <h3>{t("proPlus")}</h3>
-              <div className="price">${pricePlus}</div>
-              <button
-                type="button"
-                className="btn btn-primary"
-                disabled={busy || !canProPlus}
-                onClick={() => void startPay("PRO_PLUS")}
-              >
-                {t("payCard")}
-              </button>
-              {!canProPlus && plan !== "PRO_PLUS" ? (
-                <span className="muted" style={{ fontSize: "0.8rem" }}>
-                  Requires Pro
-                </span>
-              ) : null}
-            </div>
+            {showProCard ? (
+              <div className="plan-card">
+                <h3>{t("pro")}</h3>
+                <div className="price">${pricePro}</div>
+                <p className="muted" style={{ margin: 0, fontSize: "0.88rem" }}>
+                  {t("proBody")}
+                </p>
+                <ul className="plan-features">
+                  <li>✓ {t("featVideo")}</li>
+                  <li>✓ {t("featLinkApps")}</li>
+                  <li className="off">– {t("featAudio")}</li>
+                  <li className="off">– {t("featRecordings")}</li>
+                </ul>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  disabled={busy}
+                  onClick={() => void startPay("PRO")}
+                >
+                  {t("payCard")}
+                </button>
+              </div>
+            ) : null}
+
+            {showProPlusCard ? (
+              <div className="plan-card">
+                <h3>{t("proPlus")}</h3>
+                <div className="price">${pricePlus}</div>
+                <p className="muted" style={{ margin: 0, fontSize: "0.88rem" }}>
+                  {t("proPlusBody")}
+                </p>
+                <ul className="plan-features">
+                  <li>✓ {t("featVideo")}</li>
+                  <li>✓ {t("featAudio")}</li>
+                  <li>✓ {t("featRecordings")}</li>
+                  <li>✓ {t("featLinkApps")}</li>
+                </ul>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  disabled={busy || !hasActivePro}
+                  onClick={() => void startPay("PRO_PLUS")}
+                >
+                  {t("payCard")}
+                </button>
+                {!hasActivePro ? (
+                  <span className="muted" style={{ fontSize: "0.8rem" }}>
+                    {t("proPlusLocked")}
+                  </span>
+                ) : null}
+              </div>
+            ) : null}
           </div>
 
           {invoice ? (
             <div className="card" style={{ background: "var(--surface-muted)" }}>
               <div className="stack">
                 <strong>
-                  Invoice · {invoice.plan} · {invoice.status}
+                  {invoice.plan} · {invoice.status}
+                  {remainingLabel ? ` · ${remainingLabel}` : ""}
                 </strong>
                 <span className="muted">
                   {invoice.payAmount} {invoice.payCurrency} ·{" "}
-                  {invoice.network || "TRC20"}
+                  {invoice.network || "TRC20"} · ${invoice.priceUsd ?? ""}
                 </span>
                 <div className="row" style={{ flexWrap: "wrap" }}>
                   <button
@@ -283,21 +409,35 @@ export default function SettingsPage() {
                   >
                     {t("payCrypto")}
                   </button>
-                  {(invoice.checkoutUrl || invoice.guardarianUrl) && (
-                    <a
-                      className="btn btn-primary"
-                      href={invoice.checkoutUrl || invoice.guardarianUrl || "#"}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      {t("payCard")}
-                    </a>
-                  )}
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={() =>
+                      setPayGuideUrl(
+                        invoice.checkoutUrl || invoice.guardarianUrl || null,
+                      )
+                    }
+                  >
+                    {t("payCard")}
+                  </button>
                 </div>
                 {showCrypto ? (
-                  <code style={{ wordBreak: "break-all" }}>
-                    {invoice.payAddress}
-                  </code>
+                  <div className="stack" style={{ gap: 6 }}>
+                    <code style={{ wordBreak: "break-all" }}>
+                      {invoice.payAddress}
+                    </code>
+                    <button
+                      type="button"
+                      className="btn btn-ghost"
+                      onClick={() =>
+                        void navigator.clipboard.writeText(
+                          invoice.payAddress || "",
+                        ).then(() => toast.push(t("copied"), "ok"))
+                      }
+                    >
+                      {t("copy")}
+                    </button>
+                  </div>
                 ) : null}
               </div>
             </div>
@@ -307,23 +447,49 @@ export default function SettingsPage() {
         <section className="card stack">
           <h2 style={{ margin: 0, fontSize: "1.05rem" }}>{t("language")}</h2>
           <div className="row">
-            <button
-              type="button"
-              className={`btn ${locale === "en" ? "btn-primary" : "btn-secondary"}`}
-              onClick={() => setLocale("en")}
-            >
-              EN
-            </button>
-            <button
-              type="button"
-              className={`btn ${locale === "ru" ? "btn-primary" : "btn-secondary"}`}
-              onClick={() => setLocale("ru")}
-            >
-              RU
-            </button>
+            {(["uz", "ru", "en"] as const).map((l) => (
+              <button
+                key={l}
+                type="button"
+                className={`btn ${locale === l ? "btn-primary" : "btn-secondary"}`}
+                onClick={() => setLocale(l)}
+              >
+                {l.toUpperCase()}
+              </button>
+            ))}
           </div>
         </section>
       </div>
+
+      {payGuideUrl ? (
+        <div className="modal-scrim" onClick={() => setPayGuideUrl(null)}>
+          <div className="modal stack" onClick={(e) => e.stopPropagation()}>
+            <h3 style={{ margin: 0 }}>{t("payGuideTitle")}</h3>
+            <p style={{ whiteSpace: "pre-wrap", margin: 0, lineHeight: 1.45 }}>
+              {t("payGuideBody")}
+            </p>
+            <div className="row" style={{ flexWrap: "wrap" }}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setPayGuideUrl(null)}
+              >
+                {t("cancel")}
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => {
+                  window.open(payGuideUrl, "_blank", "noopener,noreferrer");
+                  setPayGuideUrl(null);
+                }}
+              >
+                {t("payGuideOk")}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </AppShell>
   );
 }

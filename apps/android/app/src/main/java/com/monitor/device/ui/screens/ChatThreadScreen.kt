@@ -106,6 +106,7 @@ import coil.request.ImageRequest
 import com.monitor.device.R
 import com.monitor.device.core.api.DeviceApiClient
 import com.monitor.device.core.auth.TokenStore
+import com.monitor.device.core.chat.ChatMessageCache
 import com.monitor.device.core.chat.ChatRealtime
 import com.monitor.device.core.model.ChatMessageDto
 import com.monitor.device.core.model.ChatReplyDto
@@ -165,9 +166,10 @@ fun ChatThreadScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val listState = rememberLazyListState()
+    val messageCache = remember { ChatMessageCache(context) }
     var thread by remember { mutableStateOf<ChatThreadDto?>(null) }
-    var messages by remember { mutableStateOf<List<ChatMessageDto>>(emptyList()) }
-    var nextCursor by remember { mutableStateOf<String?>(null) }
+    var messages by remember(threadId) { mutableStateOf(messageCache.load(threadId)) }
+    var nextCursor by remember(threadId) { mutableStateOf<String?>(null) }
     var draft by remember { mutableStateOf("") }
     var replyTo by remember { mutableStateOf<ChatMessageDto?>(null) }
     var editing by remember { mutableStateOf<ChatMessageDto?>(null) }
@@ -291,10 +293,29 @@ fun ChatThreadScreen(
             thread = it
             it.viewerUserId?.let(tokenStore::saveUserId)
         }
-        runCatching { apiClient.chatMessages(threadId, take = 50) }.onSuccess {
-            messages = it.items
-            nextCursor = it.nextCursor
+        var loaded = false
+        repeat(3) { attempt ->
+            val page = runCatching { apiClient.chatMessages(threadId, take = 80) }.getOrNull()
+            if (page != null) {
+                // Do not wipe a non-empty local history with an empty server page
+                // (transient backend/filter glitches). Prefer server when it has data.
+                if (page.items.isNotEmpty() || messages.isEmpty()) {
+                    messages = page.items
+                    messageCache.save(threadId, page.items)
+                }
+                nextCursor = page.nextCursor
+                loaded = true
+                return@repeat
+            }
+            delay(350L * (attempt + 1))
         }
+        if (!loaded && messages.isEmpty()) {
+            Toast.makeText(context, context.getString(R.string.chat_history_failed), Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    LaunchedEffect(messages, threadId) {
+        if (messages.isNotEmpty()) messageCache.save(threadId, messages)
     }
 
     LaunchedEffect(draft, threadId) {

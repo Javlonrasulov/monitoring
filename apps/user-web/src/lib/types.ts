@@ -1,6 +1,9 @@
 export type PairStatusResponse = {
   exists: boolean;
   requiresPassword: boolean;
+  trialBlocked?: boolean;
+  trialEnded?: boolean;
+  message?: string | null;
 };
 
 export type PairResponse = {
@@ -191,6 +194,41 @@ export type ViewerTokenResponse = {
   audioEnabled?: boolean;
   videoEnabled?: boolean;
   canRecordings?: boolean;
+};
+
+export type ChatSearchPage = {
+  items: ChatMessageDto[];
+};
+
+export type ChatMediaCounts = {
+  photos?: number;
+  videos?: number;
+  notes?: number;
+  files?: number;
+  voice?: number;
+  links?: number;
+};
+
+export type ChatMediaPage = {
+  counts?: ChatMediaCounts;
+  items: ChatMessageDto[];
+};
+
+export type DeviceRecordingDto = {
+  id: string;
+  deviceId?: string | null;
+  status?: string | null;
+  cameraFacing?: string | null;
+  startedAt?: string | null;
+  endedAt?: string | null;
+  durationSec?: number | null;
+  fileSize?: number | null;
+};
+
+export type PlaybackUrlResponse = {
+  token?: string;
+  url: string;
+  expiresIn?: number;
 };
 
 export type InitUploadResponse = {
