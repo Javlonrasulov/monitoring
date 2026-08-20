@@ -11,10 +11,9 @@ import {
 import { useI18n, type Locale } from "@/lib/i18n";
 import { useTheme, type ThemeMode } from "@/lib/theme";
 
-const LANGS: { id: Locale; labelKey: "langEn" | "langRu" | "langUz"; caption: string }[] = [
+const LANGS: { id: Locale; labelKey: "langEn" | "langRu"; caption: string }[] = [
   { id: "en", labelKey: "langEn", caption: "English" },
   { id: "ru", labelKey: "langRu", caption: "Русский" },
-  { id: "uz", labelKey: "langUz", caption: "O‘zbekcha" },
 ];
 
 export function AppearanceSheet({ onClose }: { onClose: () => void }) {

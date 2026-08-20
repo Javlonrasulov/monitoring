@@ -85,11 +85,36 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         return;
       }
 
+      const joinedOrgIds = new Set<string>([organizationId]);
       await client.join(`org:${organizationId}`);
       if (platformAdmin) {
         await client.join('org:platform');
       }
+
+      // Cross-org link chats live on the issuer org while each device keeps its
+      // own org. Join peer-thread orgs so realtime/presence reach both sides.
+      if (userId) {
+        const peerThreads = await this.prisma.chatThread.findMany({
+          where: {
+            OR: [{ ownerUserId: userId }, { peerUserId: userId }],
+          },
+          select: {
+            organizationId: true,
+            ownerUserId: true,
+            peerUserId: true,
+          },
+          take: 100,
+        });
+        for (const thread of peerThreads) {
+          if (!joinedOrgIds.has(thread.organizationId)) {
+            joinedOrgIds.add(thread.organizationId);
+            await client.join(`org:${thread.organizationId}`);
+          }
+        }
+      }
+
       client.data.organizationId = organizationId;
+      client.data.joinedOrgIds = [...joinedOrgIds];
       client.data.userId = userId;
       if (userId) {
         const sockets = this.socketsByUser.get(userId) ?? new Set<string>();
@@ -99,10 +124,12 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
           where: { id: userId },
           data: { lastSeenAt: new Date() },
         });
-        this.server.to(`org:${organizationId}`).emit('chat.presence', {
-          userId,
-          online: true,
-        });
+        for (const orgId of joinedOrgIds) {
+          this.server.to(`org:${orgId}`).emit('chat.presence', {
+            userId,
+            online: true,
+          });
+        }
       }
     } catch {
       client.disconnect(true);
@@ -110,7 +137,10 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   async handleDisconnect(client: Socket) {
-    const organizationId = client.data?.organizationId as string | undefined;
+    const joinedOrgIds = (client.data?.joinedOrgIds as string[] | undefined) ??
+      (client.data?.organizationId
+        ? [client.data.organizationId as string]
+        : []);
     const userId = client.data?.userId as string | undefined;
     if (!userId) return;
     const sockets = this.socketsByUser.get(userId);
@@ -121,34 +151,41 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         where: { id: userId },
         data: { lastSeenAt: new Date() },
       });
-      if (organizationId) {
-        this.server.to(`org:${organizationId}`).emit('chat.presence', {
-          userId,
-          online: false,
-          lastSeenAt: new Date().toISOString(),
-        });
+      const payload = {
+        userId,
+        online: false,
+        lastSeenAt: new Date().toISOString(),
+      };
+      for (const orgId of joinedOrgIds) {
+        this.server.to(`org:${orgId}`).emit('chat.presence', payload);
       }
     }
   }
 
   @SubscribeMessage('chat.typing')
-  handleTyping(
+  async handleTyping(
     @ConnectedSocket() client: Socket,
     @MessageBody() payload: { threadId?: string; typing?: boolean },
   ) {
-    const organizationId = client.data?.organizationId as string | undefined;
     const userId = client.data?.userId as string | undefined;
-    if (!organizationId || !payload?.threadId) return { ok: false };
-    this.server.to(`org:${organizationId}`).emit('chat.typing', {
+    if (!userId || !payload?.threadId) return { ok: false };
+
+    const thread = await this.prisma.chatThread.findFirst({
+      where: {
+        id: payload.threadId,
+        OR: [{ ownerUserId: userId }, { peerUserId: userId }],
+      },
+      select: { organizationId: true },
+    });
+    if (!thread) return { ok: false };
+
+    const event = {
       threadId: payload.threadId,
       userId,
       typing: payload.typing === true,
-    });
-    this.server.to('org:platform').emit('chat.typing', {
-      threadId: payload.threadId,
-      userId,
-      typing: payload.typing === true,
-    });
+    };
+    this.server.to(`org:${thread.organizationId}`).emit('chat.typing', event);
+    this.server.to('org:platform').emit('chat.typing', event);
     return { ok: true };
   }
 

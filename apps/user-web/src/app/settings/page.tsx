@@ -447,7 +447,7 @@ export default function SettingsPage() {
         <section className="card stack">
           <h2 style={{ margin: 0, fontSize: "1.05rem" }}>{t("language")}</h2>
           <div className="row">
-            {(["uz", "ru", "en"] as const).map((l) => (
+            {(["ru", "en"] as const).map((l) => (
               <button
                 key={l}
                 type="button"

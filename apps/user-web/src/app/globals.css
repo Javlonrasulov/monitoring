@@ -161,14 +161,18 @@ img {
   border-radius: 999px;
   background: #2aabee;
   box-shadow: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  display: grid;
+  place-items: center;
   color: #fff;
+  line-height: 0;
+  flex-shrink: 0;
 }
 
 .brand-mark-plane svg {
-  transform: rotate(-28deg) translate(1px, -1px);
+  display: block;
+  width: 18px;
+  height: 18px;
+  margin: 0;
 }
 
 .nav-item {

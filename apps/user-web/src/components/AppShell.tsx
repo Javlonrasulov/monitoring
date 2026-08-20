@@ -9,7 +9,6 @@ import {
   Moon,
   Sun,
   SlidersHorizontal,
-  Send,
   type LucideIcon,
 } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
@@ -20,6 +19,23 @@ import { useI18n } from "@/lib/i18n";
 import { useTheme } from "@/lib/theme";
 
 type NavKey = "chats" | "settings" | "profile";
+
+function BrandPlaneIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="18"
+      height="18"
+      aria-hidden
+      fill="none"
+    >
+      <path
+        d="M21.44 11.05 3.62 3.45a.75.75 0 0 0-1.05.9l2.5 6.88a1 1 0 0 0 .74.64l7.44 1.38-7.44 1.38a1 1 0 0 0-.74.64l-2.5 6.88a.75.75 0 0 0 1.05.9l17.82-7.6a.85.85 0 0 0 0-1.55Z"
+        fill="currentColor"
+      />
+    </svg>
+  );
+}
 
 const NAV: { key: NavKey; href: string; icon: LucideIcon }[] = [
   { key: "chats", href: "/chats", icon: MessageCircle },
@@ -110,7 +126,7 @@ export function AppShell({
       <aside className="sidebar">
         <div className="sidebar-brand">
           <span className="brand-mark brand-mark-plane" aria-hidden>
-            <Send size={16} />
+            <BrandPlaneIcon />
           </span>
           {t("appName")}
         </div>
@@ -141,7 +157,7 @@ export function AppShell({
           {brandHeader ? (
             <div className="topbar-brand-block">
               <span className="brand-mark brand-mark-plane" aria-hidden>
-                <Send size={18} />
+                <BrandPlaneIcon />
               </span>
               <div className="topbar-titles">
                 <h1>{t("appName")}</h1>

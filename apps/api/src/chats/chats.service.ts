@@ -566,7 +566,7 @@ export class ChatsService {
     });
     await this.storage.removeSession(uploadId);
     const presented = this.presentMessage(message, actorUserId, false);
-    this.chatGateway.emitToOrg(organizationId, 'chat.message', {
+    this.chatGateway.emitToOrg(session.organizationId, 'chat.message', {
       threadId: session.threadId,
       message: presented,
     });
@@ -692,7 +692,8 @@ export class ChatsService {
       include: { reactions: true, replyTo: true, forwardedFrom: true },
     });
     const presented = this.presentMessage(updated, viewerUserId, false);
-    this.chatGateway.emitToOrg(organizationId, 'chat.message.updated', {
+    const threadOrgId = await this.threadOrganizationId(threadId);
+    this.chatGateway.emitToOrg(threadOrgId ?? organizationId, 'chat.message.updated', {
       threadId,
       message: presented,
     });
@@ -716,6 +717,8 @@ export class ChatsService {
       where: { id: messageId, threadId },
     });
     if (!message) throw new NotFoundException('Message not found');
+    const threadOrgId = await this.threadOrganizationId(threadId);
+    const emitOrgId = threadOrgId ?? organizationId;
     if (forEveryone) {
       if (message.senderUserId !== viewerUserId) {
         throw new ForbiddenException('Only the sender can delete for everyone');
@@ -725,7 +728,7 @@ export class ChatsService {
         data: { deletedAt: new Date(), deletedForEveryone: true },
         include: { reactions: true, replyTo: true, forwardedFrom: true },
       });
-      this.chatGateway.emitToOrg(organizationId, 'chat.message.deleted', {
+      this.chatGateway.emitToOrg(emitOrgId, 'chat.message.deleted', {
         threadId,
         messageId,
         forEveryone: true,
@@ -738,7 +741,7 @@ export class ChatsService {
       update: {},
       create: { messageId, userId: viewerUserId },
     });
-    this.chatGateway.emitToOrg(organizationId, 'chat.message.deleted', {
+    this.chatGateway.emitToOrg(emitOrgId, 'chat.message.deleted', {
       threadId,
       messageId,
       forEveryone: false,
@@ -787,7 +790,8 @@ export class ChatsService {
       include: { reactions: true, replyTo: true, forwardedFrom: true },
     });
     const presented = this.presentMessage(fresh, viewerUserId, false);
-    this.chatGateway.emitToOrg(organizationId, 'chat.message.updated', {
+    const threadOrgId = await this.threadOrganizationId(threadId);
+    this.chatGateway.emitToOrg(threadOrgId ?? organizationId, 'chat.message.updated', {
       threadId,
       message: presented,
     });
@@ -821,7 +825,8 @@ export class ChatsService {
       data: { lastSeenAt: new Date() },
     });
     if (updated.count > 0) {
-      this.chatGateway.emitToOrg(organizationId, 'chat.read', {
+      const threadOrgId = await this.threadOrganizationId(threadId);
+      this.chatGateway.emitToOrg(threadOrgId ?? organizationId, 'chat.read', {
         threadId,
         userId: viewerUserId,
       });
@@ -1369,15 +1374,24 @@ export class ChatsService {
     return senderUserId === thread.ownerUserId ? thread.peerUserId : thread.ownerUserId;
   }
 
+  private async threadOrganizationId(threadId: string) {
+    const thread = await this.prisma.chatThread.findFirst({
+      where: { id: threadId },
+      select: { organizationId: true },
+    });
+    return thread?.organizationId ?? null;
+  }
+
   private deviceThreadWhere(
-    organizationId: string,
+    _organizationId: string,
     deviceId: string,
     viewerUserId: string,
     threadId: string,
   ) {
+    // Linked accounts stay on separate orgs; peer threads live on the issuer
+    // org. Match listForDevice: access by membership, not JWT organizationId.
     return {
       id: threadId,
-      organizationId,
       OR: [
         { deviceId },
         { ownerUserId: viewerUserId },
