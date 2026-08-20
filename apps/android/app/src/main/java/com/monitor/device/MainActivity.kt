@@ -1,6 +1,7 @@
 package com.monitor.device
 
 import android.content.Context
+import android.content.Intent
 import android.os.Bundle
 import android.view.View
 import androidx.activity.ComponentActivity
@@ -21,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import com.monitor.device.monitoring.service.MonitoringForegroundService
+import com.monitor.device.push.PushRegistrar
 import com.monitor.device.settings.AppSettings
 import com.monitor.device.settings.ThemeMode
 import com.monitor.device.ui.navigation.MonitorNavHost
@@ -41,10 +43,22 @@ class MainActivity : ComponentActivity() {
         }
         enableEdgeToEdge()
         val app = application as MonitorApp
+        PushRegistrar.refresh(app.apiClient, app.tokenStore)
 
         setContent {
             var themeMode by remember { mutableStateOf(AppSettings.themeMode(this)) }
             val darkTheme = themeMode.resolveDark()
+            var openChatThreadId by remember {
+                mutableStateOf(intent?.getStringExtra(EXTRA_CHAT_THREAD_ID))
+            }
+
+            DisposableEffect(Unit) {
+                val listener: (Intent) -> Unit = { next ->
+                    openChatThreadId = next.getStringExtra(EXTRA_CHAT_THREAD_ID)
+                }
+                addOnNewIntentListener(listener)
+                onDispose { removeOnNewIntentListener(listener) }
+            }
 
             // Keep status/navigation icon contrast in sync with the in-app theme,
             // which may differ from the system setting.
@@ -67,6 +81,8 @@ class MainActivity : ComponentActivity() {
                         apiClient = app.apiClient,
                         themeMode = themeMode,
                         isDarkTheme = darkTheme,
+                        openChatThreadId = openChatThreadId,
+                        onOpenChatConsumed = { openChatThreadId = null },
                         onThemeChange = { mode ->
                             themeMode = mode
                             AppSettings.setThemeMode(this, mode)
@@ -79,6 +95,10 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    companion object {
+        const val EXTRA_CHAT_THREAD_ID = "chat_thread_id"
     }
 }
 

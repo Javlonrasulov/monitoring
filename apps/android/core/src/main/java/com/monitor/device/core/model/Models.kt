@@ -261,6 +261,14 @@ data class SupportSummaryDto(
 @Serializable
 data class OkResponse(
     val ok: Boolean? = null,
+    val id: String? = null,
+    val platform: String? = null,
+)
+
+@Serializable
+data class RegisterPushTokenRequest(
+    val token: String,
+    val platform: String = "ANDROID",
 )
 
 @Serializable

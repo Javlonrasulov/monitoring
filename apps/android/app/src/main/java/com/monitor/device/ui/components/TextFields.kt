@@ -24,6 +24,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material3.Icon
@@ -38,6 +39,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
@@ -63,6 +65,9 @@ fun MonitorTextField(
     errorText: String? = null,
     enabled: Boolean = true,
     leadingIcon: ImageVector? = null,
+    trailingIcon: ImageVector? = null,
+    trailingContentDescription: String? = null,
+    onTrailingClick: (() -> Unit)? = null,
     textStyle: TextStyle = MaterialTheme.typography.titleMedium,
     visualTransformation: VisualTransformation = VisualTransformation.None,
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
@@ -140,6 +145,20 @@ fun MonitorTextField(
                         keyboardActions = keyboardActions,
                         visualTransformation = visualTransformation,
                         modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+                if (trailingIcon != null && onTrailingClick != null) {
+                    Icon(
+                        imageVector = trailingIcon,
+                        contentDescription = trailingContentDescription,
+                        tint = if (focused) MaterialTheme.colorScheme.primary else colors.textMuted,
+                        modifier = Modifier
+                            .size(Sizing.iconMd)
+                            .clickable(
+                                enabled = enabled,
+                                role = Role.Button,
+                                onClick = onTrailingClick,
+                            ),
                     )
                 }
             }

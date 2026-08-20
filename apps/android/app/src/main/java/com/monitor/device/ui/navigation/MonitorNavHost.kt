@@ -16,6 +16,7 @@ import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -30,6 +31,7 @@ import com.monitor.device.R
 import com.monitor.device.core.api.DeviceApiClient
 import com.monitor.device.core.auth.TokenStore
 import com.monitor.device.monitoring.service.MonitoringForegroundService
+import com.monitor.device.push.PushRegistrar
 import com.monitor.device.settings.AppLanguage
 import com.monitor.device.settings.AppSettings
 import com.monitor.device.settings.ThemeMode
@@ -55,6 +57,8 @@ fun MonitorNavHost(
     apiClient: DeviceApiClient,
     themeMode: ThemeMode,
     isDarkTheme: Boolean,
+    openChatThreadId: String? = null,
+    onOpenChatConsumed: () -> Unit = {},
     onThemeChange: (ThemeMode) -> Unit,
     onLanguageChange: (AppLanguage) -> Unit,
 ) {
@@ -71,6 +75,20 @@ fun MonitorNavHost(
     var watchTitle by remember { mutableStateOf("") }
     var watchFacing by remember { mutableStateOf<String?>(null) }
     val showTopBar = chatThreadId == null && watchDeviceId == null
+
+    LaunchedEffect(openChatThreadId) {
+        val id = openChatThreadId?.takeIf { it.isNotBlank() } ?: return@LaunchedEffect
+        if (!tokenStore.isPaired()) return@LaunchedEffect
+        chatTitle = ""
+        chatThreadId = id
+        watchDeviceId = null
+        if (navController.currentDestination?.route != Routes.Home) {
+            navController.navigate(Routes.Home) {
+                popUpTo(0) { inclusive = false }
+            }
+        }
+        onOpenChatConsumed()
+    }
 
     AppShell(
         topBar = if (!showTopBar) {
@@ -110,6 +128,7 @@ fun MonitorNavHost(
                 PairingScreen(
                     apiClient = apiClient,
                     onPaired = {
+                        PushRegistrar.refresh(apiClient, tokenStore)
                         navController.navigate(Routes.Home) {
                             popUpTo(Routes.Pairing) { inclusive = true }
                         }

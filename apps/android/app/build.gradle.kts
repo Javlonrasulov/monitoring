@@ -3,6 +3,12 @@ plugins {
     alias(libs.plugins.kotlin.android)
 }
 
+// Apply only when Firebase config is present so local builds without
+// google-services.json still compile.
+if (file("google-services.json").exists()) {
+    apply(plugin = "com.google.gms.google-services")
+}
+
 android {
     namespace = "com.monitor.device"
     compileSdk = 34
@@ -11,8 +17,8 @@ android {
         applicationId = "com.monitor.device"
         minSdk = 26
         targetSdk = 34
-        versionCode = 13
-        versionName = "1.1.2"
+        versionCode = 14
+        versionName = "1.1.3"
 
         buildConfigField(
             "String",
@@ -85,4 +91,8 @@ dependencies {
     implementation(libs.camera.view)
     implementation(libs.camera.video)
     implementation(libs.stream.webrtc.android)
+
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.messaging)
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.8.1")
 }

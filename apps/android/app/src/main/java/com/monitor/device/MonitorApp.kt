@@ -5,6 +5,7 @@ import android.content.Context
 import com.monitor.device.core.api.DeviceApiClient
 import com.monitor.device.core.auth.TokenStore
 import com.monitor.device.core.locale.AppLocale
+import com.monitor.device.push.PushRegistrar
 
 class MonitorApp : Application() {
     override fun attachBaseContext(base: Context) {
@@ -23,5 +24,6 @@ class MonitorApp : Application() {
             baseUrl = BuildConfig.API_BASE_URL,
             tokenStore = tokenStore,
         )
+        PushRegistrar.refresh(apiClient, tokenStore)
     }
 }

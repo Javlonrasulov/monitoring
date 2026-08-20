@@ -71,7 +71,7 @@ class WhepViewer(
             val rtcConfig = PeerConnection.RTCConfiguration(iceServers).apply {
                 sdpSemantics = PeerConnection.SdpSemantics.UNIFIED_PLAN
                 continualGatheringPolicy =
-                    PeerConnection.ContinualGatheringPolicy.GATHER_CONTINUALLY
+                    PeerConnection.ContinualGatheringPolicy.GATHER_ONCE
             }
             val gathered = CompletableDeferred<Unit>()
             val pc = pcFactory.createPeerConnection(rtcConfig, observer(gathered))

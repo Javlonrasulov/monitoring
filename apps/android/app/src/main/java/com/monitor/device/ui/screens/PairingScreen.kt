@@ -24,6 +24,8 @@ import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Phone
 import androidx.compose.material.icons.rounded.Shield
+import androidx.compose.material.icons.rounded.Visibility
+import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material.icons.rounded.VpnKey
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -47,6 +49,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.monitor.device.BuildConfig
 import com.monitor.device.R
@@ -74,6 +77,7 @@ fun PairingScreen(
     var code by remember { mutableStateOf("") }
     var phone by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+    var passwordVisible by remember { mutableStateOf(false) }
     var loading by remember { mutableStateOf(false) }
     var knownAccount by remember { mutableStateOf<Boolean?>(null) }
     var trialBlocked by remember { mutableStateOf(false) }
@@ -91,7 +95,8 @@ fun PairingScreen(
     val limitMessage = stringResource(R.string.limit_reached)
     val invalidCode = stringResource(R.string.pair_invalid_code)
     val nameRequired = stringResource(R.string.pair_name_required)
-    val badPassword = stringResource(R.string.pair_password_invalid)
+    val badPassword = stringResource(R.string.pair_password_wrong)
+    val passwordFormat = stringResource(R.string.pair_password_invalid)
     val trialEndedMessage = stringResource(R.string.pair_trial_ended)
     val trialUsedMessage = stringResource(R.string.pair_trial_used)
     val phoneDigits = phone.filter { it.isDigit() }
@@ -113,6 +118,9 @@ fun PairingScreen(
             apiClient.pairStatus(phone.trim(), installId, installSignals)
         }.getOrNull()
         knownAccount = status?.exists
+        if (status?.exists == true) {
+            code = ""
+        }
         val blocked = status?.trialBlocked == true && status.exists != true
         trialBlocked = blocked
         if (blocked) {
@@ -134,7 +142,11 @@ fun PairingScreen(
             runCatching {
                 apiClient.pair(
                     PairRequest(
-                        code = code.replace("MONITOR:", "", ignoreCase = true).trim(),
+                        code = if (returningUser) {
+                            ""
+                        } else {
+                            code.replace("MONITOR:", "", ignoreCase = true).trim()
+                        },
                         name = if (returningUser) "" else displayName.trim(),
                         phone = phone.trim().ifBlank { null },
                         password = password,
@@ -158,8 +170,8 @@ fun PairingScreen(
                     api.contains("limit", ignoreCase = true) -> limitMessage
                     api.contains("Invalid pairing", ignoreCase = true) -> invalidCode
                     api.contains("Name is required", ignoreCase = true) -> nameRequired
-                    api.contains("Invalid password", ignoreCase = true) ||
-                        api.contains("at least 4 digits", ignoreCase = true) -> badPassword
+                    api.contains("Invalid password", ignoreCase = true) -> badPassword
+                    api.contains("at least 4 digits", ignoreCase = true) -> passwordFormat
                     api.contains("Subscription", ignoreCase = true) -> api
                     else -> failureMessage
                 }
@@ -245,13 +257,27 @@ fun PairingScreen(
                 },
                 enabled = !loading,
                 leadingIcon = Icons.Rounded.Lock,
-                visualTransformation = PasswordVisualTransformation(),
+                trailingIcon = if (passwordVisible) {
+                    Icons.Rounded.Visibility
+                } else {
+                    Icons.Rounded.VisibilityOff
+                },
+                trailingContentDescription = stringResource(
+                    if (passwordVisible) R.string.pair_password_hide else R.string.pair_password_show,
+                ),
+                onTrailingClick = { passwordVisible = !passwordVisible },
+                visualTransformation = if (passwordVisible) {
+                    VisualTransformation.None
+                } else {
+                    PasswordVisualTransformation()
+                },
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.NumberPassword,
-                    imeAction = ImeAction.Next,
+                    imeAction = if (returningUser) ImeAction.Done else ImeAction.Next,
                 ),
                 keyboardActions = KeyboardActions(
                     onNext = { focusManager.moveFocus(FocusDirection.Down) },
+                    onDone = { submit() },
                 ),
             )
 
@@ -284,25 +310,32 @@ fun PairingScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.size(Spacing.md))
-
-            MonitorTextField(
-                value = code,
-                onValueChange = {
-                    code = it.uppercase().replace(" ", "").take(24)
-                    if (error.value != null) error.value = null
-                },
-                label = stringResource(R.string.pair_code_label),
-                placeholder = stringResource(R.string.pair_code_placeholder),
-                helperText = stringResource(R.string.pair_code_helper),
-                enabled = !loading,
-                leadingIcon = Icons.Rounded.VpnKey,
-                keyboardOptions = KeyboardOptions(
-                    capitalization = KeyboardCapitalization.Characters,
-                    imeAction = ImeAction.Done,
-                ),
-                keyboardActions = KeyboardActions(onDone = { submit() }),
-            )
+            AnimatedVisibility(
+                visible = !returningUser,
+                enter = fadeIn(tween(180)) + expandVertically(tween(180)),
+                exit = fadeOut(tween(120)) + shrinkVertically(tween(120)),
+            ) {
+                Column {
+                    Spacer(modifier = Modifier.size(Spacing.md))
+                    MonitorTextField(
+                        value = code,
+                        onValueChange = {
+                            code = it.uppercase().replace(" ", "").take(24)
+                            if (error.value != null) error.value = null
+                        },
+                        label = stringResource(R.string.pair_code_label),
+                        placeholder = stringResource(R.string.pair_code_placeholder),
+                        helperText = stringResource(R.string.pair_code_helper),
+                        enabled = !loading,
+                        leadingIcon = Icons.Rounded.VpnKey,
+                        keyboardOptions = KeyboardOptions(
+                            capitalization = KeyboardCapitalization.Characters,
+                            imeAction = ImeAction.Done,
+                        ),
+                        keyboardActions = KeyboardActions(onDone = { submit() }),
+                    )
+                }
+            }
         }
 
         Spacer(modifier = Modifier.size(Spacing.lg))

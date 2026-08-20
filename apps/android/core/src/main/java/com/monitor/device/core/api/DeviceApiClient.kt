@@ -27,6 +27,7 @@ import com.monitor.device.core.model.PublisherTokenResponse
 import com.monitor.device.core.model.PaymentInvoiceDto
 import com.monitor.device.core.model.PurchasePlanRequest
 import com.monitor.device.core.model.ReactChatRequest
+import com.monitor.device.core.model.RegisterPushTokenRequest
 import com.monitor.device.core.model.SendChatRequest
 import com.monitor.device.core.model.SetCameraFacingRequest
 import com.monitor.device.core.model.SubscriptionDto
@@ -136,6 +137,11 @@ class DeviceApiClient(
     suspend fun updateStatus(body: DeviceStatusUpdate): DeviceStatusResponse {
         return authorized { api.updateStatus(it, body) }
     }
+
+    suspend fun registerPushToken(token: String): OkResponse =
+        authorized(unpairOnFailure = false) {
+            api.registerPushToken(it, RegisterPushTokenRequest(token = token, platform = "ANDROID"))
+        }
 
     suspend fun publisherToken(): PublisherTokenResponse {
         return authorized { api.publisherToken(it) }

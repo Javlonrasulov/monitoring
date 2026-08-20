@@ -16,6 +16,9 @@ webrtc: yes
 webrtcAddress: :8889
 webrtcLocalUDPAddress: :8189
 webrtcLocalTCPAddress: ''
+# Docker only sees container/loopback IPs; force the public VDS address into ICE.
+webrtcIPsFromInterfaces: no
+webrtcAdditionalHosts: [89.39.95.41]
 webrtcICEServers2:
   - url: stun:stun.l.google.com:19302
 

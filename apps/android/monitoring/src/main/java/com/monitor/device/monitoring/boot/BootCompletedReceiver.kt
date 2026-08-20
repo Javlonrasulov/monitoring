@@ -10,16 +10,15 @@ import com.monitor.device.monitoring.service.MonitoringForegroundService
 /**
  * Restarts monitoring after reboot / unlock when the user left auto-start on.
  *
- * Android 12–14 may refuse a camera/mic foreground service from the background;
- * we retry a few times. Opening the app always works via
- * [com.monitor.device.ui.screens.rememberMonitoringSession].
+ * Android 12–14 often refuses camera/mic FGS from a plain background start.
+ * We launch a transparent [BootTrampolineActivity] (while-in-use), then retry
+ * for ~15 minutes until the publisher is actually streaming.
  */
 class BootCompletedReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent?) {
         val action = intent?.action ?: return
         if (action !in HANDLED_ACTIONS) return
 
-        // Credential-encrypted storage and camera FGS are unavailable before unlock.
         if (action == Intent.ACTION_LOCKED_BOOT_COMPLETED) {
             Log.i(TAG, "Locked boot: defer until USER_UNLOCKED / BOOT_COMPLETED")
             return
@@ -40,19 +39,40 @@ class BootCompletedReceiver : BroadcastReceiver() {
             return
         }
 
-        if (MonitoringForegroundService.isStarted()) {
+        if (MonitoringForegroundService.isPublishing()) {
+            Log.i(TAG, "Boot: already publishing, cancel retries ($action)")
             BootRestartScheduler.cancel(app)
             return
         }
 
-        Log.i(TAG, "Boot: trying monitoring start ($action)")
-        MonitoringForegroundService.start(app)
+        Log.i(TAG, "Boot: launching trampoline ($action)")
+        val launched = launchTrampoline(app)
+        if (!launched) {
+            Log.w(TAG, "Boot: trampoline blocked, trying FGS directly")
+            MonitoringForegroundService.ensureStarted(app)
+        }
 
         if (action != BootRestartScheduler.ACTION_RETRY) {
             BootRestartScheduler.scheduleRetries(app)
-        } else if (MonitoringForegroundService.isStarted()) {
+        } else if (MonitoringForegroundService.isPublishing()) {
             BootRestartScheduler.cancel(app)
         }
+    }
+
+    private fun launchTrampoline(app: Context): Boolean {
+        val intent = Intent(app, BootTrampolineActivity::class.java)
+            .addFlags(
+                Intent.FLAG_ACTIVITY_NEW_TASK or
+                    Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                    Intent.FLAG_ACTIVITY_NO_ANIMATION or
+                    Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS,
+            )
+        return runCatching {
+            app.startActivity(intent)
+            true
+        }.onFailure {
+            Log.w(TAG, "Could not start boot trampoline", it)
+        }.getOrDefault(false)
     }
 
     companion object {

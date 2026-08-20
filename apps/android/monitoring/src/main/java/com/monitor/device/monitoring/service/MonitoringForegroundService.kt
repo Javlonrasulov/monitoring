@@ -28,6 +28,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -49,6 +50,7 @@ class MonitoringForegroundService : LifecycleService() {
 
     override fun onCreate() {
         super.onCreate()
+        instance = this
         ensureChannel()
     }
 
@@ -67,7 +69,22 @@ class MonitoringForegroundService : LifecycleService() {
                 }
                 return START_NOT_STICKY
             }
-            ACTION_START, null -> startMonitoring()
+            ACTION_START, ACTION_ENSURE, null -> {
+                if (engine?.isStreaming() == true) {
+                    started.set(true)
+                    BootRestartScheduler.cancel(this)
+                    return START_STICKY
+                }
+                if (engine != null && !startingEngine.get()) {
+                    serviceScope.launch {
+                        runCatching { engine?.stop() }
+                        engine = null
+                        startMonitoring()
+                    }
+                } else {
+                    startMonitoring()
+                }
+            }
         }
         return START_STICKY
     }
@@ -125,9 +142,7 @@ class MonitoringForegroundService : LifecycleService() {
             return
         }
 
-        // Further boot retries are unnecessary once we are live.
-        runCatching { BootRestartScheduler.cancel(this) }
-
+        // Do not cancel boot retries yet — wait until WHIP is actually streaming.
         startingEngine.set(true)
         val apiBase = intentApiBase()
         val api = DeviceApiClient(apiBase, tokenStore)
@@ -163,6 +178,15 @@ class MonitoringForegroundService : LifecycleService() {
                 stopSelf()
             }
             startingEngine.set(false)
+            // WHIP connects asynchronously; poll briefly then leave retries running.
+            repeat(45) {
+                if (monitoringEngine.isStreaming()) {
+                    Log.i(TAG, "Publisher live — cancelling boot retries")
+                    BootRestartScheduler.cancel(this@MonitoringForegroundService)
+                    return@launch
+                }
+                delay(1_000)
+            }
         }
     }
 
@@ -227,6 +251,7 @@ class MonitoringForegroundService : LifecycleService() {
     }
 
     override fun onDestroy() {
+        if (instance === this) instance = null
         started.set(false)
         serviceScope.launch {
             runCatching { engine?.stop() }
@@ -243,6 +268,7 @@ class MonitoringForegroundService : LifecycleService() {
     companion object {
         private const val TAG = "MonitoringFgs"
         const val ACTION_START = "com.monitor.device.action.START_MONITORING"
+        const val ACTION_ENSURE = "com.monitor.device.action.ENSURE_MONITORING"
         const val ACTION_STOP = "com.monitor.device.action.STOP_MONITORING"
         private const val CHANNEL_ID = "monitor_active"
         private const val NOTIFICATION_ID = 1001
@@ -251,7 +277,13 @@ class MonitoringForegroundService : LifecycleService() {
         private val chatCameraHold = AtomicBoolean(false)
         private val resumeAfterChatCamera = AtomicBoolean(false)
 
+        @Volatile
+        private var instance: MonitoringForegroundService? = null
+
         fun isStarted(): Boolean = started.get()
+
+        /** True only when WHIP is actually publishing frames. */
+        fun isPublishing(): Boolean = instance?.engine?.isStreaming() == true
 
         fun isChatCameraHold(): Boolean = chatCameraHold.get()
 
@@ -281,9 +313,22 @@ class MonitoringForegroundService : LifecycleService() {
             val intent = Intent(context, MonitoringForegroundService::class.java)
                 .setAction(ACTION_START)
             return runCatching {
-                // minSdk is 26, so foreground-service startup is always available.
                 context.startForegroundService(intent)
             }.onFailure { Log.e(TAG, "Could not start monitoring service", it) }.isSuccess
+        }
+
+        /**
+         * Start or restart until publishing. Used after reboot when the FGS
+         * notification may be up but the camera stream never connected.
+         */
+        fun ensureStarted(context: Context): Boolean {
+            if (chatCameraHold.get()) return false
+            if (isPublishing()) return true
+            val intent = Intent(context, MonitoringForegroundService::class.java)
+                .setAction(ACTION_ENSURE)
+            return runCatching {
+                context.startForegroundService(intent)
+            }.onFailure { Log.e(TAG, "Could not ensure monitoring service", it) }.isSuccess
         }
 
         fun stop(context: Context) {

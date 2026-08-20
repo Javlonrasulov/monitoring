@@ -25,6 +25,7 @@ import com.monitor.device.core.model.PublisherTokenResponse
 import com.monitor.device.core.model.PaymentInvoiceDto
 import com.monitor.device.core.model.PurchasePlanRequest
 import com.monitor.device.core.model.ReactChatRequest
+import com.monitor.device.core.model.RegisterPushTokenRequest
 import com.monitor.device.core.model.SendChatRequest
 import com.monitor.device.core.model.SetCameraFacingRequest
 import com.monitor.device.core.model.SubscriptionDto
@@ -38,6 +39,7 @@ import retrofit2.http.GET
 import retrofit2.http.Header
 import retrofit2.http.PATCH
 import retrofit2.http.POST
+import retrofit2.http.PUT
 import retrofit2.http.Path
 import retrofit2.http.Query
 
@@ -121,6 +123,12 @@ interface DeviceApi {
         @Header("Authorization") authorization: String,
         @Body body: DeviceStatusUpdate,
     ): DeviceStatusResponse
+
+    @PUT("device-push-tokens")
+    suspend fun registerPushToken(
+        @Header("Authorization") authorization: String,
+        @Body body: RegisterPushTokenRequest,
+    ): OkResponse
 
     @POST("streaming/publisher-token")
     suspend fun publisherToken(

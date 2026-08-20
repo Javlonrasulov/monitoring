@@ -10,13 +10,20 @@ import android.util.Log
 /**
  * Schedules wakeups after reboot so monitoring can start once the
  * system is ready (CE storage unlocked, OEM "autostart" windows, etc.).
+ *
+ * First ~2 minutes retry every 10s, then continue until ~15 minutes (30 tries).
  */
 object BootRestartScheduler {
     const val ACTION_RETRY = "com.monitor.device.action.BOOT_RETRY"
     private const val TAG = "BootRestartScheduler"
     private const val RETRY_COUNT = 30
-    /** 30s, 60s, … 900s (~15 min of attempts after reboot). */
-    private val RETRY_DELAYS_MS = LongArray(RETRY_COUNT) { index -> (index + 1) * 30_000L }
+    private val RETRY_DELAYS_MS = LongArray(RETRY_COUNT) { index ->
+        if (index < 12) {
+            (index + 1) * 10_000L
+        } else {
+            120_000L + (index - 11) * 43_000L
+        }
+    }
 
     fun scheduleRetries(context: Context) {
         val app = context.applicationContext

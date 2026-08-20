@@ -129,7 +129,8 @@ class WhipPublisherImpl(
             )
             val rtcConfig = PeerConnection.RTCConfiguration(iceServers).apply {
                 sdpSemantics = PeerConnection.SdpSemantics.UNIFIED_PLAN
-                continualGatheringPolicy = PeerConnection.ContinualGatheringPolicy.GATHER_CONTINUALLY
+                // Non-trickle WHIP: gather once so we post a complete offer, not an 8s timeout mid-gather.
+                continualGatheringPolicy = PeerConnection.ContinualGatheringPolicy.GATHER_ONCE
             }
 
             val gathered = CompletableDeferred<Unit>()
@@ -478,12 +479,12 @@ class WhipPublisherImpl(
         override fun onIceConnectionChange(state: PeerConnection.IceConnectionState?) {
             Log.d(TAG, "ICE connection: $state")
             when (state) {
+                // DISCONNECTED is often transient (NAT remap, brief Wi‑Fi blip).
+                // Tearing down here made MediaMTX drop the path so viewers froze
+                // after 2–3s while the phone kept restarting WHIP.
                 PeerConnection.IceConnectionState.FAILED,
-                PeerConnection.IceConnectionState.DISCONNECTED,
                 PeerConnection.IceConnectionState.CLOSED,
                 -> {
-                    // Surfaces the drop to MonitoringEngine, which re-publishes
-                    // with a fresh token instead of silently going dark.
                     if (active.compareAndSet(true, false)) {
                         Log.w(TAG, "Stream dropped (ICE $state), publisher marked inactive")
                     }

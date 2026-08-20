@@ -25,6 +25,16 @@
             android:exported="false"
             android:foregroundServiceType="camera|microphone" />
 
+        <activity
+            android:name=".boot.BootTrampolineActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:noHistory="true"
+            android:showWhenLocked="true"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:turnScreenOn="true" />
+
         <receiver
             android:name=".boot.BootCompletedReceiver"
             android:exported="true"
