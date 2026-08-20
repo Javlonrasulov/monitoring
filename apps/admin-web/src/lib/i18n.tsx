@@ -88,7 +88,7 @@ const uz = {
   cardWatchLive: "Jonli ko‘rish",
   deviceDelete: "O‘chirish",
   deviceConfirmDelete:
-    "Bu qurilma ro‘yxatdan o‘chirilsinmi? Qayta ulash uchun yangi juftlash kodi kerak bo‘ladi.",
+    "Bu qurilma va unga bog‘langan akkaunt butunlay o‘chirilsinmi? Shu telefon raqam bilan qayta kirilsa yangi akkaunt ochiladi.",
   deviceDeleteError: "Qurilma o‘chirilmadi",
   deviceDeleting: "O‘chirilmoqda…",
 
@@ -274,7 +274,7 @@ const ru: { [K in keyof typeof uz]: string } = {
   cardWatchLive: "Смотреть эфир",
   deviceDelete: "Удалить",
   deviceConfirmDelete:
-    "Удалить это устройство из списка? Для повторной привязки понадобится новый код.",
+    "Удалить это устройство и связанный аккаунт полностью? Вход с тем же номером создаст новый аккаунт.",
   deviceDeleteError: "Не удалось удалить устройство",
   deviceDeleting: "Удаление…",
 

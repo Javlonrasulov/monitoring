@@ -21,7 +21,7 @@ import {
   DeviceStatusDto,
   PairDeviceDto,
 } from './dto/devices.dto';
-import { seesAllOrganizations } from '../auth/platform-org';
+import { platformOrgId, seesAllOrganizations } from '../auth/platform-org';
 
 @Injectable()
 export class DevicesService {
@@ -483,21 +483,7 @@ export class DevicesService {
     }
 
     if (existing && !existing.deviceId) {
-      const branch = await this.prisma.branch.findFirst({
-        where: { organizationId: existing.organizationId },
-        orderBy: { createdAt: 'asc' },
-      });
-      if (!branch) {
-        throw new BadRequestException('Branch not found');
-      }
-      return this.createPairedDevice({
-        organizationId: existing.organizationId,
-        branchId: branch.id,
-        displayName: dto.name?.trim() || existing.name || phone,
-        dto,
-        phone,
-        existingUserId: existing.id,
-      });
+      await this.purgePhoneAccount(existing.id, existing.organizationId);
     }
 
     const displayName = dto.name?.trim();
@@ -772,9 +758,8 @@ export class DevicesService {
     deviceId: string,
   ) {
     const device = await this.getForOrg(organizationId, deviceId);
-
-    await this.prisma.device.delete({
-      where: { id: device.id },
+    const linkedUser = await this.prisma.user.findFirst({
+      where: { deviceId: device.id },
     });
 
     await this.audit.log({
@@ -783,14 +768,48 @@ export class DevicesService {
       action: 'device.deleted',
       resourceType: 'Device',
       resourceId: device.id,
-      metadata: { name: device.name },
+      metadata: {
+        name: device.name,
+        phone: linkedUser?.phone ?? null,
+        purgedUserId: linkedUser?.id ?? null,
+        deviceOrganizationId: device.organizationId,
+      },
     });
+
+    if (linkedUser) {
+      await this.prisma.user.delete({ where: { id: linkedUser.id } });
+    }
+    await this.prisma.device.delete({ where: { id: device.id } });
+    await this.deleteOrgIfEmpty(device.organizationId);
 
     this.events.emitToOrg(organizationId, 'device.deleted', {
       deviceId: device.id,
     });
+    if (device.organizationId !== organizationId) {
+      this.events.emitToOrg(device.organizationId, 'device.deleted', {
+        deviceId: device.id,
+      });
+    }
 
     return { ok: true };
+  }
+
+  private async purgePhoneAccount(userId: string, organizationId: string) {
+    await this.prisma.user.delete({ where: { id: userId } });
+    await this.deleteOrgIfEmpty(organizationId);
+  }
+
+  private async deleteOrgIfEmpty(organizationId: string) {
+    if (organizationId === platformOrgId()) {
+      return;
+    }
+    const [users, devices] = await Promise.all([
+      this.prisma.user.count({ where: { organizationId } }),
+      this.prisma.device.count({ where: { organizationId } }),
+    ]);
+    if (users === 0 && devices === 0) {
+      await this.prisma.organization.delete({ where: { id: organizationId } });
+    }
   }
 
   async markStaleDevicesOffline() {
