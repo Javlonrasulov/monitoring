@@ -365,6 +365,17 @@ data class LinkDeviceRequest(
 )
 
 @Serializable
+data class LinkDeviceResponse(
+    val ok: Boolean? = null,
+    val linkedToDeviceId: String? = null,
+    val organizationId: String? = null,
+    val branchId: String? = null,
+    val deviceId: String? = null,
+    val name: String? = null,
+    val deviceToken: String? = null,
+)
+
+@Serializable
 data class PurchasePlanRequest(
     val plan: String,
 )

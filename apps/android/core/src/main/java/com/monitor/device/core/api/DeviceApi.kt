@@ -14,6 +14,7 @@ import com.monitor.device.core.model.EditChatRequest
 import com.monitor.device.core.model.InitUploadRequest
 import com.monitor.device.core.model.InitUploadResponse
 import com.monitor.device.core.model.LinkDeviceRequest
+import com.monitor.device.core.model.LinkDeviceResponse
 import com.monitor.device.core.model.LinkedDeviceDto
 import com.monitor.device.core.model.OkResponse
 import com.monitor.device.core.model.PairingCodeResponse
@@ -98,7 +99,7 @@ interface DeviceApi {
     suspend fun linkDevice(
         @Header("Authorization") authorization: String,
         @Body body: LinkDeviceRequest,
-    ): OkResponse
+    ): LinkDeviceResponse
 
     @POST("streaming/devices/{id}/device-viewer-token")
     suspend fun deviceViewerToken(

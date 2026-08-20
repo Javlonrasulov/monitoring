@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
+import { PrismaService } from '../prisma/prisma.service';
 
 export type DeviceJwtPayload = {
   sub: string;
@@ -15,7 +16,10 @@ export class DeviceJwtStrategy extends PassportStrategy(
   Strategy,
   'device-jwt',
 ) {
-  constructor(config: ConfigService) {
+  constructor(
+    config: ConfigService,
+    private readonly prisma: PrismaService,
+  ) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
@@ -23,14 +27,21 @@ export class DeviceJwtStrategy extends PassportStrategy(
     });
   }
 
-  validate(payload: DeviceJwtPayload) {
-    if (payload.typ !== 'device') {
+  async validate(payload: DeviceJwtPayload) {
+    if (payload.typ !== 'device' || !payload.sub) {
+      return null;
+    }
+    const device = await this.prisma.device.findFirst({
+      where: { id: payload.sub, disabled: false },
+      select: { id: true, organizationId: true, branchId: true },
+    });
+    if (!device) {
       return null;
     }
     return {
-      deviceId: payload.sub,
-      organizationId: payload.organizationId,
-      branchId: payload.branchId,
+      deviceId: device.id,
+      organizationId: device.organizationId,
+      branchId: device.branchId,
     };
   }
 }

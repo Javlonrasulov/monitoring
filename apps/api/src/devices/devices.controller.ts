@@ -132,7 +132,10 @@ export class DevicesController {
   @Delete('me/linked/:id')
   @ApiBearerAuth()
   @UseGuards(DeviceAuthGuard)
-  @ApiOperation({ summary: 'Disconnect a linked device so another can be paired' })
+  @ApiOperation({
+    summary:
+      'Unlink a device from this account; the device stays visible to admin',
+  })
   unlink(
     @CurrentDevice()
     device: { deviceId: string; organizationId: string },
@@ -171,11 +174,7 @@ export class DevicesController {
     device: { deviceId: string; organizationId: string },
     @Body() dto: LinkDeviceDto,
   ) {
-    return this.devicesService.linkExistingDevice(
-      device.deviceId,
-      device.organizationId,
-      dto.code,
-    );
+    return this.devicesService.linkExistingDevice(device.deviceId, dto.code);
   }
 
   @Get('pair-status')

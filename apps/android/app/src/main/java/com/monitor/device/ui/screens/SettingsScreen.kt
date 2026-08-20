@@ -397,11 +397,11 @@ fun SettingsScreen(
                 if (unlinking) return@MonitorConfirmDialog
                 unlinking = true
                 error = null
+                unlinkTarget = null
                 scope.launch {
                     runCatching { apiClient.unlinkDevice(device.id) }
                         .onSuccess {
                             info = unlinkedOk
-                            unlinkTarget = null
                             reload()
                         }
                         .onFailure { error = DeviceApiClient.errorMessage(it, failGeneric) }

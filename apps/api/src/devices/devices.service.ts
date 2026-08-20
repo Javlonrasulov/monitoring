@@ -335,74 +335,45 @@ export class DevicesService {
       where: { deviceId: viewerDeviceId, organizationId },
       select: { id: true },
     });
-    return this.deleteDevice(
+    await this.prisma.device.update({
+      where: { id: target.id },
+      data: { linkedFromDeviceId: null },
+    });
+    await this.audit.log({
       organizationId,
-      viewerUser?.id ?? '',
-      target.id,
-    );
+      userId: viewerUser?.id,
+      action: 'device.unlinked',
+      resourceType: 'Device',
+      resourceId: target.id,
+      metadata: { fromDeviceId: viewerDeviceId, name: target.name },
+    });
+    this.events.emitToOrg(organizationId, 'device.updated', {
+      deviceId: target.id,
+    });
+    return { ok: true };
   }
 
-  async linkExistingDevice(
-    deviceId: string,
-    organizationId: string,
-    rawCode: string,
-  ) {
+  async linkExistingDevice(deviceId: string, rawCode: string) {
     const pairing = await this.findUsablePairing(rawCode);
-    if (pairing.issuerDeviceId === deviceId) {
-      throw new BadRequestException('Cannot link a device to itself');
-    }
-
     const device = await this.prisma.device.findFirst({
-      where: { id: deviceId, organizationId },
+      where: { id: deviceId },
     });
     if (!device) {
       throw new NotFoundException('Device not found');
     }
-
-    if (device.organizationId !== pairing.organizationId) {
-      const allowed = await this.subscriptions.assertCanPair(
-        pairing.organizationId,
-      );
-      this.throwIfPairBlocked(allowed);
-      await this.prisma.device.update({
-        where: { id: device.id },
-        data: {
-          organizationId: pairing.organizationId,
-          branchId: pairing.branchId,
-        },
-      });
-      await this.prisma.user.updateMany({
-        where: { deviceId: device.id },
-        data: { organizationId: pairing.organizationId },
-      });
+    if (device.disabled) {
+      throw new ForbiddenException('Device disabled');
     }
-
-    await this.prisma.device.update({
-      where: { id: device.id },
-      data: { linkedFromDeviceId: pairing.issuerDeviceId ?? undefined },
-    });
-    await this.prisma.devicePairingCode.update({
-      where: { id: pairing.id },
-      data: { usedAt: new Date(), deviceId: device.id },
-    });
-
-    const peer = await this.prisma.user.findFirst({
-      where: { deviceId: device.id },
-    });
-    if (peer) {
-      await this.chats.ensureThreadForPairedDevice({
-        organizationId: pairing.organizationId,
-        deviceId: device.id,
-        deviceName: device.name,
-        peerUserId: peer.id,
-        ownerUserId: pairing.issuerUserId,
-      });
-    }
-
+    const attached = await this.attachDeviceToInvite(device, pairing);
+    const deviceToken = await this.signDeviceToken(attached);
     return {
       ok: true,
-      linkedToDeviceId: pairing.issuerDeviceId ?? null,
-      organizationId: pairing.organizationId,
+      linkedToDeviceId: pairing.issuerDeviceId,
+      organizationId: attached.organizationId,
+      branchId: attached.branchId,
+      deviceId: attached.id,
+      name: attached.name,
+      deviceToken,
     };
   }
 
@@ -420,11 +391,27 @@ export class DevicesService {
 
     const pin = this.parseAppPin(dto.password);
     const pairing = await this.findUsablePairing(code);
-    await this.assertPairingPassword(pairing, phone, pin);
+    let existingUserId: string | undefined;
 
     if (pairing.issuerDeviceId) {
+      const existing = phone ? await this.findUserByPhone(phone) : null;
+      if (existing) {
+        await this.assertOrSetAppPin(existing, pin);
+        if (existing.device?.disabled) {
+          throw new BadRequestException('Device disabled');
+        }
+        if (existing.device) {
+          const attached = await this.attachDeviceToInvite(
+            existing.device,
+            pairing,
+          );
+          return this.issueDeviceSession(attached, existing.id, dto);
+        }
+        existingUserId = existing.id;
+      }
       await this.assertCanAcceptDeviceInvite(pairing.issuerDeviceId);
     } else {
+      await this.assertPairingPassword(pairing, phone, pin);
       const allowed = await this.subscriptions.assertCanPair(
         pairing.organizationId,
       );
@@ -444,6 +431,7 @@ export class DevicesService {
       dto,
       phone,
       pairingId: pairing.id,
+      existingUserId,
       linkedFromDeviceId: pairing.issuerDeviceId,
       ownerUserId: pairing.issuerUserId,
       skipOrgDeviceLimit: Boolean(pairing.issuerDeviceId),
@@ -687,6 +675,7 @@ export class DevicesService {
           where: { id: params.existingUserId },
           data: {
             deviceId: device.id,
+            organizationId: device.organizationId,
             phone: params.phone ?? undefined,
             name: params.displayName,
             username: params.displayName,
@@ -1002,19 +991,25 @@ export class DevicesService {
       deviceNameHint: params.deviceNameHint,
       expiresAt,
     };
-    const pairing = await this.prisma.devicePairingCode
-      .create({
-        data: {
-          ...baseData,
-          issuerDeviceId: params.issuerDeviceId,
-          issuerUserId: params.issuerUserId,
-        },
-      })
-      .catch(() =>
-        this.prisma.devicePairingCode.create({
-          data: baseData,
-        }),
-      );
+    let pairing = null as Awaited<
+      ReturnType<typeof this.prisma.devicePairingCode.create>
+    > | null;
+    for (let attempt = 0; attempt < 6 && !pairing; attempt++) {
+      const nextCode = attempt === 0 ? code : this.generatePairingCode();
+      pairing = await this.prisma.devicePairingCode
+        .create({
+          data: {
+            ...baseData,
+            code: nextCode,
+            issuerDeviceId: params.issuerDeviceId,
+            issuerUserId: params.issuerUserId,
+          },
+        })
+        .catch(() => null);
+    }
+    if (!pairing) {
+      throw new BadRequestException('Could not create pairing code');
+    }
 
     await this.audit.log({
       organizationId: params.organizationId,
@@ -1035,7 +1030,70 @@ export class DevicesService {
     };
   }
 
-  private async assertCanAcceptDeviceInvite(issuerDeviceId: string) {
+  private async attachDeviceToInvite(
+    device: {
+      id: string;
+      name: string;
+      organizationId: string;
+      branchId: string;
+      disabled: boolean;
+    },
+    pairing: {
+      id: string;
+      organizationId: string;
+      branchId: string;
+      issuerDeviceId: string | null;
+      issuerUserId: string | null;
+    },
+  ) {
+    if (!pairing.issuerDeviceId) {
+      throw new BadRequestException('Invalid pairing code');
+    }
+    if (pairing.issuerDeviceId === device.id) {
+      throw new BadRequestException('Cannot link a device to itself');
+    }
+    if (device.disabled) {
+      throw new ForbiddenException('Device disabled');
+    }
+    await this.assertCanAcceptDeviceInvite(pairing.issuerDeviceId, device.id);
+    const updated = await this.prisma.device.update({
+      where: { id: device.id },
+      data: {
+        organizationId: pairing.organizationId,
+        branchId: pairing.branchId,
+        linkedFromDeviceId: pairing.issuerDeviceId,
+      },
+    });
+    await this.prisma.user.updateMany({
+      where: { deviceId: device.id },
+      data: { organizationId: pairing.organizationId },
+    });
+    await this.prisma.devicePairingCode.update({
+      where: { id: pairing.id },
+      data: { usedAt: new Date(), deviceId: device.id },
+    });
+    const peer = await this.prisma.user.findFirst({
+      where: { deviceId: device.id },
+    });
+    if (peer) {
+      await this.chats.ensureThreadForPairedDevice({
+        organizationId: pairing.organizationId,
+        deviceId: device.id,
+        deviceName: device.name,
+        peerUserId: peer.id,
+        ownerUserId: pairing.issuerUserId,
+      });
+    }
+    this.events.emitToOrg(pairing.organizationId, 'device.updated', {
+      deviceId: updated.id,
+    });
+    return updated;
+  }
+
+  private async assertCanAcceptDeviceInvite(
+    issuerDeviceId: string,
+    ignoreDeviceId?: string,
+  ) {
     const issuer = await this.prisma.device.findFirst({
       where: { id: issuerDeviceId, disabled: false },
     });
@@ -1052,6 +1110,7 @@ export class DevicesService {
     const linkedCount = await this.prisma.device.count({
       where: {
         disabled: false,
+        ...(ignoreDeviceId ? { id: { not: ignoreDeviceId } } : {}),
         OR: [
           { id: issuerDeviceId },
           { linkedFromDeviceId: issuerDeviceId },

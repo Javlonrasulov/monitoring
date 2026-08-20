@@ -16,6 +16,7 @@ import com.monitor.device.core.model.EditChatRequest
 import com.monitor.device.core.model.InitUploadRequest
 import com.monitor.device.core.model.EmptyJsonBody
 import com.monitor.device.core.model.LinkDeviceRequest
+import com.monitor.device.core.model.LinkDeviceResponse
 import com.monitor.device.core.model.LinkedDeviceDto
 import com.monitor.device.core.model.OkResponse
 import com.monitor.device.core.model.PairingCodeResponse
@@ -195,8 +196,33 @@ class DeviceApiClient(
             api.createPairingCode(it, EmptyJsonBody())
         }
 
-    suspend fun linkDevice(code: String): OkResponse =
-        authorized(unpairOnFailure = false) { api.linkDevice(it, LinkDeviceRequest(code)) }
+    suspend fun linkDevice(code: String): LinkDeviceResponse =
+        authorized(unpairOnFailure = false) {
+            val response = api.linkDevice(it, LinkDeviceRequest(code))
+            val token = response.deviceToken
+            val orgId = response.organizationId
+            val branchId = response.branchId
+            val deviceId = tokenStore.deviceId()
+            val apiKey = tokenStore.apiKey()
+            if (
+                !token.isNullOrBlank() &&
+                !orgId.isNullOrBlank() &&
+                !branchId.isNullOrBlank() &&
+                !deviceId.isNullOrBlank() &&
+                !apiKey.isNullOrBlank()
+            ) {
+                tokenStore.saveSession(
+                    deviceId = deviceId,
+                    deviceName = tokenStore.deviceName().orEmpty(),
+                    organizationId = orgId,
+                    branchId = branchId,
+                    deviceToken = token,
+                    apiKey = apiKey,
+                    userId = tokenStore.userId(),
+                )
+            }
+            response
+        }
 
     suspend fun createPaymentInvoice(plan: String): PaymentInvoiceDto =
         authorized(unpairOnFailure = false) {
