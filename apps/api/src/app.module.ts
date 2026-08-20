@@ -12,6 +12,7 @@ import { RecordingsModule } from './recordings/recordings.module';
 import { SubscriptionsModule } from './subscriptions/subscriptions.module';
 import { ChatsModule } from './chats/chats.module';
 import { UsersModule } from './users/users.module';
+import { PushModule } from './push/push.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -29,6 +30,7 @@ import { HealthController } from './health.controller';
     SubscriptionsModule,
     ChatsModule,
     UsersModule,
+    PushModule,
   ],
   controllers: [HealthController],
 })

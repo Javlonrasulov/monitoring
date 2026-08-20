@@ -35,6 +35,7 @@ export async function login(email: string, password: string): Promise<AuthUser> 
 
   localStorage.setItem(TOKEN_KEY, data.accessToken);
   localStorage.setItem(USER_KEY, JSON.stringify(data.user));
+  void import("./push").then((m) => m.registerWebPush());
   return data.user;
 }
 

@@ -2,11 +2,15 @@
 
 import { LanguageProvider } from "@/lib/i18n";
 import { ThemeProvider } from "@/lib/theme";
+import { PushBootstrap } from "@/components/PushBootstrap";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <ThemeProvider>
-      <LanguageProvider>{children}</LanguageProvider>
+      <LanguageProvider>
+        <PushBootstrap />
+        {children}
+      </LanguageProvider>
     </ThemeProvider>
   );
 }

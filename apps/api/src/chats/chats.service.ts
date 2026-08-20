@@ -16,6 +16,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { ChatGateway } from './chat.gateway';
 import { ChatStorageService } from './chat-storage.service';
+import { PushService } from '../push/push.service';
 import { ALLOWED_REACTIONS, InitUploadDto } from './chats.dto';
 import type { Request, Response } from 'express';
 import { seesAllOrganizations } from '../auth/platform-org';
@@ -67,6 +68,7 @@ export class ChatsService {
     private readonly audit: AuditService,
     private readonly chatGateway: ChatGateway,
     private readonly storage: ChatStorageService,
+    private readonly push: PushService,
   ) {}
 
   async ensureThreadForPairedDevice(params: {
@@ -569,6 +571,13 @@ export class ChatsService {
       threadId: session.threadId,
       message: presented,
     });
+    void this.enqueueChatPush({
+      receiverUserId: session.receiverUserId,
+      threadId: session.threadId,
+      messageId: message.id,
+      senderUserId: session.senderUserId,
+      body: preview,
+    });
     return presented;
   }
 
@@ -943,6 +952,13 @@ export class ChatsService {
       threadId: params.thread.id,
       message: presented,
     });
+    void this.enqueueChatPush({
+      receiverUserId: params.receiverUserId,
+      threadId: params.thread.id,
+      messageId: message.id,
+      senderUserId: params.senderUserId,
+      body: (trimmed || forwarded?.fileName || 'Message').slice(0, 140),
+    });
     return presented;
   }
 
@@ -1162,6 +1178,36 @@ export class ChatsService {
         return 'Voice message';
       default:
         return fileName || 'File';
+    }
+  }
+
+  private async enqueueChatPush(params: {
+    receiverUserId: string | null | undefined;
+    threadId: string;
+    messageId: string;
+    senderUserId: string | null | undefined;
+    body: string;
+  }) {
+    if (!params.receiverUserId) return;
+    if (this.chatGateway.isUserOnline(params.receiverUserId)) return;
+    try {
+      let title = 'Chat';
+      if (params.senderUserId) {
+        const sender = await this.prisma.user.findUnique({
+          where: { id: params.senderUserId },
+          select: { name: true },
+        });
+        if (sender?.name?.trim()) title = sender.name.trim();
+      }
+      await this.push.notifyChatMessage({
+        receiverUserId: params.receiverUserId,
+        threadId: params.threadId,
+        messageId: params.messageId,
+        title,
+        body: params.body,
+      });
+    } catch {
+      // Push failures must never break chat delivery.
     }
   }
 

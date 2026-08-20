@@ -34,6 +34,7 @@ export function savePairSession(res: PairResponse): DeviceSession {
     userId: res.userId ?? null,
   };
   localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+  void import("./push").then((m) => m.registerWebPush());
   return session;
 }
 

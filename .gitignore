@@ -22,3 +22,5 @@ local.properties
 *.aab
 deploy/public/
 .vercel
+apps/android/app/google-services.json
+**/serviceAccount*.json
