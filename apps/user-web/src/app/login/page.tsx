@@ -2,12 +2,14 @@
 
 import { FormEvent, Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Eye, EyeOff } from "lucide-react";
+import { Download, Eye, EyeOff } from "lucide-react";
 import { isPaired, savePairSession } from "@/lib/auth";
 import { ApiError } from "@/lib/api";
 import { deviceApi } from "@/lib/device-api";
 import { useI18n } from "@/lib/i18n";
 import { useToast } from "@/lib/toast";
+
+const APK_DOWNLOAD_URL = "https://levelapp.site/download/monitor.apk";
 
 /**
  * Login UX mirrors Android PairingScreen exactly:
@@ -150,6 +152,17 @@ function LoginForm() {
   return (
     <div className="auth-page">
       <form className="auth-card stack" onSubmit={onSubmit}>
+        <a
+          className="auth-download"
+          href={APK_DOWNLOAD_URL}
+          download="monitor.apk"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <Download size={18} aria-hidden />
+          {t("downloadApp")}
+        </a>
+
         <div className="row" style={{ gap: 10 }}>
           <span className="brand-mark" aria-hidden />
           <div>
@@ -184,7 +197,7 @@ function LoginForm() {
 
         <div className="field">
           <label htmlFor="pin">{t("password")}</label>
-          <div className="row" style={{ gap: 8 }}>
+          <div className="password-field">
             <input
               id="pin"
               type={passwordVisible ? "text" : "password"}
@@ -200,7 +213,6 @@ function LoginForm() {
               required
               minLength={4}
               disabled={busy}
-              style={{ flex: 1 }}
             />
             <button
               type="button"

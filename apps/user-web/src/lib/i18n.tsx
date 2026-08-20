@@ -58,6 +58,7 @@ const dict = {
       "Free trial already used on this phone. Sign in with your existing account.",
     returningAccountHint:
       "This number is already registered — only password is needed.",
+    downloadApp: "Download app",
     search: "Search",
     emptyChats: "No chats yet",
     emptyChatsHint: "Link a device or wait for messages",
@@ -206,6 +207,7 @@ const dict = {
       "На этом телефоне бесплатный период уже использован. Войдите в существующий аккаунт.",
     returningAccountHint:
       "Этот номер уже зарегистрирован — нужен только пароль.",
+    downloadApp: "Скачать приложение",
     search: "Поиск",
     emptyChats: "Пока нет чатов",
     emptyChatsHint: "Привяжите устройство или дождитесь сообщений",
