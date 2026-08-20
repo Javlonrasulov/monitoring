@@ -178,6 +178,7 @@ model Device {
   appVersion       String?
   androidVersion   String?
   deviceModel      String?
+  installId        String?
   disabled         Boolean           @default(false)
   accountKind        DeviceAccountKind @default(USER)
   linkedFromDeviceId String?
@@ -198,6 +199,7 @@ model Device {
   @@index([organizationId])
   @@index([branchId])
   @@index([status])
+  @@index([installId])
 }
 
 model DevicePairingCode {
@@ -317,6 +319,17 @@ model Subscription {
 
   @@index([organizationId])
   @@index([status])
+}
+
+model TrialDeviceClaim {
+  installId      String   @id
+  organizationId String
+  expiresAt      DateTime
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([expiresAt])
 }
 
 model PaymentInvoice {

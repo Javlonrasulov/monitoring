@@ -71,6 +71,21 @@ export class PairDeviceDto {
   @IsOptional()
   @IsString()
   deviceModel?: string;
+
+  @ApiPropertyOptional({
+    description: 'Stable phone install id (fingerprint hash)',
+  })
+  @IsOptional()
+  @IsString()
+  installId?: string;
+
+  @ApiPropertyOptional({
+    description: 'Individual device signals (ANDROID_ID, Widevine, …)',
+    type: [String],
+  })
+  @IsOptional()
+  @IsString({ each: true })
+  installSignals?: string[];
 }
 
 export class UploadAvatarDto {

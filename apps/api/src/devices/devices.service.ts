@@ -544,23 +544,60 @@ export class DevicesService {
       throw new BadRequestException('Name is required');
     }
 
+    await this.subscriptions.assertInstallMayCreateAccount(
+      dto.installId,
+      dto.installSignals,
+    );
+
     const target = await this.createAccountForPhone(phone, displayName);
-    return this.createPairedDevice({
-      organizationId: target.organizationId,
-      branchId: target.branchId,
-      displayName,
-      dto,
-      phone,
-    });
+    try {
+      const trial = await this.subscriptions.ensureTrial(target.organizationId);
+      const expiresAt =
+        trial.expiresAt ?? new Date(Date.now() + 24 * 60 * 60 * 1000);
+      await this.subscriptions.claimTrialForInstall(
+        dto.installId,
+        target.organizationId,
+        expiresAt,
+        dto.installSignals,
+      );
+      return this.createPairedDevice({
+        organizationId: target.organizationId,
+        branchId: target.branchId,
+        displayName,
+        dto,
+        phone,
+        claimTrialInstall: false,
+      });
+    } catch (error) {
+      await this.cleanupFailedSignup(target.organizationId);
+      throw error;
+    }
   }
 
-  async pairStatus(rawPhone?: string) {
+  async pairStatus(
+    rawPhone?: string,
+    rawInstallId?: string,
+    rawSignals?: string | string[],
+  ) {
     const phone = this.normalizePhone(rawPhone);
-    if (!phone) {
-      return { exists: false };
-    }
-    const existing = await this.findUserByPhone(phone);
-    return { exists: Boolean(existing), requiresPassword: Boolean(existing) };
+    const existing = phone ? await this.findUserByPhone(phone) : null;
+    const signals = Array.isArray(rawSignals)
+      ? rawSignals
+      : (rawSignals ?? '')
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean);
+    const trial = await this.subscriptions.trialStatusForInstall(
+      rawInstallId,
+      signals,
+    );
+    return {
+      exists: Boolean(existing),
+      requiresPassword: Boolean(existing),
+      trialBlocked: trial.trialBlocked && !existing,
+      trialEnded: trial.trialEnded && !existing,
+      message: existing ? null : trial.message,
+    };
   }
 
   private async assertPairingPassword(
@@ -598,6 +635,27 @@ export class DevicesService {
     });
   }
 
+  private async cleanupFailedSignup(organizationId: string) {
+    if (organizationId === platformOrgId()) {
+      return;
+    }
+    await this.prisma.trialDeviceClaim
+      .deleteMany({ where: { organizationId } })
+      .catch(() => undefined);
+    await this.prisma.subscription
+      .deleteMany({ where: { organizationId } })
+      .catch(() => undefined);
+    const [users, devices] = await Promise.all([
+      this.prisma.user.count({ where: { organizationId } }),
+      this.prisma.device.count({ where: { organizationId } }),
+    ]);
+    if (users === 0 && devices === 0) {
+      await this.prisma.organization
+        .delete({ where: { id: organizationId } })
+        .catch(() => undefined);
+    }
+  }
+
   private async createAccountForPhone(phone: string, displayName: string) {
     const org = await this.prisma.organization.create({
       data: {
@@ -624,6 +682,7 @@ export class DevicesService {
     linkedFromDeviceId?: string | null;
     ownerUserId?: string | null;
     skipOrgDeviceLimit?: boolean;
+    claimTrialInstall?: boolean;
   }) {
     if (!params.skipOrgDeviceLimit) {
       const allowed = await this.subscriptions.assertCanPair(
@@ -632,6 +691,23 @@ export class DevicesService {
       this.throwIfPairBlocked(allowed);
     } else {
       await this.subscriptions.ensureTrial(params.organizationId);
+    }
+
+    const installId = this.subscriptions.normalizeInstallId(
+      params.dto.installId,
+    );
+
+    if (params.claimTrialInstall) {
+      const trial = await this.subscriptions.ensureTrial(params.organizationId);
+      const expiresAt =
+        trial.expiresAt ??
+        new Date(Date.now() + 24 * 60 * 60 * 1000);
+      await this.subscriptions.claimTrialForInstall(
+        installId,
+        params.organizationId,
+        expiresAt,
+        params.dto.installSignals,
+      );
     }
 
     const apiKey = randomBytes(32).toString('hex');
@@ -656,6 +732,7 @@ export class DevicesService {
           appVersion: params.dto.appVersion,
           androidVersion: params.dto.androidVersion,
           deviceModel: params.dto.deviceModel,
+          installId: installId ?? undefined,
           linkedFromDeviceId: params.linkedFromDeviceId ?? undefined,
         },
       });
@@ -755,6 +832,7 @@ export class DevicesService {
   ) {
     const apiKey = randomBytes(32).toString('hex');
     const apiKeyHash = await bcrypt.hash(apiKey, 10);
+    const installId = this.subscriptions.normalizeInstallId(dto.installId);
 
     await this.prisma.device.update({
       where: { id: device.id },
@@ -764,8 +842,17 @@ export class DevicesService {
         appVersion: dto.appVersion ?? undefined,
         androidVersion: dto.androidVersion ?? undefined,
         deviceModel: dto.deviceModel ?? undefined,
+        installId: installId ?? undefined,
       },
     });
+
+    await this.subscriptions
+      .syncTrialSignalsForOrganization(
+        device.organizationId,
+        dto.installId,
+        dto.installSignals,
+      )
+      .catch(() => undefined);
 
     const deviceToken = await this.signDeviceToken(device);
     const thread = await this.prisma.chatThread.findFirst({

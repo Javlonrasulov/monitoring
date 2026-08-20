@@ -39,6 +39,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
@@ -50,6 +51,7 @@ import androidx.compose.ui.unit.dp
 import com.monitor.device.BuildConfig
 import com.monitor.device.R
 import com.monitor.device.core.api.DeviceApiClient
+import com.monitor.device.core.auth.InstallId
 import com.monitor.device.core.model.PairRequest
 import com.monitor.device.ui.components.ErrorBanner
 import com.monitor.device.ui.components.MonitorCard
@@ -74,34 +76,52 @@ fun PairingScreen(
     var password by remember { mutableStateOf("") }
     var loading by remember { mutableStateOf(false) }
     var knownAccount by remember { mutableStateOf<Boolean?>(null) }
+    var trialBlocked by remember { mutableStateOf(false) }
     val error: MutableState<String?> = remember { mutableStateOf(null) }
     val scope = rememberCoroutineScope()
     val focusManager = LocalFocusManager.current
     val keyboard = LocalSoftwareKeyboardController.current
     val colors = MonitorTheme.colors
+    val context = LocalContext.current
+    val fingerprint = remember { InstallId.get(context) }
+    val installId = fingerprint.id
+    val installSignals = fingerprint.signals
 
     val failureMessage = stringResource(R.string.pair_failed)
     val limitMessage = stringResource(R.string.limit_reached)
     val invalidCode = stringResource(R.string.pair_invalid_code)
     val nameRequired = stringResource(R.string.pair_name_required)
     val badPassword = stringResource(R.string.pair_password_invalid)
+    val trialEndedMessage = stringResource(R.string.pair_trial_ended)
+    val trialUsedMessage = stringResource(R.string.pair_trial_used)
     val phoneDigits = phone.filter { it.isDigit() }
     val pinOk = password.length >= 4 && password.all { it.isDigit() }
     val returningUser = knownAccount == true
     val canSubmit = !loading &&
         phoneDigits.length >= 9 &&
         pinOk &&
-        (returningUser || displayName.isNotBlank())
+        (returningUser || (displayName.isNotBlank() && !trialBlocked))
 
-    LaunchedEffect(phoneDigits) {
+    LaunchedEffect(phoneDigits, installId, installSignals) {
         if (phoneDigits.length < 9) {
             knownAccount = null
+            trialBlocked = false
             return@LaunchedEffect
         }
         delay(350)
-        knownAccount = runCatching {
-            apiClient.pairStatus(phone.trim())
-        }.getOrNull()?.exists
+        val status = runCatching {
+            apiClient.pairStatus(phone.trim(), installId, installSignals)
+        }.getOrNull()
+        knownAccount = status?.exists
+        val blocked = status?.trialBlocked == true && status.exists != true
+        trialBlocked = blocked
+        if (blocked) {
+            error.value = when {
+                status?.trialEnded == true -> trialEndedMessage
+                !status?.message.isNullOrBlank() -> status?.message
+                else -> trialUsedMessage
+            }
+        }
     }
 
     fun submit() {
@@ -121,6 +141,8 @@ fun PairingScreen(
                         appVersion = BuildConfig.VERSION_NAME,
                         androidVersion = Build.VERSION.RELEASE,
                         deviceModel = "${Build.MANUFACTURER} ${Build.MODEL}",
+                        installId = installId,
+                        installSignals = installSignals,
                     ),
                 )
             }.onSuccess {
@@ -130,6 +152,9 @@ fun PairingScreen(
                 loading = false
                 val api = err.apiErrorMessage()
                 error.value = when {
+                    api.contains("Trial ended", ignoreCase = true) -> trialEndedMessage
+                    api.contains("Free trial already used", ignoreCase = true) -> trialUsedMessage
+                    api.contains("Device id required", ignoreCase = true) -> trialEndedMessage
                     api.contains("limit", ignoreCase = true) -> limitMessage
                     api.contains("Invalid pairing", ignoreCase = true) -> invalidCode
                     api.contains("Name is required", ignoreCase = true) -> nameRequired

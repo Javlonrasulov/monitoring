@@ -48,6 +48,8 @@
     <string name="pair_password_helper">At least 4 digits</string>
     <string name="pair_password_returning_helper">Required when signing in on this or another phone</string>
     <string name="pair_password_invalid">Wrong password. Use at least 4 digits.</string>
+    <string name="pair_trial_ended">Free trial ended on this phone. Buy Pro or Pro+ to continue.</string>
+    <string name="pair_trial_used">Free trial already used on this phone. Sign in with your existing account.</string>
     <string name="pair_code_label">Code</string>
     <string name="pair_code_placeholder">Code</string>
     <string name="pair_code_helper">Optional — leave empty if you don’t have a code</string>

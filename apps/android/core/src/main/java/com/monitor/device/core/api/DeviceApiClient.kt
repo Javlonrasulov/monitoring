@@ -76,8 +76,16 @@ class DeviceApiClient(
         .build()
         .create(DeviceApi::class.java)
 
-    suspend fun pairStatus(phone: String): PairStatusResponse {
-        return api.pairStatus(phone)
+    suspend fun pairStatus(
+        phone: String,
+        installId: String? = null,
+        signals: List<String> = emptyList(),
+    ): PairStatusResponse {
+        return api.pairStatus(
+            phone = phone,
+            installId = installId,
+            signals = signals.takeIf { it.isNotEmpty() }?.joinToString(","),
+        )
     }
 
     suspend fun pair(request: PairRequest): PairResponse {

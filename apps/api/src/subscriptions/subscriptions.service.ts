@@ -170,6 +170,193 @@ export class SubscriptionsService {
     });
   }
 
+  /**
+   * One free trial per physical phone. Matches ANY known signal
+   * (fingerprint hash, ANDROID_ID, Widevine id).
+   */
+  async assertInstallMayCreateAccount(
+    rawInstallId?: string | null,
+    rawSignals?: string[] | null,
+  ) {
+    const keys = this.collectInstallKeys(rawInstallId, rawSignals);
+    if (keys.length === 0) {
+      throw new BadRequestException('Device id required');
+    }
+    if (!this.hasHardwareInstallSignal(keys)) {
+      throw new BadRequestException(
+        'Device id required. Reinstall the app or update Android and try again.',
+      );
+    }
+    const claim = await this.findTrialClaim(keys);
+    if (!claim) {
+      return { installId: keys[0], claim: null };
+    }
+    if (claim.expiresAt <= new Date()) {
+      throw new BadRequestException(
+        'Trial ended on this phone. Buy Pro or Pro+ to continue.',
+      );
+    }
+    throw new BadRequestException(
+      'Free trial already used on this phone. Sign in with your existing account.',
+    );
+  }
+
+  async claimTrialForInstall(
+    rawInstallId: string | null | undefined,
+    organizationId: string,
+    expiresAt: Date,
+    rawSignals?: string[] | null,
+  ) {
+    const keys = this.collectInstallKeys(rawInstallId, rawSignals);
+    if (keys.length === 0) {
+      throw new BadRequestException('Device id required');
+    }
+    if (!this.hasHardwareInstallSignal(keys)) {
+      throw new BadRequestException(
+        'Device id required. Reinstall the app or update Android and try again.',
+      );
+    }
+    const existing = await this.findTrialClaim(keys);
+    if (existing && existing.organizationId !== organizationId) {
+      if (existing.expiresAt <= new Date()) {
+        throw new BadRequestException(
+          'Trial ended on this phone. Buy Pro or Pro+ to continue.',
+        );
+      }
+      throw new BadRequestException(
+        'Free trial already used on this phone. Sign in with your existing account.',
+      );
+    }
+    await this.upsertTrialClaims(keys, organizationId, expiresAt);
+    return existing ?? { installId: keys[0], organizationId, expiresAt };
+  }
+
+  /**
+   * After login, attach any newly observed hardware signals to this phone's claim
+   * so reinstall + ANDROID_ID rotation still matches Widevine (or vice versa).
+   */
+  async syncTrialSignalsForOrganization(
+    organizationId: string,
+    rawInstallId?: string | null,
+    rawSignals?: string[] | null,
+  ) {
+    const keys = this.collectInstallKeys(rawInstallId, rawSignals);
+    if (keys.length === 0 || !this.hasHardwareInstallSignal(keys)) {
+      return null;
+    }
+    const existing = await this.prisma.trialDeviceClaim.findFirst({
+      where: { organizationId },
+      orderBy: { createdAt: 'asc' },
+    });
+    if (!existing) {
+      return null;
+    }
+    await this.upsertTrialClaims(keys, organizationId, existing.expiresAt);
+    return existing;
+  }
+
+  async trialStatusForInstall(
+    rawInstallId?: string | null,
+    rawSignals?: string[] | null,
+  ) {
+    const keys = this.collectInstallKeys(rawInstallId, rawSignals);
+    if (keys.length === 0) {
+      return {
+        trialBlocked: false,
+        trialEnded: false,
+        message: null as string | null,
+      };
+    }
+    const claim = await this.findTrialClaim(keys);
+    if (!claim) {
+      return { trialBlocked: false, trialEnded: false, message: null };
+    }
+    if (claim.expiresAt <= new Date()) {
+      return {
+        trialBlocked: true,
+        trialEnded: true,
+        message: 'Trial ended on this phone. Buy Pro or Pro+ to continue.',
+      };
+    }
+    return {
+      trialBlocked: true,
+      trialEnded: false,
+      message:
+        'Free trial already used on this phone. Sign in with your existing account.',
+    };
+  }
+
+  normalizeInstallId(raw?: string | null) {
+    const value = (raw ?? '').trim();
+    if (value.length < 8 || value.length > 160) {
+      return null;
+    }
+    if (!/^[A-Za-z0-9._:+-]+$/.test(value)) {
+      return null;
+    }
+    return value;
+  }
+
+  collectInstallKeys(
+    rawInstallId?: string | null,
+    rawSignals?: string[] | null,
+  ) {
+    const keys = [
+      this.normalizeInstallId(rawInstallId),
+      ...(rawSignals ?? []).map((s) => this.normalizeInstallId(s)),
+    ].filter((v): v is string => Boolean(v));
+    return [...new Set(keys)];
+  }
+
+  hasHardwareInstallSignal(keys: string[]) {
+    return keys.some(
+      (key) =>
+        key.startsWith('aid:') ||
+        key.startsWith('drm:') ||
+        key.startsWith('fp:'),
+    );
+  }
+
+  private async findTrialClaim(keys: string[]) {
+    if (keys.length === 0) return null;
+    return this.prisma.trialDeviceClaim.findFirst({
+      where: { installId: { in: keys } },
+      orderBy: { createdAt: 'asc' },
+    });
+  }
+
+  private async upsertTrialClaims(
+    keys: string[],
+    organizationId: string,
+    expiresAt: Date,
+  ) {
+    for (const installId of keys) {
+      const existing = await this.prisma.trialDeviceClaim.findUnique({
+        where: { installId },
+      });
+      if (existing && existing.organizationId !== organizationId) {
+        if (existing.expiresAt <= new Date()) {
+          throw new BadRequestException(
+            'Trial ended on this phone. Buy Pro or Pro+ to continue.',
+          );
+        }
+        throw new BadRequestException(
+          'Free trial already used on this phone. Sign in with your existing account.',
+        );
+      }
+      if (existing) {
+        await this.prisma.trialDeviceClaim.update({
+          where: { installId },
+          data: { expiresAt },
+        });
+      } else {
+        await this.prisma.trialDeviceClaim.create({
+          data: { installId, organizationId, expiresAt },
+        });
+      }
+    }
+  }
+
   async createInvoice(
     organizationId: string,
     plan: 'PRO' | 'PRO_PLUS',

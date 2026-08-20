@@ -48,6 +48,8 @@
     <string name="pair_password_helper">Не меньше 4 цифр</string>
     <string name="pair_password_returning_helper">Нужен при входе на этом или другом телефоне</string>
     <string name="pair_password_invalid">Неверный пароль. Нужно минимум 4 цифры.</string>
+    <string name="pair_trial_ended">На этом телефоне бесплатный период закончился. Купите Pro или Pro+, чтобы продолжить.</string>
+    <string name="pair_trial_used">На этом телефоне бесплатный период уже использован. Войдите в существующий аккаунт.</string>
     <string name="pair_code_label">Код</string>
     <string name="pair_code_placeholder">Код</string>
     <string name="pair_code_helper">Необязательно — если кода нет, оставьте пустым</string>

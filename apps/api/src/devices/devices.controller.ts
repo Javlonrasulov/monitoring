@@ -179,8 +179,12 @@ export class DevicesController {
 
   @Get('pair-status')
   @ApiOperation({ summary: 'Check if this phone already has an account' })
-  pairStatus(@Query('phone') phone?: string) {
-    return this.devicesService.pairStatus(phone);
+  pairStatus(
+    @Query('phone') phone?: string,
+    @Query('installId') installId?: string,
+    @Query('signals') signals?: string,
+  ) {
+    return this.devicesService.pairStatus(phone, installId, signals);
   }
 
   @Get(':id')

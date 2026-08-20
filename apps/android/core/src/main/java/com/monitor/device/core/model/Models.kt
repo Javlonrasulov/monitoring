@@ -13,12 +13,17 @@ data class PairRequest(
     val appVersion: String? = null,
     val androidVersion: String? = null,
     val deviceModel: String? = null,
+    val installId: String? = null,
+    val installSignals: List<String> = emptyList(),
 )
 
 @Serializable
 data class PairStatusResponse(
     val exists: Boolean = false,
     val requiresPassword: Boolean = false,
+    val trialBlocked: Boolean = false,
+    val trialEnded: Boolean = false,
+    val message: String? = null,
 )
 
 @Serializable

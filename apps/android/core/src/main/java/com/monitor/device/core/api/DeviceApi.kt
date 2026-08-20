@@ -44,7 +44,9 @@ import retrofit2.http.Query
 interface DeviceApi {
     @GET("devices/pair-status")
     suspend fun pairStatus(
-        @Query("phone") phone: String,
+        @Query("phone") phone: String? = null,
+        @Query("installId") installId: String? = null,
+        @Query("signals") signals: String? = null,
     ): PairStatusResponse
 
     @POST("devices/pair")
