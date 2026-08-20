@@ -159,6 +159,7 @@
     <string name="settings_camera_back">Orqa</string>
     <string name="settings_watch_waiting">Waiting for live stream…</string>
     <string name="settings_watch_failed">Could not join the live stream</string>
+    <string name="settings_watch_not_publishing">Qurilma hozir efirda emas. Ikkinchi telefonda monitoring yoqilganini tekshiring.</string>
     <string name="settings_watch_upgrade">The 24-hour trial ended. Buy Pro or Pro+ to keep watching.</string>
     <string name="settings_plans_section">Subscription</string>
     <string name="settings_trial_message">Free trial: 24 hours of live video. Then Pro or Pro+ is required.</string>
@@ -167,6 +168,7 @@
     <string name="settings_plan_pro_body">Live video. One linked pair of apps.</string>
     <string name="settings_plan_pro_plus">Pro+</string>
     <string name="settings_plan_pro_plus_body">Video + ovoz + yozuvlar. Ikki ilovani ulash mumkin.</string>
+    <string name="settings_pro_plus_locked">Avval Pro to‘lang, keyin Pro+ ochiladi.</string>
     <string name="settings_buy">Kartadan to‘lash</string>
     <string name="settings_pay_title">Karta orqali to‘lov</string>
     <string name="settings_pay_amount">To‘lov: %1$s %2$s</string>
@@ -181,7 +183,13 @@
     <string name="settings_address_copied">USDT manzili nusxalandi</string>
     <string name="settings_pay_close">Yopish</string>
     <string name="settings_pay_visa">Kartadan davom ettirish</string>
-    <string name="settings_pay_hint">Kartadan to‘lash oynasi ochiladi. USDT manzil avtomatik qo‘yiladi — kriptoni o‘zingiz yuborishingiz shart emas.</string>
+    <string name="settings_pay_hint">Kartadan to‘lash: Guardarian ochilgach USD va 25 ni qo‘ying, USDT TRX ni tekshiring, keyin Buy.</string>
+    <string name="settings_pay_guide_title">To‘lovdan oldin o‘qing</string>
+    <string name="settings_pay_guide_body">Brauzerda Guardarian ochiladi. USDT manzil avtomatik nusxalanadi.\n\nNima qilish kerak:\n1. EUR ustiga bosing → USD ni tanlang\n2. 300 ni 25 ga o‘zgartiring\n3. USDT TRX ekanini tekshiring\n4. Buy tugmasini bosing\n5. Manzil so‘ralsa — joylashtiring (uzun bosib → Paste)\n\nTayyor bo‘lsangiz «Tushundim» ni bosing — keyin to‘lov ochiladi.</string>
+    <string name="settings_pay_guide_understood">Tushundim — to‘lovni ochish</string>
+    <string name="settings_pay_guide_cancel">Bekor qilish</string>
+    <string name="settings_pay_guide_continue">Tushundim — to‘lovni ochish</string>
     <string name="settings_pay_show_crypto">Kripto bilan to‘lash</string>
     <string name="settings_pay_hide_crypto">Kriptoni yashirish</string>
+    <string name="settings_pay_crypto_help">Bu bo‘lim faqat o‘zingizda USDT bo‘lsa. Kartadan to‘lasangiz, bu yerni ochmang.\n\nNima qilish kerak:\n1) Pastdagi manzilni nusxalang.\n2) Hamyonda tarmoqni faqat TRC20 (TRON) qiling — ERC20/BEP20 emas.\n3) Aniq shu summani yuboring: %1$s %2$s (%3$s).\n4) Kamroq yoki boshqa tanga yuborsangiz, to‘lov hisoblanmaydi va qaytmaydi.\n5) Taymer tugaguncha kuting (odatda 1–15 daqiqa). Ilovani yopmang — obuna o‘zi yoqiladi.</string>
 </resources>

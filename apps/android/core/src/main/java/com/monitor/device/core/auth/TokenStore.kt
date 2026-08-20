@@ -69,20 +69,38 @@ class TokenStore(context: Context) {
     }
 
     private fun createPrefs(context: Context): SharedPreferences {
-        return try {
-            val masterKey = MasterKey.Builder(context)
-                .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-                .build()
-            EncryptedSharedPreferences.create(
-                context,
-                PREFS_NAME,
-                masterKey,
-                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
-            )
-        } catch (_: Exception) {
-            context.getSharedPreferences(PREFS_FALLBACK, Context.MODE_PRIVATE)
+        // After reboot, Keystore / CE storage can be briefly unavailable. Retry
+        // before falling back — a different prefs file would look "unpaired".
+        var lastError: Exception? = null
+        repeat(3) { attempt ->
+            try {
+                val masterKey = MasterKey.Builder(context)
+                    .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+                    .build()
+                return EncryptedSharedPreferences.create(
+                    context,
+                    PREFS_NAME,
+                    masterKey,
+                    EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                    EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
+                )
+            } catch (e: Exception) {
+                lastError = e
+                if (attempt < 2) {
+                    try {
+                        Thread.sleep(80L * (attempt + 1))
+                    } catch (_: InterruptedException) {
+                        Thread.currentThread().interrupt()
+                    }
+                }
+            }
         }
+        android.util.Log.w(
+            "TokenStore",
+            "Encrypted prefs unavailable after retries; using fallback",
+            lastError,
+        )
+        return context.getSharedPreferences(PREFS_FALLBACK, Context.MODE_PRIVATE)
     }
 
     companion object {

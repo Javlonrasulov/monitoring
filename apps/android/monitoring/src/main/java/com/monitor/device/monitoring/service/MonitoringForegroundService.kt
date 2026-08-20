@@ -22,6 +22,7 @@ import com.monitor.device.core.auth.TokenStore
 import com.monitor.device.core.locale.AppLocale
 import com.monitor.device.monitoring.MonitoringEngine
 import com.monitor.device.monitoring.R
+import com.monitor.device.monitoring.boot.BootRestartScheduler
 import com.monitor.device.monitoring.stream.StreamQuality
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -123,6 +124,9 @@ class MonitoringForegroundService : LifecycleService() {
             stopSelf()
             return
         }
+
+        // Further boot retries are unnecessary once we are live.
+        runCatching { BootRestartScheduler.cancel(this) }
 
         startingEngine.set(true)
         val apiBase = intentApiBase()

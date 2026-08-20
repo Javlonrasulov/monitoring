@@ -64,6 +64,7 @@ fun LiveWatchScreen(
     var cameraBusy by remember { mutableStateOf(false) }
     val waiting = stringResource(R.string.settings_watch_waiting)
     val failed = stringResource(R.string.settings_watch_failed)
+    val notPublishing = stringResource(R.string.settings_watch_not_publishing)
     val upgrade = stringResource(R.string.settings_watch_upgrade)
     val frontLabel = stringResource(R.string.settings_camera_front)
     val backLabel = stringResource(R.string.settings_camera_back)
@@ -86,7 +87,7 @@ fun LiveWatchScreen(
             }.onFailure { lastError = it }
             delay(1_500L * (attempt + 1))
         }
-        status = DeviceApiClient.errorMessage(lastError ?: Exception(), failed)
+        status = liveWatchErrorMessage(lastError, failed, notPublishing)
     }
 
     DisposableEffect(viewer) {
@@ -203,6 +204,21 @@ private fun CameraChip(
             .clickable(enabled = enabled, onClick = onClick)
             .padding(horizontal = Spacing.lg, vertical = Spacing.sm),
     )
+}
+
+private fun liveWatchErrorMessage(
+    error: Throwable?,
+    failed: String,
+    notPublishing: String,
+): String {
+    val raw = error?.message.orEmpty()
+    if (raw.contains("no one is publishing", ignoreCase = true)) {
+        return notPublishing
+    }
+    if (raw.contains("WHEP", ignoreCase = true)) {
+        return failed
+    }
+    return DeviceApiClient.errorMessage(error ?: Exception(), failed)
 }
 
 private fun publicStreamUrl(streamUrl: String, apiBaseUrl: String): String {

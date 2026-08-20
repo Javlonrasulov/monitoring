@@ -158,6 +158,7 @@
     <string name="settings_camera_back">Задняя</string>
     <string name="settings_watch_waiting">Ожидание эфира…</string>
     <string name="settings_watch_failed">Не удалось подключиться к эфиру</string>
+    <string name="settings_watch_not_publishing">Устройство сейчас не в эфире. Проверьте, что на втором телефоне включён мониторинг.</string>
     <string name="settings_watch_upgrade">24 часа истекли. Чтобы смотреть дальше, купите Pro или Pro+.</string>
     <string name="settings_plans_section">Подписка</string>
     <string name="settings_trial_message">Пробный период: 24 часа видео. Затем нужен Pro или Pro+.</string>
@@ -166,6 +167,7 @@
     <string name="settings_plan_pro_body">Видеоэфир. Одна пара приложений.</string>
     <string name="settings_plan_pro_plus">Pro+</string>
     <string name="settings_plan_pro_plus_body">Видео + звук + записи. Можно связать два приложения.</string>
+    <string name="settings_pro_plus_locked">Сначала оплатите Pro — затем откроется Pro+.</string>
     <string name="settings_buy">Оплатить картой</string>
     <string name="settings_pay_title">Оплата картой</string>
     <string name="settings_pay_amount">К оплате: %1$s %2$s</string>
@@ -180,7 +182,13 @@
     <string name="settings_address_copied">Адрес USDT скопирован</string>
     <string name="settings_pay_close">Закрыть</string>
     <string name="settings_pay_visa">Продолжить картой</string>
-    <string name="settings_pay_hint">Откроется Visa/Mastercard. Выберите USD и платите картой. Адрес USDT не нужен.</string>
+    <string name="settings_pay_hint">Оплата картой: выберите USD, получать USDT (TRX/TRC20), сумма около 25. Если спросят адрес — вставьте USDT-адрес из приложения. Если открылось BTC или EUR — смените.</string>
+    <string name="settings_pay_guide_title">Прочитайте перед оплатой</string>
+    <string name="settings_pay_guide_body">Guardarian откроется в браузере. Адрес USDT скопируется автоматически.\n\nЧто делать:\n1. Нажмите EUR → выберите USD\n2. Замените 300 на 25\n3. Проверьте USDT TRX\n4. Нажмите Buy\n5. Если спросят адрес — вставьте (долгое нажатие → Вставить)\n\nКогда будете готовы, нажмите «Понятно» — затем откроется оплата.</string>
+    <string name="settings_pay_guide_understood">Понятно — открыть оплату</string>
+    <string name="settings_pay_guide_cancel">Отмена</string>
+    <string name="settings_pay_guide_continue">Понятно — открыть оплату</string>
     <string name="settings_pay_show_crypto">Оплатить криптой</string>
     <string name="settings_pay_hide_crypto">Скрыть крипту</string>
+    <string name="settings_pay_crypto_help">Этот раздел только если у вас уже есть USDT. Если платите картой — сюда не заходите.\n\nЧто делать:\n1) Скопируйте адрес ниже.\n2) В кошельке выберите только сеть TRC20 (TRON), не ERC20 и не BEP20.\n3) Отправьте точную сумму: %1$s %2$s (%3$s).\n4) Меньше суммы или другая монета — платёж не засчитается и деньги не вернутся.\n5) Не закрывайте приложение до конца таймера (обычно 1–15 минут). Подписка включится сама.</string>
 </resources>

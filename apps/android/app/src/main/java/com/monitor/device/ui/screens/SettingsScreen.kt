@@ -3,10 +3,14 @@ package com.monitor.device.ui.screens
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -31,6 +35,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.monitor.device.R
 import com.monitor.device.core.api.DeviceApiClient
 import com.monitor.device.core.model.LinkedDeviceDto
@@ -72,8 +78,39 @@ fun SettingsScreen(
     var loadingLink by remember { mutableStateOf(false) }
     var buying by remember { mutableStateOf<String?>(null) }
     var invoice by remember { mutableStateOf<PaymentInvoiceDto?>(null) }
-    var checkoutUrl by remember { mutableStateOf<String?>(null) }
+    var pendingCheckoutUrl by remember { mutableStateOf<String?>(null) }
+    var showPayGuide by remember { mutableStateOf(false) }
     var clock by remember { mutableLongStateOf(System.currentTimeMillis()) }
+
+    val failGeneric = stringResource(R.string.pair_failed)
+    val copied = stringResource(R.string.settings_code_copied)
+    val addressCopied = stringResource(R.string.settings_address_copied)
+    val linkedOk = stringResource(R.string.settings_link_success)
+    val paySuccess = stringResource(R.string.settings_pay_success)
+
+    fun openPayGuide(url: String?) {
+        val next = url?.takeIf { it.isNotBlank() } ?: return
+        pendingCheckoutUrl = next
+        showPayGuide = true
+    }
+
+    fun openGuardarianInBrowser(url: String) {
+        val address = invoice?.payAddress.orEmpty()
+        if (address.isNotBlank()) {
+            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            clipboard.setPrimaryClip(ClipData.newPlainText("usdt", address))
+            info = addressCopied
+        }
+        runCatching {
+            context.startActivity(
+                Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                },
+            )
+        }.onFailure {
+            error = DeviceApiClient.errorMessage(it, failGeneric)
+        }
+    }
 
     fun reload() {
         scope.launch {
@@ -83,12 +120,6 @@ fun SettingsScreen(
     }
 
     LaunchedEffect(Unit) { reload() }
-
-    val failGeneric = stringResource(R.string.pair_failed)
-    val copied = stringResource(R.string.settings_code_copied)
-    val addressCopied = stringResource(R.string.settings_address_copied)
-    val linkedOk = stringResource(R.string.settings_link_success)
-    val paySuccess = stringResource(R.string.settings_pay_success)
 
     LaunchedEffect(invoice?.id) {
         val id = invoice?.id ?: return@LaunchedEffect
@@ -107,7 +138,8 @@ fun SettingsScreen(
                 val status = latest.status.orEmpty()
                 if (latest.paid || status == "FINISHED") {
                     info = paySuccess
-                    checkoutUrl = null
+                    showPayGuide = false
+                    pendingCheckoutUrl = null
                     reload()
                     break
                 }
@@ -275,13 +307,17 @@ fun SettingsScreen(
             }
         }
 
+        val planName = sub?.plan.orEmpty()
+        val hasActivePro = active && planName == "PRO"
+        val hasActiveProPlus = active && planName == "PRO_PLUS"
         Spacer(modifier = Modifier.size(Spacing.sm))
         PlanCard(
             title = stringResource(R.string.settings_plan_pro),
             price = "$${sub?.priceProUsd ?: 25}",
             body = stringResource(R.string.settings_plan_pro_body),
             loading = buying == "PRO",
-            enabled = buying == null && sub?.plan != "PRO",
+            enabled = buying == null && !hasActivePro && !hasActiveProPlus,
+            hint = null,
             onBuy = {
                 buying = "PRO"
                 error = null
@@ -289,8 +325,7 @@ fun SettingsScreen(
                     runCatching { apiClient.createPaymentInvoice("PRO") }
                         .onSuccess {
                             invoice = it
-                            checkoutUrl = it.checkoutUrl?.takeIf { url -> url.isNotBlank() }
-                                ?: it.guardarianUrl
+                            openPayGuide(it.checkoutUrl?.takeIf { url -> url.isNotBlank() } ?: it.guardarianUrl)
                         }
                         .onFailure { error = DeviceApiClient.errorMessage(it, failGeneric) }
                     buying = null
@@ -303,7 +338,9 @@ fun SettingsScreen(
             price = "$${sub?.priceProPlusUsd ?: 25}",
             body = stringResource(R.string.settings_plan_pro_plus_body),
             loading = buying == "PRO_PLUS",
-            enabled = buying == null && sub?.plan != "PRO_PLUS",
+            enabled = buying == null && hasActivePro,
+            hint = if (hasActivePro || hasActiveProPlus) null
+            else stringResource(R.string.settings_pro_plus_locked),
             onBuy = {
                 buying = "PRO_PLUS"
                 error = null
@@ -311,8 +348,7 @@ fun SettingsScreen(
                     runCatching { apiClient.createPaymentInvoice("PRO_PLUS") }
                         .onSuccess {
                             invoice = it
-                            checkoutUrl = it.checkoutUrl?.takeIf { url -> url.isNotBlank() }
-                                ?: it.guardarianUrl
+                            openPayGuide(it.checkoutUrl?.takeIf { url -> url.isNotBlank() } ?: it.guardarianUrl)
                         }
                         .onFailure { error = DeviceApiClient.errorMessage(it, failGeneric) }
                     buying = null
@@ -331,20 +367,63 @@ fun SettingsScreen(
                     info = addressCopied
                 },
                 onPayCard = {
-                    checkoutUrl = pay.checkoutUrl?.takeIf { it.isNotBlank() } ?: pay.guardarianUrl
+                    openPayGuide(pay.checkoutUrl?.takeIf { it.isNotBlank() } ?: pay.guardarianUrl)
                 },
             )
         }
         Spacer(modifier = Modifier.size(Spacing.xxl))
     }
 
-    val payUrl = checkoutUrl
-    if (!payUrl.isNullOrBlank()) {
-        PaymentCheckoutSheet(
-            url = payUrl,
-            payAddress = invoice?.payAddress.orEmpty(),
-            onClose = { checkoutUrl = null },
-        )
+    if (showPayGuide) {
+        Dialog(
+            onDismissRequest = {
+                showPayGuide = false
+                pendingCheckoutUrl = null
+            },
+            properties = DialogProperties(
+                usePlatformDefaultWidth = true,
+                dismissOnClickOutside = false,
+                dismissOnBackPress = true,
+            ),
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(colors.surfaceElevated)
+                    .padding(Spacing.md),
+            ) {
+                Text(
+                    text = stringResource(R.string.settings_pay_guide_title),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = colors.textPrimary,
+                )
+                Spacer(modifier = Modifier.size(Spacing.sm))
+                Text(
+                    text = stringResource(R.string.settings_pay_guide_body),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = colors.textPrimary,
+                )
+                Spacer(modifier = Modifier.size(Spacing.md))
+                PrimaryButton(
+                    text = stringResource(R.string.settings_pay_guide_understood),
+                    icon = Icons.Rounded.CreditCard,
+                    onClick = {
+                        val url = pendingCheckoutUrl
+                        showPayGuide = false
+                        pendingCheckoutUrl = null
+                        if (!url.isNullOrBlank()) openGuardarianInBrowser(url)
+                    },
+                )
+                Spacer(modifier = Modifier.size(Spacing.sm))
+                SecondaryButton(
+                    text = stringResource(R.string.settings_pay_guide_cancel),
+                    onClick = {
+                        showPayGuide = false
+                        pendingCheckoutUrl = null
+                    },
+                )
+            }
+        }
     }
 }
 
@@ -355,6 +434,7 @@ private fun PlanCard(
     body: String,
     loading: Boolean,
     enabled: Boolean,
+    hint: String? = null,
     onBuy: () -> Unit,
 ) {
     val colors = MonitorTheme.colors
@@ -370,6 +450,10 @@ private fun PlanCard(
         }
         Spacer(modifier = Modifier.size(Spacing.xs))
         Text(body, style = MaterialTheme.typography.bodyMedium, color = colors.textMuted)
+        if (!hint.isNullOrBlank()) {
+            Spacer(modifier = Modifier.size(Spacing.xs))
+            Text(hint, style = MaterialTheme.typography.bodySmall, color = colors.warning)
+        }
         Spacer(modifier = Modifier.size(Spacing.md))
         PrimaryButton(
             text = stringResource(R.string.settings_buy),
@@ -435,6 +519,36 @@ private fun PaymentInvoiceCard(
                 onClick = { showCrypto = !showCrypto },
             )
             if (showCrypto) {
+                Spacer(modifier = Modifier.size(Spacing.sm))
+                Text(
+                    text = stringResource(
+                        R.string.settings_pay_crypto_help,
+                        invoice.payAmount.ifBlank { invoice.priceUsd?.toString().orEmpty() },
+                        invoice.payCurrency.ifBlank { "USDT" }.uppercase(),
+                        invoice.network?.ifBlank { null } ?: "TRC20",
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.textMuted,
+                )
+                Spacer(modifier = Modifier.size(Spacing.sm))
+                Text(
+                    text = stringResource(
+                        R.string.settings_pay_network,
+                        invoice.network?.ifBlank { null } ?: "TRC20",
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.textSecondary,
+                )
+                Spacer(modifier = Modifier.size(Spacing.xs))
+                Text(
+                    text = stringResource(
+                        R.string.settings_pay_amount,
+                        invoice.payAmount.ifBlank { invoice.priceUsd?.toString().orEmpty() },
+                        invoice.payCurrency.ifBlank { "USDT" }.uppercase(),
+                    ),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = colors.textPrimary,
+                )
                 Spacer(modifier = Modifier.size(Spacing.sm))
                 Text(
                     text = invoice.payAddress,

@@ -11,8 +11,8 @@ android {
         applicationId = "com.monitor.device"
         minSdk = 26
         targetSdk = 34
-        versionCode = 8
-        versionName = "1.0.7"
+        versionCode = 10
+        versionName = "1.0.9"
 
         buildConfigField(
             "String",

@@ -8,36 +8,64 @@ import com.monitor.device.core.auth.TokenStore
 import com.monitor.device.monitoring.service.MonitoringForegroundService
 
 /**
- * Respects Android limits: only auto-starts if previously paired and user had monitoring enabled.
- * Does not bypass OEM autostart restrictions — Admin Web will show OFFLINE if blocked.
+ * Restarts monitoring after reboot / unlock when the user left auto-start on.
+ *
+ * Android 12–14 may refuse a camera/mic foreground service from the background;
+ * we retry a few times. Opening the app always works via
+ * [com.monitor.device.ui.screens.rememberMonitoringSession].
  */
 class BootCompletedReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent?) {
-        if (intent?.action != Intent.ACTION_BOOT_COMPLETED &&
-            intent?.action != Intent.ACTION_LOCKED_BOOT_COMPLETED
-        ) {
+        val action = intent?.action ?: return
+        if (action !in HANDLED_ACTIONS) return
+
+        // Credential-encrypted storage and camera FGS are unavailable before unlock.
+        if (action == Intent.ACTION_LOCKED_BOOT_COMPLETED) {
+            Log.i(TAG, "Locked boot: defer until USER_UNLOCKED / BOOT_COMPLETED")
             return
         }
 
-        val store = TokenStore(context.applicationContext)
+        val app = context.applicationContext
+        val store = runCatching { TokenStore(app) }.getOrElse {
+            Log.w(TAG, "TokenStore not ready ($action), scheduling retries", it)
+            BootRestartScheduler.scheduleRetries(app)
+            return
+        }
         if (!store.isPaired()) {
-            Log.i(TAG, "Boot: device not paired, skip auto-start")
+            Log.i(TAG, "Boot: device not paired, skip ($action)")
             return
         }
         if (!store.isAutoStartEnabled()) {
-            Log.i(TAG, "Boot: auto-start disabled by user preference")
+            Log.i(TAG, "Boot: auto-start disabled ($action)")
             return
         }
 
-        Log.i(TAG, "Boot: starting monitoring foreground service")
-        if (!MonitoringForegroundService.start(context.applicationContext)) {
-            // Android 12+ may refuse a camera FGS started from boot; the user
-            // resumes it by opening the app, Admin Web shows OFFLINE until then.
-            Log.w(TAG, "Boot: system refused auto-start, waiting for app launch")
+        if (MonitoringForegroundService.isStarted()) {
+            BootRestartScheduler.cancel(app)
+            return
+        }
+
+        Log.i(TAG, "Boot: trying monitoring start ($action)")
+        MonitoringForegroundService.start(app)
+
+        if (action != BootRestartScheduler.ACTION_RETRY) {
+            BootRestartScheduler.scheduleRetries(app)
+        } else if (MonitoringForegroundService.isStarted()) {
+            BootRestartScheduler.cancel(app)
         }
     }
 
     companion object {
         private const val TAG = "BootCompletedReceiver"
+
+        private val HANDLED_ACTIONS = setOf(
+            Intent.ACTION_BOOT_COMPLETED,
+            Intent.ACTION_LOCKED_BOOT_COMPLETED,
+            Intent.ACTION_USER_UNLOCKED,
+            Intent.ACTION_MY_PACKAGE_REPLACED,
+            BootRestartScheduler.ACTION_RETRY,
+            "android.intent.action.QUICKBOOT_POWERON",
+            "com.htc.intent.action.QUICKBOOT_POWERON",
+        )
     }
 }

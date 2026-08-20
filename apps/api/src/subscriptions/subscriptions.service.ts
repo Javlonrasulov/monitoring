@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
   UnauthorizedException,
@@ -174,6 +175,12 @@ export class SubscriptionsService {
   ): Promise<PaymentInvoiceView> {
     const nextPlan =
       plan === 'PRO_PLUS' ? SubscriptionPlan.PRO_PLUS : SubscriptionPlan.PRO;
+    if (nextPlan === SubscriptionPlan.PRO_PLUS) {
+      const current = await this.forOrganization(organizationId);
+      if (!current.active || current.plan !== SubscriptionPlan.PRO) {
+        throw new ForbiddenException('Pay Pro first, then Pro+');
+      }
+    }
     const priceUsd =
       nextPlan === SubscriptionPlan.PRO_PLUS ? PRO_PLUS_PRICE : PRO_PRICE;
 
@@ -499,34 +506,23 @@ export class SubscriptionsService {
     _network: string | null,
     priceUsd?: number,
   ) {
-    const widget =
+    const rawWidget =
       this.config.get<string>('GUARDARIAN_WIDGET_URL')?.trim() ||
-      'https://guardarian.com/calculator/v1';
+      'https://guardarian.com/buy-usdt';
+    const widget = rawWidget
+      .replace(/\/calculator\/v1\/?$/i, '/buy-usdt')
+      .replace(/\/calculator\/?$/i, '/buy-usdt');
     const token = this.config.get<string>('GUARDARIAN_PARTNER_TOKEN')?.trim();
-    const usdtTrc20 = JSON.stringify([{ ticker: 'USDT', network: 'TRC20' }]);
     const params = new URLSearchParams({
-      locale: 'ru',
-      lang: 'ru',
-      language: 'ru',
-      default_crypto_currency: 'USDT',
-      to_network: 'TRC20',
       default_fiat_currency: 'USD',
-      default_side: 'buy_crypto',
+      default_from_amount: String(priceUsd && priceUsd > 0 ? priceUsd : amount || '25'),
+      default_crypto_currency: 'USDT',
+      to_network: 'TRX',
+      from_currency: 'USD',
+      from_amount: String(priceUsd && priceUsd > 0 ? priceUsd : amount || '25'),
+      to_currency: 'USDT',
       payout_address: address,
-      default_payout_address: address,
-      customer_payout_address: address,
-      skip_choose_payout_address: 'true',
-      switchable: 'false',
-      crypto_currencies_list: usdtTrc20,
-      theme: 'blue',
-      type: 'narrow',
     });
-    if (priceUsd && priceUsd > 0) {
-      params.set('default_from_amount', String(priceUsd));
-      params.set('from_amount', String(priceUsd));
-    } else if (amount) {
-      params.set('to_amount', amount);
-    }
     if (token) params.set('partner_api_token', token);
     return `${widget}?${params.toString()}`;
   }
