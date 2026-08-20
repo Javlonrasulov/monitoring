@@ -156,6 +156,7 @@ data class ChatThreadDto(
     val owner: ChatPeer? = null,
     val peer: ChatPeer? = null,
     val device: ChatDeviceRef? = null,
+    val kind: String? = null,
     val viewerUserId: String? = null,
     val unreadCount: Int = 0,
     val counterpartName: String? = null,
@@ -214,6 +215,7 @@ data class ChatMessageDto(
     val replyTo: ChatReplyDto? = null,
     val reactions: List<ChatReactionDto> = emptyList(),
     val mine: Boolean = false,
+    val system: Boolean = false,
     val localStatus: String? = null,
     val uploadProgress: Float? = null,
 )
@@ -243,6 +245,12 @@ data class ChatMediaCounts(
 data class ChatMediaPage(
     val counts: ChatMediaCounts = ChatMediaCounts(),
     val items: List<ChatMessageDto> = emptyList(),
+)
+
+@Serializable
+data class SupportSummaryDto(
+    val threadId: String? = null,
+    val unreadCount: Int = 0,
 )
 
 @Serializable

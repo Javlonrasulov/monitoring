@@ -27,6 +27,7 @@ import com.monitor.device.core.model.ReactChatRequest
 import com.monitor.device.core.model.SendChatRequest
 import com.monitor.device.core.model.SetCameraFacingRequest
 import com.monitor.device.core.model.SubscriptionDto
+import com.monitor.device.core.model.SupportSummaryDto
 import com.monitor.device.core.model.UpdateProfileRequest
 import com.monitor.device.core.model.UploadAvatarRequest
 import com.monitor.device.core.model.ViewerTokenResponse
@@ -132,6 +133,11 @@ interface DeviceApi {
     suspend fun openSupportChat(
         @Header("Authorization") authorization: String,
     ): ChatThreadDto
+
+    @GET("device-chats/support/summary")
+    suspend fun supportSummary(
+        @Header("Authorization") authorization: String,
+    ): SupportSummaryDto
 
     @GET("device-chats/{id}")
     suspend fun chatThread(

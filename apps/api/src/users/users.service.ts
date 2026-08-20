@@ -20,8 +20,8 @@ export class UsersService {
   async list(organizationId: string) {
     const users = await this.prisma.user.findMany({
       where: seesAllOrganizations(organizationId)
-        ? {}
-        : { organizationId },
+        ? { email: { not: { endsWith: '@support.internal' } } }
+        : { organizationId, email: { not: { endsWith: '@support.internal' } } },
       select: {
         id: true,
         email: true,

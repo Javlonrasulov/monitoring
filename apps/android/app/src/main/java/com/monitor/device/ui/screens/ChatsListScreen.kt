@@ -186,6 +186,8 @@ private fun ChatThreadDto.counterpartPeer(): ChatPeer? {
 }
 
 private fun isConnectedUserThread(thread: ChatThreadDto): Boolean {
+    if (thread.kind.equals("SUPPORT", ignoreCase = true)) return false
+    if (thread.counterpartName.equals("Call Center", ignoreCase = true)) return false
     val counterpart = when (thread.counterpartUserId) {
         thread.owner?.id -> thread.owner
         thread.peer?.id -> thread.peer

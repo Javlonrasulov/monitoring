@@ -17,7 +17,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -39,9 +40,18 @@ fun MainTabsScreen(
 ) {
     var tab by rememberSaveable { mutableIntStateOf(0) }
     var unread by rememberSaveable { mutableIntStateOf(0) }
+    var supportUnread by rememberSaveable { mutableIntStateOf(0) }
+    val scope = rememberCoroutineScope()
     val chatRealtime = remember { ChatRealtime(apiClient.apiBaseUrl, tokenStore) }
     DisposableEffect(Unit) {
-        chatRealtime.connect { _, _ -> }
+        chatRealtime.connect { event, _ ->
+            if (event == "chat.message" || event == "chat.read") {
+                scope.launch {
+                    runCatching { apiClient.supportSummary() }
+                        .onSuccess { supportUnread = it.unreadCount }
+                }
+            }
+        }
         onDispose { chatRealtime.disconnect() }
     }
     rememberMonitoringSession(
@@ -75,6 +85,8 @@ fun MainTabsScreen(
                     tokenStore = tokenStore,
                     onUnpair = onUnpaired,
                     onOpenCallCenter = onOpenCallCenter,
+                    isActive = tab == 2,
+                    onSupportUnreadChange = { supportUnread = it },
                 )
             }
         }
@@ -108,6 +120,7 @@ fun MainTabsScreen(
                         Icons.Outlined.Person
                     },
                     labelRes = R.string.nav_profile,
+                    badge = supportUnread,
                 ),
             ),
         )

@@ -1380,6 +1380,35 @@ select {
   color: #fff;
   border-radius: 16px 16px 5px 16px;
 }
+.msg-bubble.is-system {
+  align-self: center;
+  max-width: min(88%, 520px);
+  background: color-mix(in srgb, var(--muted) 55%, transparent);
+  color: var(--muted-fg, var(--fg));
+  border-radius: 12px;
+  font-size: 0.85rem;
+  text-align: center;
+}
+.support-start {
+  margin-top: 2rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--border);
+}
+.support-start h2 {
+  font-size: 1.05rem;
+  margin: 0 0 0.35rem;
+}
+.support-user-list {
+  list-style: none;
+  padding: 0;
+  margin: 0.75rem 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.support-user-list li {
+  margin: 0;
+}
 .msg-meta {
   font-size: 0.7rem;
   opacity: 0.75;

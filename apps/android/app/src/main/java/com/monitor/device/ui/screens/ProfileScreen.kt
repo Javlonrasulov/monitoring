@@ -31,7 +31,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -73,6 +76,8 @@ fun ProfileScreen(
     tokenStore: TokenStore,
     onUnpair: () -> Unit,
     onOpenCallCenter: (threadId: String, title: String) -> Unit,
+    isActive: Boolean = true,
+    onSupportUnreadChange: (Int) -> Unit = {},
 ) {
     val colors = MonitorTheme.colors
     val context = LocalContext.current
@@ -90,6 +95,7 @@ fun ProfileScreen(
     var newPassword by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
     var callCenterBusy by remember { mutableStateOf(false) }
+    var supportUnread by remember { mutableIntStateOf(0) }
 
     fun applyMe(me: DeviceMeResponse) {
         userId = me.userId ?: tokenStore.userId()
@@ -100,9 +106,23 @@ fun ProfileScreen(
         phone = me.phone.orEmpty()
     }
 
+    suspend fun refreshSupportUnread() {
+        runCatching { apiClient.supportSummary() }
+            .onSuccess { supportUnread = it.unreadCount }
+    }
+
     LaunchedEffect(Unit) {
         runCatching { apiClient.subscription() }.onSuccess { sub = it }
         runCatching { apiClient.me() }.onSuccess(::applyMe)
+        refreshSupportUnread()
+    }
+
+    LaunchedEffect(isActive) {
+        if (isActive) refreshSupportUnread()
+    }
+
+    LaunchedEffect(supportUnread) {
+        onSupportUnreadChange(supportUnread)
     }
 
     val picker = rememberLauncherForActivityResult(
@@ -226,34 +246,50 @@ fun ProfileScreen(
         }
 
         Spacer(modifier = Modifier.size(Spacing.md))
-        PrimaryButton(
-            text = stringResource(R.string.profile_call_center),
-            onClick = {
-                if (callCenterBusy) return@PrimaryButton
-                callCenterBusy = true
-                scope.launch {
-                    runCatching { apiClient.openSupportChat() }
-                        .onSuccess { thread ->
-                            callCenterBusy = false
-                            onOpenCallCenter(
-                                thread.id,
-                                context.getString(R.string.profile_call_center),
-                            )
-                        }
-                        .onFailure {
-                            callCenterBusy = false
-                            Toast.makeText(
-                                context,
-                                context.getString(R.string.profile_call_center_failed),
-                                Toast.LENGTH_SHORT,
-                            ).show()
-                        }
+        BadgedBox(
+            badge = {
+                if (supportUnread > 0) {
+                    Badge {
+                        Text(
+                            if (supportUnread > 99) "99+" else supportUnread.toString(),
+                        )
+                    }
                 }
             },
-            enabled = !callCenterBusy,
-            loading = callCenterBusy,
-            icon = Icons.Rounded.HeadsetMic,
-        )
+        ) {
+            PrimaryButton(
+                text = stringResource(R.string.profile_call_center),
+                onClick = {
+                    if (callCenterBusy) return@PrimaryButton
+                    callCenterBusy = true
+                    scope.launch {
+                        runCatching { apiClient.openSupportChat() }
+                            .onSuccess { thread ->
+                                callCenterBusy = false
+                                supportUnread = 0
+                                onOpenCallCenter(
+                                    thread.id,
+                                    context.getString(R.string.profile_call_center),
+                                )
+                            }
+                            .onFailure {
+                                callCenterBusy = false
+                                Toast.makeText(
+                                    context,
+                                    DeviceApiClient.errorMessage(
+                                        it,
+                                        context.getString(R.string.profile_call_center_failed),
+                                    ),
+                                    Toast.LENGTH_LONG,
+                                ).show()
+                            }
+                    }
+                },
+                enabled = !callCenterBusy,
+                loading = callCenterBusy,
+                icon = Icons.Rounded.HeadsetMic,
+            )
+        }
 
         Spacer(modifier = Modifier.size(Spacing.lg))
         SectionHeader(

@@ -27,6 +27,7 @@ type Thread = {
 type AppUser = {
   id: string;
   name: string;
+  role: string;
   phone?: string | null;
   device: { id: string; name: string } | null;
 };
@@ -71,7 +72,15 @@ export default function SupportPage() {
     }
   }
 
-  const appUsers = users.filter((row) => row.device);
+  const existingPeerIds = new Set(
+    rows.map((row) => row.counterpartUserId).filter(Boolean),
+  );
+  const appUsers = users.filter(
+    (row) =>
+      row.device &&
+      row.role === "USER" &&
+      !existingPeerIds.has(row.id),
+  );
 
   return (
     <AdminShell>

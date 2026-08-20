@@ -9,6 +9,7 @@ import { api, API_URL, authorizedMediaUrl } from "@/lib/api";
 import { getUser } from "@/lib/auth";
 import { useI18n } from "@/lib/i18n";
 import { getChatSocket } from "@/lib/chat-socket";
+import { uploadChatFile } from "@/lib/chat-upload";
 
 type Reaction = { emoji: string; count: number; mine: boolean };
 type Reply = { id: string; text: string | null; messageType: string; fileName: string | null };
@@ -75,6 +76,10 @@ export default function SupportDetailPage() {
   const [tab, setTab] = useState<"chat" | "media" | "files" | "links" | "voice">("chat");
   const [media, setMedia] = useState<MediaPage | null>(null);
   const [menu, setMenu] = useState<Message | null>(null);
+  const [uploadBusy, setUploadBusy] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -109,6 +114,8 @@ export default function SupportDetailPage() {
       socket.off("chat.message.updated", onMessage);
       socket.off("chat.typing", onTyping);
       socket.off("chat.profile", onProfile);
+      if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+      getChatSocket().emit("chat.typing", { threadId: params.id, typing: false });
     };
   }, [params.id, user?.id]);
 
@@ -140,13 +147,49 @@ export default function SupportDetailPage() {
     event.preventDefault();
     if (!canSend || !draft.trim()) return;
     const text = draft.trim();
+    setSendError(null);
     setDraft("");
-    const sent = await api.post<Message>(`/chats/${params.id}/messages`, {
-      text,
-      replyToId: replyTo?.id,
-    });
-    setReplyTo(null);
-    setItems((current) => [...current.filter((row) => row.id !== sent.id), sent]);
+    getChatSocket().emit("chat.typing", { threadId: params.id, typing: false });
+    try {
+      const sent = await api.post<Message>(`/chats/${params.id}/messages`, {
+        text,
+        replyToId: replyTo?.id,
+      });
+      setReplyTo(null);
+      setItems((current) => [...current.filter((row) => row.id !== sent.id), sent]);
+    } catch (e) {
+      setDraft(text);
+      setSendError(e instanceof Error ? e.message : "Send failed");
+    }
+  }
+
+  function emitTyping(active: boolean) {
+    getChatSocket().emit("chat.typing", { threadId: params.id, typing: active });
+  }
+
+  function handleDraftChange(value: string) {
+    setDraft(value);
+    if (!canSend) return;
+    emitTyping(true);
+    if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+    typingTimerRef.current = setTimeout(() => emitTyping(false), 1200);
+  }
+
+  async function handleFilePick(file: File | null) {
+    if (!file || !canSend || uploadBusy) return;
+    setUploadBusy(true);
+    setSendError(null);
+    emitTyping(false);
+    try {
+      const sent = await uploadChatFile(params.id, file, { replyToId: replyTo?.id });
+      setReplyTo(null);
+      setItems((current) => [...current.filter((row) => row.id !== sent.id), sent as Message]);
+    } catch (e) {
+      setSendError(e instanceof Error ? e.message : "Upload failed");
+    } finally {
+      setUploadBusy(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
   }
 
   async function loadTab(next: typeof tab) {
@@ -205,6 +248,7 @@ export default function SupportDetailPage() {
           ))}
         </nav>
         {error && <p className="form-error">{error}</p>}
+        {sendError && <p className="form-error">{sendError}</p>}
         {hits.length > 0 && (
           <ul className="msg-search-hits">
             {hits.map((hit) => (
@@ -307,8 +351,30 @@ export default function SupportDetailPage() {
                 <button type="button" onClick={() => setReplyTo(null)}>✕</button>
               </div>
             )}
-            <input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder={t("chatPlaceholder")} />
-            <button type="submit">{t("chatSend")}</button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*,video/*,.pdf,.doc,.docx,.txt,.zip"
+              hidden
+              onChange={(e) => void handleFilePick(e.target.files?.[0] ?? null)}
+            />
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              disabled={uploadBusy}
+              onClick={() => fileInputRef.current?.click()}
+              title={t("chatFiles")}
+            >
+              📎
+            </button>
+            <input
+              value={draft}
+              onChange={(e) => handleDraftChange(e.target.value)}
+              onBlur={() => emitTyping(false)}
+              placeholder={t("chatPlaceholder")}
+              disabled={uploadBusy}
+            />
+            <button type="submit" disabled={uploadBusy}>{uploadBusy ? "…" : t("chatSend")}</button>
           </form>
         ) : (
           <p className="muted msg-viewer-note">{t("chatViewerOnly")}</p>

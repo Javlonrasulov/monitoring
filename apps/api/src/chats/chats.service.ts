@@ -206,13 +206,34 @@ export class ChatsService {
       deviceId,
     );
     const count = await this.prisma.chatMessage.count({
-      where: { threadId: thread.id },
+      where: { threadId: thread.id, senderUserId: null },
     });
     if (count === 0) {
       await this.appendSystemMessage(thread, SUPPORT_WELCOME, customer.id);
     }
     const unread = await this.unreadMap([thread.id], customer.id);
     return this.presentThread(thread, customer.id, unread.get(thread.id) ?? 0, false);
+  }
+
+  async supportSummaryForDevice(organizationId: string, deviceId: string) {
+    const customer = await this.deviceUser(organizationId, deviceId);
+    const callCenter = await this.ensureCallCenterUser(organizationId);
+    const thread = await this.prisma.chatThread.findFirst({
+      where: {
+        organizationId,
+        kind: ChatThreadKind.SUPPORT,
+        ownerUserId: callCenter.id,
+        peerUserId: customer.id,
+      },
+    });
+    if (!thread) {
+      return { threadId: null as string | null, unreadCount: 0 };
+    }
+    const unread = await this.unreadMap([thread.id], customer.id);
+    return {
+      threadId: thread.id,
+      unreadCount: unread.get(thread.id) ?? 0,
+    };
   }
 
   async openSupportForAdmin(
@@ -239,7 +260,7 @@ export class ChatsService {
       customer.deviceId,
     );
     const count = await this.prisma.chatMessage.count({
-      where: { threadId: thread.id },
+      where: { threadId: thread.id, senderUserId: null },
     });
     if (count === 0) {
       await this.appendSystemMessage(thread, SUPPORT_WELCOME, customer.id);
@@ -783,8 +804,7 @@ export class ChatsService {
     const updated = await this.prisma.chatMessage.updateMany({
       where: {
         threadId,
-        readAt: null,
-        senderUserId: { not: viewerUserId },
+        ...this.incomingUnreadWhere(viewerUserId),
       },
       data: { readAt: new Date() },
     });
@@ -1177,19 +1197,33 @@ export class ChatsService {
     return { photos, videos, notes, files, voice, links };
   }
 
+  private incomingUnreadWhere(viewerUserId: string): Prisma.ChatMessageWhereInput {
+    return {
+      readAt: null,
+      deletedForEveryone: false,
+      hiddenFor: { none: { userId: viewerUserId } },
+      OR: [
+        {
+          AND: [
+            { senderUserId: { not: null } },
+            { senderUserId: { not: viewerUserId } },
+          ],
+        },
+        {
+          senderUserId: null,
+          receiverUserId: viewerUserId,
+        },
+      ],
+    };
+  }
+
   private async unreadMap(threadIds: string[], viewerUserId: string) {
     if (!threadIds.length) return new Map<string, number>();
     const grouped = await this.prisma.chatMessage.groupBy({
       by: ['threadId'],
       where: {
         threadId: { in: threadIds },
-        readAt: null,
-        OR: [
-          { senderUserId: null },
-          { senderUserId: { not: viewerUserId } },
-        ],
-        deletedForEveryone: false,
-        hiddenFor: { none: { userId: viewerUserId } },
+        ...this.incomingUnreadWhere(viewerUserId),
       },
       _count: { _all: true },
     });

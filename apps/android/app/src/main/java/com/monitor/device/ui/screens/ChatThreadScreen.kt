@@ -503,6 +503,21 @@ fun ChatThreadScreen(
                     }
                     Spacer(Modifier.height(6.dp))
                 }
+                if (message.system) {
+                    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                        Text(
+                            message.text.orEmpty(),
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(colors.surfaceMuted)
+                                .padding(horizontal = 14.dp, vertical = 8.dp),
+                            color = colors.textMuted,
+                            fontSize = 13.sp,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        )
+                    }
+                    return@itemsIndexed
+                }
                 var offsetX by remember(message.id) { mutableFloatStateOf(0f) }
                 Box(
                     modifier = Modifier
@@ -521,7 +536,7 @@ fun ChatThreadScreen(
                         }
                         .combinedClickable(
                             onClick = {},
-                            onLongClick = { actionMessage = message },
+                            onLongClick = { if (!message.system) actionMessage = message },
                         ),
                     contentAlignment = if (message.mine) Alignment.CenterEnd else Alignment.CenterStart,
                 ) {

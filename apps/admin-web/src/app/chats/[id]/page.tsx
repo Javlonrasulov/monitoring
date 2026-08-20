@@ -62,7 +62,7 @@ export default function ChatDetailPage() {
   const { t, locale } = useI18n();
   const params = useParams<{ id: string }>();
   const user = getUser();
-  const canSend = user?.role === "ADMIN";
+  const canSend = user?.role === "ADMIN" || user?.role === "OWNER";
   const [thread, setThread] = useState<Thread | null>(null);
   const [items, setItems] = useState<Message[]>([]);
   const [error, setError] = useState<string | null>(null);

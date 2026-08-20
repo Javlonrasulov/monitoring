@@ -357,6 +357,16 @@ export class DeviceChatsController {
     );
   }
 
+  @Get('support/summary')
+  @ApiBearerAuth()
+  @UseGuards(DeviceAuthGuard)
+  supportSummary(@CurrentDevice() device: DeviceUser) {
+    return this.chats.supportSummaryForDevice(
+      device.organizationId,
+      device.deviceId,
+    );
+  }
+
   @Get('avatars/:userId')
   @ApiBearerAuth()
   @UseGuards(DeviceAuthGuard)

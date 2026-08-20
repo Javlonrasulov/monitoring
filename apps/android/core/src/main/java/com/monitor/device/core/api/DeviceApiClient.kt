@@ -29,6 +29,7 @@ import com.monitor.device.core.model.ReactChatRequest
 import com.monitor.device.core.model.SendChatRequest
 import com.monitor.device.core.model.SetCameraFacingRequest
 import com.monitor.device.core.model.SubscriptionDto
+import com.monitor.device.core.model.SupportSummaryDto
 import com.monitor.device.core.model.UpdateProfileRequest
 import com.monitor.device.core.model.UploadAvatarRequest
 import com.monitor.device.core.model.ViewerTokenResponse
@@ -116,6 +117,9 @@ class DeviceApiClient(
 
     suspend fun openSupportChat(): ChatThreadDto =
         authorized { api.openSupportChat(it) }
+
+    suspend fun supportSummary(): SupportSummaryDto =
+        authorized { api.supportSummary(it) }
 
     suspend fun deleteAvatar(): DeviceMeResponse =
         authorized(unpairOnFailure = false) { api.deleteAvatar(it) }
