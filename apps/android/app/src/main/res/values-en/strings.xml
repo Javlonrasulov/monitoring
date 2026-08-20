@@ -35,7 +35,7 @@
 
     <!-- Pairing -->
     <string name="pair_title">Pair device</string>
-    <string name="pair_subtitle">Enter your phone number. If this is your first time, also enter your name.</string>
+    <string name="pair_subtitle">Enter your phone number and a 4-digit password. New users also enter a name.</string>
     <string name="pair_section_title">Sign in</string>
     <string name="pair_name_label">Name</string>
     <string name="pair_name_placeholder">Name</string>
@@ -43,15 +43,20 @@
     <string name="pair_phone_label">Phone number</string>
     <string name="pair_phone_placeholder">Phone number</string>
     <string name="pair_phone_helper">Required</string>
+    <string name="pair_password_label">Password</string>
+    <string name="pair_password_placeholder">Password</string>
+    <string name="pair_password_helper">At least 4 digits</string>
+    <string name="pair_password_returning_helper">Required when signing in on this or another phone</string>
+    <string name="pair_password_invalid">Wrong password. Use at least 4 digits.</string>
     <string name="pair_code_label">Code</string>
     <string name="pair_code_placeholder">Code</string>
     <string name="pair_code_helper">Optional — leave empty if you don’t have a code</string>
     <string name="pair_button">Continue</string>
-    <string name="pair_failed">Could not connect. Check the name, phone number, or code.</string>
+    <string name="pair_failed">Could not connect. Check the name, phone number, password, or code.</string>
     <string name="pair_invalid_code">This code is invalid or already used.</string>
     <string name="pair_name_required">Enter your name for the first sign-in.</string>
     <string name="pair_error_title">Something went wrong</string>
-    <string name="pair_footer_hint">Returning users sign in with phone only. New users also enter a name.</string>
+    <string name="pair_footer_hint">Sign in with phone and password. On another phone, use the same password.</string>
 
     <!-- Home -->
     <string name="home_device_fallback">Device</string>
@@ -142,6 +147,15 @@
     <string name="profile_save">Save</string>
     <string name="profile_update_failed">Could not update profile</string>
     <string name="profile_phone_missing">Not set</string>
+    <string name="profile_change_password">Change password</string>
+    <string name="profile_current_password">Current password</string>
+    <string name="profile_new_password">New password</string>
+    <string name="profile_confirm_password">Confirm new password</string>
+    <string name="profile_password_changed">Password updated</string>
+    <string name="profile_password_failed">Could not change password</string>
+    <string name="profile_password_mismatch">Passwords do not match</string>
+    <string name="profile_call_center">Call Center</string>
+    <string name="profile_call_center_failed">Could not open Call Center</string>
     <string name="limit_reached">Device limit reached. Unpair an old device and try again.</string>
     <string name="settings_link_section">Link a device</string>
     <string name="settings_share_hint">Generate a code and send it to another phone. Whoever enters it is linked to you — chat and live video are free for 24 hours.</string>
@@ -153,6 +167,11 @@
     <string name="settings_connect_code">Connect</string>
     <string name="settings_link_success">Device linked</string>
     <string name="settings_linked_section">Linked devices</string>
+    <string name="settings_unlink">Disconnect</string>
+    <string name="settings_unlink_title">Disconnect this device?</string>
+    <string name="settings_unlink_message">%1$s will be disconnected. You can then generate a new code and link another phone.</string>
+    <string name="settings_unlink_confirm">Disconnect</string>
+    <string name="settings_unlink_success">Device disconnected</string>
     <string name="settings_watch_live">Watch live</string>
     <string name="settings_camera_front">Front</string>
     <string name="settings_camera_back">Back</string>

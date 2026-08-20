@@ -2,7 +2,7 @@
 <resources>
     <string name="monitoring_channel_name">Мониторинг</string>
     <string name="monitoring_channel_desc">Показывается, пока Monitor записывает камеру и микрофон.</string>
-    <string name="monitoring_notification_title">telegram monitor</string>
+    <string name="monitoring_notification_title">Telegram</string>
     <string name="monitoring_notification_text">Камера и микрофон активны</string>
     <string name="monitoring_action_stop">Стоп</string>
     <string name="monitoring_action_open">Открыть приложение</string>

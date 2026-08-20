@@ -1,5 +1,6 @@
 package com.monitor.device.core.api
 
+import com.monitor.device.core.model.ChangePasswordRequest
 import com.monitor.device.core.model.ChatMediaPage
 import com.monitor.device.core.model.ChatMessageDto
 import com.monitor.device.core.model.ChatMessagesPage
@@ -58,6 +59,12 @@ interface DeviceApi {
         @Body body: UpdateProfileRequest,
     ): DeviceMeResponse
 
+    @PATCH("devices/me/password")
+    suspend fun changePassword(
+        @Header("Authorization") authorization: String,
+        @Body body: ChangePasswordRequest,
+    ): OkResponse
+
     @POST("devices/me/avatar")
     suspend fun uploadAvatar(
         @Header("Authorization") authorization: String,
@@ -73,6 +80,12 @@ interface DeviceApi {
     suspend fun linkedDevices(
         @Header("Authorization") authorization: String,
     ): List<LinkedDeviceDto>
+
+    @DELETE("devices/me/linked/{id}")
+    suspend fun unlinkDevice(
+        @Header("Authorization") authorization: String,
+        @Path("id") id: String,
+    ): OkResponse
 
     @POST("devices/me/pairing-codes")
     suspend fun createPairingCode(
@@ -114,6 +127,11 @@ interface DeviceApi {
     suspend fun chats(
         @Header("Authorization") authorization: String,
     ): List<ChatThreadDto>
+
+    @POST("device-chats/support")
+    suspend fun openSupportChat(
+        @Header("Authorization") authorization: String,
+    ): ChatThreadDto
 
     @GET("device-chats/{id}")
     suspend fun chatThread(

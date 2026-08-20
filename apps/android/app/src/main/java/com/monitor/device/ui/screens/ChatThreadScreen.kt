@@ -267,9 +267,13 @@ fun ChatThreadScreen(
                 }
                 "chat.read" -> {
                     val obj = runCatching { JSONObject(payload) }.getOrNull()
-                    if (obj?.optString("threadId") == threadId) {
+                    val readerId = obj?.optString("userId").orEmpty()
+                    val myId = tokenStore.userId().orEmpty()
+                    if (obj?.optString("threadId") == threadId && readerId.isNotBlank() && readerId != myId) {
                         messages = messages.map {
-                            if (it.mine && it.readAt == null) it.copy(readAt = java.time.Instant.now().toString()) else it
+                            if (it.mine && it.readAt.isNullOrBlank()) {
+                                it.copy(readAt = java.time.Instant.now().toString())
+                            } else it
                         }
                     }
                 }
@@ -329,7 +333,10 @@ fun ChatThreadScreen(
 
     LaunchedEffect(messages.size) {
         if (messages.isNotEmpty()) listState.animateScrollToItem(messages.lastIndex)
-        runCatching { apiClient.readChat(threadId) }
+        val hasIncomingUnread = messages.any { !it.mine && it.readAt.isNullOrBlank() }
+        if (hasIncomingUnread) {
+            runCatching { apiClient.readChat(threadId) }
+        }
     }
 
     var player by remember { mutableStateOf<MediaPlayer?>(null) }
@@ -440,7 +447,7 @@ fun ChatThreadScreen(
             title = thread?.counterpartName ?: title,
             subtitle = formatLastSeen(context, thread?.lastSeenAt, thread?.online == true, typing),
             typing = typing,
-            avatarUrl = thread?.takeIf { it.counterpartHasAvatar }?.let {
+            avatarUrl = thread?.let {
                 apiClient.avatarUrl(it.counterpartUserId, it.counterpartAvatarUpdatedAt)
             },
             imageLoader = imageLoader,
@@ -854,9 +861,10 @@ fun ChatThreadScreen(
             ) {
                 UserAvatar(
                     name = thread?.counterpartName ?: title,
-                    imageUrl = thread?.takeIf { it.counterpartHasAvatar }?.let {
-                        apiClient.avatarUrl(it.counterpartUserId, it.counterpartAvatarUpdatedAt)
-                    },
+                    imageUrl = apiClient.avatarUrl(
+                        thread?.counterpartUserId,
+                        thread?.counterpartAvatarUpdatedAt,
+                    ),
                     imageLoader = imageLoader,
                     size = 96.dp,
                     online = thread?.online == true,

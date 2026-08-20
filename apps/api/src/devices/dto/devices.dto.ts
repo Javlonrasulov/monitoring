@@ -47,6 +47,11 @@ export class PairDeviceDto {
   @IsString()
   phone?: string;
 
+  @ApiPropertyOptional({ example: '1234' })
+  @IsOptional()
+  @IsString()
+  password?: string;
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsObject()
@@ -84,6 +89,16 @@ export class UpdateProfileDto {
   @IsOptional()
   @IsString()
   phone?: string;
+}
+
+export class ChangePasswordDto {
+  @ApiProperty({ example: '1234' })
+  @IsString()
+  currentPassword!: string;
+
+  @ApiProperty({ example: '5678' })
+  @IsString()
+  newPassword!: string;
 }
 
 export class DeviceStatusDto {

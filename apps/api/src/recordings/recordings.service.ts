@@ -736,11 +736,11 @@ export class RecordingsService implements OnModuleDestroy {
 
   private cameraOf(json: Prisma.JsonValue | null): CameraFacing {
     if (json && typeof json === 'object' && !Array.isArray(json)) {
-      if ((json as Record<string, unknown>).cameraFacing === 'FRONT') {
-        return CameraFacing.FRONT;
+      if ((json as Record<string, unknown>).cameraFacing === 'BACK') {
+        return CameraFacing.BACK;
       }
     }
-    return CameraFacing.BACK;
+    return CameraFacing.FRONT;
   }
 
   private emit(organizationId: string, payload: Record<string, unknown>) {

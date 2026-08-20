@@ -23,6 +23,7 @@ import { AvatarsService } from '../avatars/avatars.service';
 import {
   EditMessageDto,
   InitUploadDto,
+  OpenSupportDto,
   ReactMessageDto,
   SendMessageDto,
 } from './chats.dto';
@@ -51,6 +52,20 @@ export class ChatsController {
   @Get()
   list(@CurrentUser() user: AdminUser) {
     return this.chats.listForAdmin(user.organizationId, user.userId);
+  }
+
+  @Get('support')
+  listSupport(@CurrentUser() user: AdminUser) {
+    return this.chats.listSupportForAdmin(user.organizationId, user.userId);
+  }
+
+  @Post('support/open')
+  openSupport(@CurrentUser() user: AdminUser, @Body() dto: OpenSupportDto) {
+    return this.chats.openSupportForAdmin(
+      user.organizationId,
+      user.userId,
+      dto.peerUserId,
+    );
   }
 
   @Get('avatars/:userId')
@@ -330,6 +345,16 @@ export class DeviceChatsController {
   @UseGuards(DeviceAuthGuard)
   list(@CurrentDevice() device: DeviceUser) {
     return this.chats.listForDevice(device.organizationId, device.deviceId);
+  }
+
+  @Post('support')
+  @ApiBearerAuth()
+  @UseGuards(DeviceAuthGuard)
+  openSupport(@CurrentDevice() device: DeviceUser) {
+    return this.chats.openSupportForDevice(
+      device.organizationId,
+      device.deviceId,
+    );
   }
 
   @Get('avatars/:userId')

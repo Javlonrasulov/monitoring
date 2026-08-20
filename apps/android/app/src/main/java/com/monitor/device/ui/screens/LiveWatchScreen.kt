@@ -59,9 +59,10 @@ fun LiveWatchScreen(
     var renderer by remember { mutableStateOf<SurfaceViewRenderer?>(null) }
     var status by remember { mutableStateOf("") }
     var facing by remember {
-        mutableStateOf(CameraFacing.from(initialFacing) ?: CameraFacing.BACK)
+        mutableStateOf(CameraFacing.from(initialFacing) ?: CameraFacing.FRONT)
     }
     var cameraBusy by remember { mutableStateOf(false) }
+    var watchGeneration by remember { mutableStateOf(0) }
     val waiting = stringResource(R.string.settings_watch_waiting)
     val failed = stringResource(R.string.settings_watch_failed)
     val notPublishing = stringResource(R.string.settings_watch_not_publishing)
@@ -69,11 +70,12 @@ fun LiveWatchScreen(
     val frontLabel = stringResource(R.string.settings_camera_front)
     val backLabel = stringResource(R.string.settings_camera_back)
 
-    LaunchedEffect(deviceId, renderer) {
+    LaunchedEffect(deviceId, renderer, watchGeneration) {
         val view = renderer ?: return@LaunchedEffect
         status = waiting
+        runCatching { viewer.stop() }
         var lastError: Throwable? = null
-        repeat(4) { attempt ->
+        repeat(6) { attempt ->
             runCatching {
                 val token = apiClient.deviceViewerToken(deviceId)
                 if (token.videoEnabled == false) {
@@ -99,11 +101,15 @@ fun LiveWatchScreen(
     BackHandler { onBack() }
 
     fun setFacing(next: CameraFacing) {
-        if (cameraBusy || next == facing) return
+        if (cameraBusy) return
         cameraBusy = true
         scope.launch {
             runCatching { apiClient.setLinkedCamera(deviceId, next.name) }
-                .onSuccess { facing = CameraFacing.from(it.cameraFacing) ?: next }
+                .onSuccess {
+                    facing = CameraFacing.from(it.cameraFacing) ?: next
+                    delay(2_500)
+                    watchGeneration += 1
+                }
                 .onFailure { status = DeviceApiClient.errorMessage(it, failed) }
             cameraBusy = false
         }

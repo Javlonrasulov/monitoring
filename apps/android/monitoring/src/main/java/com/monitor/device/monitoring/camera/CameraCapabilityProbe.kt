@@ -62,10 +62,10 @@ class CameraCapabilityProbe(context: Context) {
     }
 
     /**
-     * Prefers back camera with the largest supported YUV size under [maxWidth]x[maxHeight].
+     * Prefers front camera with the largest supported YUV size under [maxWidth]x[maxHeight].
      */
     fun selectBestCamera(
-        preferFacing: LensFacing = LensFacing.BACK,
+        preferFacing: LensFacing = LensFacing.FRONT,
         maxWidth: Int = 1920,
         maxHeight: Int = 1080,
     ): CameraInfo? {
@@ -80,22 +80,34 @@ class CameraCapabilityProbe(context: Context) {
     }
 
     /**
-     * Returns a camera id for [facing] only — never falls back to the other lens.
-     * Smallest numeric id is the physical sensor on Samsung (0 back, 1 front).
+     * Camera ids for [facing] only — never falls back to the other lens.
+     * Front prefers id "1" (typical Samsung selfie), then other front sensors.
+     * Back prefers the smallest id (usually "0").
      */
-    fun pickCameraId(facing: LensFacing): String? {
+    fun pickCameraIds(facing: LensFacing): List<String> {
         val cameras = discoverCameras().filter { it.lensFacing == facing }
         if (cameras.isEmpty()) {
             android.util.Log.w(TAG, "No $facing camera reported by CameraManager")
-            return null
+            return emptyList()
         }
-        val chosen = cameras.minByOrNull { it.cameraId.toIntOrNull() ?: Int.MAX_VALUE }
+        val sorted = if (facing == LensFacing.FRONT) {
+            cameras.sortedWith(
+                compareBy(
+                    { if (it.cameraId == "1") 0 else 1 },
+                    { it.cameraId.toIntOrNull() ?: Int.MAX_VALUE },
+                ),
+            )
+        } else {
+            cameras.sortedBy { it.cameraId.toIntOrNull() ?: Int.MAX_VALUE }
+        }
         android.util.Log.i(
             TAG,
-            "Picked camera id=${chosen?.cameraId} facing=$facing from ${cameras.map { it.cameraId }}",
+            "Picked $facing cameras ${sorted.map { it.cameraId }}",
         )
-        return chosen?.cameraId
+        return sorted.map { it.cameraId }
     }
+
+    fun pickCameraId(facing: LensFacing): String? = pickCameraIds(facing).firstOrNull()
 
     companion object {
         private const val TAG = "CameraProbe"

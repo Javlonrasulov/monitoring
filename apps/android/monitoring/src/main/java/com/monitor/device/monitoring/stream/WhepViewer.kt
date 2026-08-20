@@ -187,11 +187,12 @@ class WhepViewer(
         runCatching { peerConnection?.close() }
         peerConnection = null
         if (!keepFactory) {
+            runCatching { renderer?.release() }
+            renderer = null
             runCatching { factory?.dispose() }
             factory = null
             runCatching { eglBase?.release() }
             eglBase = null
-            renderer = null
         }
     }
 

@@ -80,6 +80,7 @@ export class DevicesService {
       id: device.id,
       status: device.status,
       cameraFacing: this.cameraFacingOf(device.capabilitiesJson),
+      cameraFacingRev: this.cameraFacingRevOf(device.capabilitiesJson),
       userId: user?.id ?? null,
       name: user?.name ?? device.name,
       phone: user?.phone ?? null,
@@ -154,6 +155,36 @@ export class DevicesService {
     return this.getMe(deviceId, organizationId);
   }
 
+  async changePassword(
+    deviceId: string,
+    organizationId: string,
+    dto: { currentPassword: string; newPassword: string },
+  ) {
+    const user = await this.prisma.user.findFirst({
+      where: { deviceId, organizationId },
+    });
+    if (!user) {
+      throw new ForbiddenException('No user account for this device');
+    }
+    const current = this.parseAppPin(dto.currentPassword);
+    const next = this.parseAppPin(dto.newPassword);
+    if (current === next) {
+      throw new BadRequestException('Choose a different password');
+    }
+    const matches = await bcrypt.compare(current, user.passwordHash);
+    if (!matches) {
+      throw new BadRequestException('Invalid password');
+    }
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        passwordHash: await bcrypt.hash(next, 10),
+        appPinSet: true,
+      },
+    });
+    return { ok: true };
+  }
+
   async setCameraFacing(
     organizationId: string,
     userId: string,
@@ -167,13 +198,17 @@ export class DevicesService {
       throw new NotFoundException('Device not found');
     }
 
+    const caps = this.capabilitiesRecord(device.capabilitiesJson);
+    const rev = Number(caps.cameraFacingRev);
+    const updatedCaps = {
+      ...caps,
+      cameraFacing: facing,
+      cameraFacingRev: (Number.isFinite(rev) ? rev : 0) + 1,
+    };
     const updated = await this.prisma.device.update({
       where: { id: device.id },
       data: {
-        capabilitiesJson: {
-          ...this.capabilitiesRecord(device.capabilitiesJson),
-          cameraFacing: facing,
-        } as Prisma.InputJsonValue,
+        capabilitiesJson: updatedCaps as Prisma.InputJsonValue,
       },
       include: { branch: true },
     });
@@ -281,6 +316,32 @@ export class DevicesService {
     );
   }
 
+  async unlinkLinkedDevice(
+    viewerDeviceId: string,
+    organizationId: string,
+    targetDeviceId: string,
+  ) {
+    const target = await this.prisma.device.findFirst({
+      where: {
+        id: targetDeviceId,
+        organizationId,
+        linkedFromDeviceId: viewerDeviceId,
+      },
+    });
+    if (!target) {
+      throw new ForbiddenException('Device is not linked to this account');
+    }
+    const viewerUser = await this.prisma.user.findFirst({
+      where: { deviceId: viewerDeviceId, organizationId },
+      select: { id: true },
+    });
+    return this.deleteDevice(
+      organizationId,
+      viewerUser?.id ?? '',
+      target.id,
+    );
+  }
+
   async linkExistingDevice(
     deviceId: string,
     organizationId: string,
@@ -357,7 +418,9 @@ export class DevicesService {
       return this.pairByPhone(phone, dto);
     }
 
+    const pin = this.parseAppPin(dto.password);
     const pairing = await this.findUsablePairing(code);
+    await this.assertPairingPassword(pairing, phone, pin);
 
     if (pairing.issuerDeviceId) {
       await this.assertCanAcceptDeviceInvite(pairing.issuerDeviceId);
@@ -473,9 +536,11 @@ export class DevicesService {
   }
 
   private async pairByPhone(phone: string, dto: PairDeviceDto) {
+    const pin = this.parseAppPin(dto.password);
     const existing = await this.findUserByPhone(phone);
 
     if (existing?.device && !existing.device.disabled) {
+      await this.assertOrSetAppPin(existing, pin);
       return this.issueDeviceSession(existing.device, existing.id, dto);
     }
     if (existing?.device?.disabled) {
@@ -507,7 +572,29 @@ export class DevicesService {
       return { exists: false };
     }
     const existing = await this.findUserByPhone(phone);
-    return { exists: Boolean(existing) };
+    return { exists: Boolean(existing), requiresPassword: Boolean(existing) };
+  }
+
+  private async assertPairingPassword(
+    pairing: { issuerUserId: string | null },
+    phone: string | null,
+    pin: string,
+  ) {
+    if (pairing.issuerUserId) {
+      const owner = await this.prisma.user.findUnique({
+        where: { id: pairing.issuerUserId },
+      });
+      if (owner) {
+        await this.assertOrSetAppPin(owner, pin);
+        return;
+      }
+    }
+    if (phone) {
+      const existing = await this.findUserByPhone(phone);
+      if (existing) {
+        await this.assertOrSetAppPin(existing, pin);
+      }
+    }
   }
 
   private async findUserByPhone(phone: string) {
@@ -571,8 +658,13 @@ export class DevicesService {
           status: DeviceStatus.ONLINE,
           lastSeen: new Date(),
           apiKeyHash,
-          capabilitiesJson: (params.dto.capabilities ??
-            {}) as Prisma.InputJsonValue,
+          capabilitiesJson: {
+            ...this.capabilitiesRecord(
+              (params.dto.capabilities ?? {}) as Prisma.JsonValue,
+            ),
+            cameraFacing: 'FRONT',
+            cameraFacingRev: 1,
+          } as Prisma.InputJsonValue,
           appVersion: params.dto.appVersion,
           androidVersion: params.dto.androidVersion,
           deviceModel: params.dto.deviceModel,
@@ -606,7 +698,13 @@ export class DevicesService {
             email: params.phone
               ? `user-${params.phone}@device.local`
               : `user-${device.id}@device.local`,
-            passwordHash: await bcrypt.hash(randomBytes(16).toString('hex'), 10),
+            passwordHash: await bcrypt.hash(
+              params.dto.password
+                ? this.parseAppPin(params.dto.password)
+                : randomBytes(16).toString('hex'),
+              10,
+            ),
+            appPinSet: Boolean(params.dto.password),
             name: params.displayName,
             username: params.displayName,
             phone: params.phone,
@@ -718,6 +816,36 @@ export class DevicesService {
     );
   }
 
+  private parseAppPin(value?: string | null): string {
+    const pin = (value ?? '').trim();
+    if (!/^\d{4,12}$/.test(pin)) {
+      throw new BadRequestException(
+        'Password must be at least 4 digits',
+      );
+    }
+    return pin;
+  }
+
+  private async assertOrSetAppPin(
+    user: { id: string; passwordHash: string; appPinSet: boolean },
+    pin: string,
+  ) {
+    if (!user.appPinSet) {
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: {
+          passwordHash: await bcrypt.hash(pin, 10),
+          appPinSet: true,
+        },
+      });
+      return;
+    }
+    const matches = await bcrypt.compare(pin, user.passwordHash);
+    if (!matches) {
+      throw new BadRequestException('Invalid password');
+    }
+  }
+
   private normalizePhone(value?: string | null): string | null {
     if (!value) return null;
     const digits = value.replace(/\D/g, '');
@@ -764,7 +892,7 @@ export class DevicesService {
 
     await this.audit.log({
       organizationId,
-      userId,
+      userId: userId || undefined,
       action: 'device.deleted',
       resourceType: 'Device',
       resourceId: device.id,
@@ -1002,9 +1130,16 @@ export class DevicesService {
   private cameraFacingOf(
     json: Prisma.JsonValue | null | undefined,
   ): 'FRONT' | 'BACK' {
-    return this.capabilitiesRecord(json).cameraFacing === 'FRONT'
-      ? 'FRONT'
-      : 'BACK';
+    return this.capabilitiesRecord(json).cameraFacing === 'BACK'
+      ? 'BACK'
+      : 'FRONT';
+  }
+
+  private cameraFacingRevOf(
+    json: Prisma.JsonValue | null | undefined,
+  ): number {
+    const rev = Number(this.capabilitiesRecord(json).cameraFacingRev);
+    return Number.isFinite(rev) ? rev : 0;
   }
 
   private withCameraFacing<
@@ -1013,6 +1148,7 @@ export class DevicesService {
     return {
       ...device,
       cameraFacing: this.cameraFacingOf(device.capabilitiesJson),
+      cameraFacingRev: this.cameraFacingRevOf(device.capabilitiesJson),
     };
   }
 }

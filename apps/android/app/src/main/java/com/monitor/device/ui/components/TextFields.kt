@@ -39,6 +39,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.monitor.device.ui.theme.MonitorTheme
 import com.monitor.device.ui.theme.Sizing
@@ -63,6 +64,7 @@ fun MonitorTextField(
     enabled: Boolean = true,
     leadingIcon: ImageVector? = null,
     textStyle: TextStyle = MaterialTheme.typography.titleMedium,
+    visualTransformation: VisualTransformation = VisualTransformation.None,
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
     keyboardActions: KeyboardActions = KeyboardActions.Default,
 ) {
@@ -136,6 +138,7 @@ fun MonitorTextField(
                         interactionSource = interaction,
                         keyboardOptions = keyboardOptions,
                         keyboardActions = keyboardActions,
+                        visualTransformation = visualTransformation,
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }

@@ -33,6 +33,7 @@ fun MainTabsScreen(
     apiClient: DeviceApiClient,
     tokenStore: TokenStore,
     onOpenChat: (String, String) -> Unit,
+    onOpenCallCenter: (String, String) -> Unit,
     onUnpaired: () -> Unit,
     onWatchDevice: (String, String, String?) -> Unit,
 ) {
@@ -73,6 +74,7 @@ fun MainTabsScreen(
                     apiClient = apiClient,
                     tokenStore = tokenStore,
                     onUnpair = onUnpaired,
+                    onOpenCallCenter = onOpenCallCenter,
                 )
             }
         }

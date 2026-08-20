@@ -20,6 +20,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Link
+import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Phone
 import androidx.compose.material.icons.rounded.Shield
@@ -44,6 +45,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.monitor.device.BuildConfig
 import com.monitor.device.R
@@ -69,6 +71,7 @@ fun PairingScreen(
     var displayName by remember { mutableStateOf("") }
     var code by remember { mutableStateOf("") }
     var phone by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
     var loading by remember { mutableStateOf(false) }
     var knownAccount by remember { mutableStateOf<Boolean?>(null) }
     val error: MutableState<String?> = remember { mutableStateOf(null) }
@@ -81,10 +84,13 @@ fun PairingScreen(
     val limitMessage = stringResource(R.string.limit_reached)
     val invalidCode = stringResource(R.string.pair_invalid_code)
     val nameRequired = stringResource(R.string.pair_name_required)
+    val badPassword = stringResource(R.string.pair_password_invalid)
     val phoneDigits = phone.filter { it.isDigit() }
+    val pinOk = password.length >= 4 && password.all { it.isDigit() }
     val returningUser = knownAccount == true
     val canSubmit = !loading &&
         phoneDigits.length >= 9 &&
+        pinOk &&
         (returningUser || displayName.isNotBlank())
 
     LaunchedEffect(phoneDigits) {
@@ -111,6 +117,7 @@ fun PairingScreen(
                         code = code.replace("MONITOR:", "", ignoreCase = true).trim(),
                         name = if (returningUser) "" else displayName.trim(),
                         phone = phone.trim().ifBlank { null },
+                        password = password,
                         appVersion = BuildConfig.VERSION_NAME,
                         androidVersion = Build.VERSION.RELEASE,
                         deviceModel = "${Build.MANUFACTURER} ${Build.MODEL}",
@@ -126,6 +133,8 @@ fun PairingScreen(
                     api.contains("limit", ignoreCase = true) -> limitMessage
                     api.contains("Invalid pairing", ignoreCase = true) -> invalidCode
                     api.contains("Name is required", ignoreCase = true) -> nameRequired
+                    api.contains("Invalid password", ignoreCase = true) ||
+                        api.contains("at least 4 digits", ignoreCase = true) -> badPassword
                     api.contains("Subscription", ignoreCase = true) -> api
                     else -> failureMessage
                 }
@@ -191,7 +200,33 @@ fun PairingScreen(
                 ),
                 keyboardActions = KeyboardActions(
                     onNext = { focusManager.moveFocus(FocusDirection.Down) },
-                    onDone = { submit() },
+                ),
+            )
+
+            Spacer(modifier = Modifier.size(Spacing.md))
+
+            MonitorTextField(
+                value = password,
+                onValueChange = {
+                    password = it.filter { ch -> ch.isDigit() }.take(12)
+                    if (error.value != null) error.value = null
+                },
+                label = stringResource(R.string.pair_password_label),
+                placeholder = stringResource(R.string.pair_password_placeholder),
+                helperText = if (returningUser) {
+                    stringResource(R.string.pair_password_returning_helper)
+                } else {
+                    stringResource(R.string.pair_password_helper)
+                },
+                enabled = !loading,
+                leadingIcon = Icons.Rounded.Lock,
+                visualTransformation = PasswordVisualTransformation(),
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.NumberPassword,
+                    imeAction = ImeAction.Next,
+                ),
+                keyboardActions = KeyboardActions(
+                    onNext = { focusManager.moveFocus(FocusDirection.Down) },
                 ),
             )
 

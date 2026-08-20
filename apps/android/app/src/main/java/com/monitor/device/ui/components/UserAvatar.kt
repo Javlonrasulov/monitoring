@@ -61,6 +61,11 @@ fun UserAvatar(
                 .background(MaterialTheme.colorScheme.primary),
             contentAlignment = Alignment.Center,
         ) {
+            Text(
+                name.trim().take(1).uppercase().ifBlank { "?" },
+                color = Color.White,
+                fontWeight = FontWeight.Bold,
+            )
             if (!imageUrl.isNullOrBlank()) {
                 AsyncImage(
                     model = ImageRequest.Builder(context)
@@ -71,12 +76,6 @@ fun UserAvatar(
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.size(size).clip(CircleShape),
-                )
-            } else {
-                Text(
-                    name.trim().take(1).uppercase().ifBlank { "?" },
-                    color = Color.White,
-                    fontWeight = FontWeight.Bold,
                 )
             }
         }

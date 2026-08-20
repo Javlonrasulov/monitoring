@@ -112,10 +112,39 @@ fun MessageBubble(
     val deleted = message.deletedForEveryone
     val type = message.messageType.orEmpty()
 
+    val isRoundVideo = !deleted && type == "VIDEO_NOTE"
+
     Column(
         modifier = modifier.widthIn(max = 300.dp),
         horizontalAlignment = if (mine) Alignment.End else Alignment.Start,
     ) {
+        if (isRoundVideo) {
+            message.replyTo?.let { reply ->
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(bubble)
+                        .clickable { reply.id?.let(onReplyClick) }
+                        .padding(horizontal = 8.dp, vertical = 6.dp),
+                ) {
+                    Text(
+                        reply.fileName ?: reply.text?.take(80) ?: reply.messageType.orEmpty(),
+                        color = onBubble,
+                        fontSize = 12.sp,
+                        maxLines = 2,
+                    )
+                }
+                Spacer(Modifier.height(6.dp))
+            }
+            VideoNoteBubble(
+                message = message,
+                apiClient = apiClient,
+                threadId = threadId,
+                playingId = playingId,
+                mine = mine,
+                onPlayToggle = onPlayToggle,
+            )
+        } else {
         Box(
             modifier = Modifier
                 .clip(shape)
@@ -150,7 +179,6 @@ fun MessageBubble(
                     deleted -> Text(stringResource(R.string.chat_message_deleted), color = muted, fontSize = 14.sp)
                     type == "IMAGE" -> MediaImage(message, apiClient, imageLoader, threadId, onOpenMedia)
                     type == "VIDEO" -> VideoThumb(message, apiClient, imageLoader, threadId, onOpenMedia, muted, onBubble)
-                    type == "VIDEO_NOTE" -> VideoNoteBubble(message, apiClient, threadId, playingId, onPlayToggle)
                     type == "VOICE" -> VoiceBubble(
                         message = message,
                         playing = playingId == message.id && !voicePaused,
@@ -188,6 +216,7 @@ fun MessageBubble(
                     }
                 }
             }
+        }
         }
         if (message.localStatus == "failed") {
             Row(
@@ -321,12 +350,13 @@ private fun VideoNoteBubble(
     apiClient: DeviceApiClient,
     threadId: String,
     playingId: String?,
+    mine: Boolean,
     onPlayToggle: (ChatMessageDto) -> Unit,
 ) {
     val playing = playingId == message.id
     Box(
         modifier = Modifier
-            .size(168.dp)
+            .size(196.dp)
             .clip(CircleShape)
             .background(Color.Black)
             .clickable { onPlayToggle(message) },
@@ -338,11 +368,22 @@ private fun VideoNoteBubble(
             AndroidView(
                 factory = { context ->
                     VideoView(context).apply {
+                        clipToOutline = true
+                        outlineProvider = object : android.view.ViewOutlineProvider() {
+                            override fun getOutline(view: android.view.View, outline: android.graphics.Outline) {
+                                outline.setOval(0, 0, view.width, view.height)
+                            }
+                        }
                         setVideoURI(Uri.parse(url), mapOf("Authorization" to auth))
-                        setOnPreparedListener { it.isLooping = true; start() }
+                        setOnPreparedListener { player ->
+                            player.isLooping = true
+                            start()
+                        }
                     }
                 },
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(CircleShape),
             )
         } else {
             Icon(Icons.Rounded.Videocam, contentDescription = null, tint = Color.White, modifier = Modifier.size(36.dp))
@@ -351,8 +392,20 @@ private fun VideoNoteBubble(
             formatDuration(message.durationMs),
             color = Color.White,
             fontSize = 11.sp,
-            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 12.dp),
+            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 28.dp),
         )
+        Row(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(formatClock(message.createdAt), color = Color.White.copy(alpha = 0.9f), fontSize = 11.sp)
+            if (mine) {
+                Spacer(Modifier.width(2.dp))
+                ReadReceipt(message, Color.White.copy(alpha = 0.9f))
+            }
+        }
     }
 }
 
@@ -492,7 +545,7 @@ private fun FileBubble(
 
 @Composable
 private fun ReadReceipt(message: ChatMessageDto, muted: Color) {
-    val read = message.readAt != null
+    val read = !message.readAt.isNullOrBlank()
     Icon(
         imageVector = when {
             message.localStatus == "sending" -> Icons.Rounded.Schedule

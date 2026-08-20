@@ -8,6 +8,7 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { ChatMessageType } from '../generated/prisma';
 
@@ -108,3 +109,9 @@ export class InitUploadDto {
 }
 
 export const ALLOWED_REACTIONS = ['👍', '❤️', '😂', '🔥', '😮', '🤝', '😢', '🎉'];
+
+export class OpenSupportDto {
+  @ApiProperty()
+  @IsString()
+  peerUserId!: string;
+}

@@ -2,7 +2,6 @@ package com.monitor.device.ui.screens
 
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -17,6 +16,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CameraAlt
+import androidx.compose.material.icons.rounded.HeadsetMic
+import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Phone
@@ -42,6 +43,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.monitor.device.R
 import com.monitor.device.core.api.DeviceApiClient
@@ -51,6 +53,7 @@ import com.monitor.device.core.model.SubscriptionDto
 import com.monitor.device.ui.chat.compressAvatar
 import com.monitor.device.ui.components.InfoRow
 import com.monitor.device.ui.components.MonitorCard
+import com.monitor.device.ui.components.PrimaryButton
 import com.monitor.device.ui.components.ScreenContainer
 import com.monitor.device.ui.components.SecondaryButton
 import com.monitor.device.ui.components.SectionHeader
@@ -69,6 +72,7 @@ fun ProfileScreen(
     apiClient: DeviceApiClient,
     tokenStore: TokenStore,
     onUnpair: () -> Unit,
+    onOpenCallCenter: (threadId: String, title: String) -> Unit,
 ) {
     val colors = MonitorTheme.colors
     val context = LocalContext.current
@@ -82,6 +86,10 @@ fun ProfileScreen(
     var phone by remember { mutableStateOf("") }
     var editing by remember { mutableStateOf<String?>(null) }
     var draft by remember { mutableStateOf("") }
+    var currentPassword by remember { mutableStateOf("") }
+    var newPassword by remember { mutableStateOf("") }
+    var confirmPassword by remember { mutableStateOf("") }
+    var callCenterBusy by remember { mutableStateOf(false) }
 
     fun applyMe(me: DeviceMeResponse) {
         userId = me.userId ?: tokenStore.userId()
@@ -98,7 +106,7 @@ fun ProfileScreen(
     }
 
     val picker = rememberLauncherForActivityResult(
-        ActivityResultContracts.PickVisualMedia(),
+        ActivityResultContracts.GetContent(),
     ) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
         scope.launch {
@@ -108,11 +116,15 @@ fun ProfileScreen(
             }.onSuccess(::applyMe).onFailure {
                 Toast.makeText(
                     context,
-                    context.getString(R.string.profile_photo_failed),
-                    Toast.LENGTH_SHORT,
+                    DeviceApiClient.errorMessage(it, context.getString(R.string.profile_photo_failed)),
+                    Toast.LENGTH_LONG,
                 ).show()
             }
         }
+    }
+
+    fun openPhotoPicker() {
+        picker.launch("image/*")
     }
 
     val active = sub?.active == true
@@ -125,11 +137,7 @@ fun ProfileScreen(
         ) {
             Box(
                 modifier = Modifier.combinedClickable(
-                    onClick = {
-                        picker.launch(
-                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
-                        )
-                    },
+                    onClick = { openPhotoPicker() },
                     onLongClick = {
                         if (!hasAvatar) return@combinedClickable
                         scope.launch {
@@ -179,7 +187,8 @@ fun ProfileScreen(
                     if (hasAvatar) R.string.profile_change_photo else R.string.profile_set_photo,
                 ),
                 style = MaterialTheme.typography.bodyMedium,
-                color = colors.textMuted,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.clickable { openPhotoPicker() },
             )
         }
 
@@ -203,7 +212,48 @@ fun ProfileScreen(
                     editing = "phone"
                 },
             )
+            InfoRow(
+                stringResource(R.string.profile_change_password),
+                stringResource(R.string.profile_edit),
+                icon = Icons.Rounded.Lock,
+                modifier = Modifier.clickable {
+                    currentPassword = ""
+                    newPassword = ""
+                    confirmPassword = ""
+                    editing = "password"
+                },
+            )
         }
+
+        Spacer(modifier = Modifier.size(Spacing.md))
+        PrimaryButton(
+            text = stringResource(R.string.profile_call_center),
+            onClick = {
+                if (callCenterBusy) return@PrimaryButton
+                callCenterBusy = true
+                scope.launch {
+                    runCatching { apiClient.openSupportChat() }
+                        .onSuccess { thread ->
+                            callCenterBusy = false
+                            onOpenCallCenter(
+                                thread.id,
+                                context.getString(R.string.profile_call_center),
+                            )
+                        }
+                        .onFailure {
+                            callCenterBusy = false
+                            Toast.makeText(
+                                context,
+                                context.getString(R.string.profile_call_center_failed),
+                                Toast.LENGTH_SHORT,
+                            ).show()
+                        }
+                }
+            },
+            enabled = !callCenterBusy,
+            loading = callCenterBusy,
+            icon = Icons.Rounded.HeadsetMic,
+        )
 
         Spacer(modifier = Modifier.size(Spacing.lg))
         SectionHeader(
@@ -258,7 +308,82 @@ fun ProfileScreen(
     }
 
     val field = editing
-    if (field != null) {
+    if (field == "password") {
+        AlertDialog(
+            onDismissRequest = { editing = null },
+            title = { Text(stringResource(R.string.profile_change_password)) },
+            text = {
+                Column {
+                    OutlinedTextField(
+                        value = currentPassword,
+                        onValueChange = { currentPassword = it },
+                        label = { Text(stringResource(R.string.profile_current_password)) },
+                        singleLine = true,
+                        visualTransformation = PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                    )
+                    Spacer(modifier = Modifier.size(Spacing.sm))
+                    OutlinedTextField(
+                        value = newPassword,
+                        onValueChange = { newPassword = it },
+                        label = { Text(stringResource(R.string.profile_new_password)) },
+                        singleLine = true,
+                        visualTransformation = PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                    )
+                    Spacer(modifier = Modifier.size(Spacing.sm))
+                    OutlinedTextField(
+                        value = confirmPassword,
+                        onValueChange = { confirmPassword = it },
+                        label = { Text(stringResource(R.string.profile_confirm_password)) },
+                        singleLine = true,
+                        visualTransformation = PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        if (newPassword != confirmPassword) {
+                            Toast.makeText(
+                                context,
+                                context.getString(R.string.profile_password_mismatch),
+                                Toast.LENGTH_SHORT,
+                            ).show()
+                            return@TextButton
+                        }
+                        scope.launch {
+                            runCatching {
+                                apiClient.changePassword(currentPassword, newPassword)
+                            }.onSuccess {
+                                editing = null
+                                Toast.makeText(
+                                    context,
+                                    context.getString(R.string.profile_password_changed),
+                                    Toast.LENGTH_SHORT,
+                                ).show()
+                            }.onFailure {
+                                Toast.makeText(
+                                    context,
+                                    DeviceApiClient.errorMessage(
+                                        it,
+                                        context.getString(R.string.profile_password_failed),
+                                    ),
+                                    Toast.LENGTH_LONG,
+                                ).show()
+                            }
+                        }
+                    },
+                ) { Text(stringResource(R.string.profile_save)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { editing = null }) {
+                    Text(stringResource(R.string.common_cancel))
+                }
+            },
+        )
+    } else if (field != null) {
         AlertDialog(
             onDismissRequest = { editing = null },
             title = {

@@ -4,17 +4,26 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { ChatMessageType, Prisma, UserRole } from '../generated/prisma';
+import {
+  ChatMessageType,
+  ChatThreadKind,
+  Prisma,
+  UserRole,
+} from '../generated/prisma';
+import * as bcrypt from 'bcrypt';
+import { randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { ChatGateway } from './chat.gateway';
 import { ChatStorageService } from './chat-storage.service';
 import { ALLOWED_REACTIONS, InitUploadDto } from './chats.dto';
 import type { Request, Response } from 'express';
-import { randomUUID } from 'crypto';
 import { seesAllOrganizations } from '../auth/platform-org';
 
 const URL_RE = /https?:\/\/[^\s]+/i;
+const CALL_CENTER_NAME = 'Call Center';
+const SUPPORT_WELCOME =
+  'Welcome to Call Center support. Please describe your issue in detail and attach screenshots or photos if helpful. Our team will reply as soon as possible.';
 
 type ThreadRow = {
   id: string;
@@ -22,7 +31,26 @@ type ThreadRow = {
   ownerUserId: string;
   peerUserId: string;
   deviceId: string | null;
+  kind?: ChatThreadKind;
 };
+
+const threadUserSelect = {
+  id: true,
+  name: true,
+  email: true,
+  role: true,
+  lastSeenAt: true,
+  avatarKey: true,
+  avatarUpdatedAt: true,
+  phone: true,
+  deviceId: true,
+} as const;
+
+const threadInclude = {
+  owner: { select: threadUserSelect },
+  peer: { select: threadUserSelect },
+  device: { select: { id: true, name: true, status: true, lastSeen: true } },
+} as const;
 
 type MessageInclude = Prisma.ChatMessageGetPayload<{
   include: {
@@ -88,14 +116,10 @@ export class ChatsService {
 
   async listForAdmin(organizationId: string, userId: string) {
     const threads = await this.prisma.chatThread.findMany({
-      where: seesAllOrganizations(organizationId) ? {} : { organizationId },
-      include: {
-        owner: { select: { id: true, name: true, email: true, role: true, lastSeenAt: true, avatarKey: true, avatarUpdatedAt: true, phone: true } },
-        peer: {
-          select: { id: true, name: true, email: true, role: true, deviceId: true, lastSeenAt: true, avatarKey: true, avatarUpdatedAt: true, phone: true },
-        },
-        device: { select: { id: true, name: true, status: true, lastSeen: true } },
-      },
+      where: seesAllOrganizations(organizationId)
+        ? { kind: ChatThreadKind.PEER }
+        : { organizationId, kind: ChatThreadKind.PEER },
+      include: threadInclude,
       orderBy: { lastMessageAt: 'desc' },
     });
     const unread = await this.unreadMap(
@@ -140,6 +164,7 @@ export class ChatsService {
       viewer.id,
     );
     return threads
+      .filter((thread) => thread.kind !== ChatThreadKind.SUPPORT)
       .filter((thread) => {
         const counterpart =
           thread.owner.id === viewer.id ? thread.peer : thread.owner;
@@ -148,6 +173,79 @@ export class ChatsService {
       .map((thread) =>
         this.presentThread(thread, viewer.id, unread.get(thread.id) ?? 0, false),
       );
+  }
+
+  async listSupportForAdmin(organizationId: string, userId: string) {
+    const threads = await this.prisma.chatThread.findMany({
+      where: seesAllOrganizations(organizationId)
+        ? { kind: ChatThreadKind.SUPPORT }
+        : { organizationId, kind: ChatThreadKind.SUPPORT },
+      include: threadInclude,
+      orderBy: { lastMessageAt: 'desc' },
+    });
+    const unread = await this.unreadMap(
+      threads.map((t) => t.id),
+      userId,
+    );
+    await this.audit.log({
+      organizationId,
+      userId,
+      action: 'chat.support_list_viewed',
+      resourceType: 'ChatThread',
+    });
+    return threads.map((thread) =>
+      this.presentThread(thread, userId, unread.get(thread.id) ?? 0, true),
+    );
+  }
+
+  async openSupportForDevice(organizationId: string, deviceId: string) {
+    const customer = await this.deviceUser(organizationId, deviceId);
+    const thread = await this.ensureSupportThread(
+      organizationId,
+      customer.id,
+      deviceId,
+    );
+    const count = await this.prisma.chatMessage.count({
+      where: { threadId: thread.id },
+    });
+    if (count === 0) {
+      await this.appendSystemMessage(thread, SUPPORT_WELCOME, customer.id);
+    }
+    const unread = await this.unreadMap([thread.id], customer.id);
+    return this.presentThread(thread, customer.id, unread.get(thread.id) ?? 0, false);
+  }
+
+  async openSupportForAdmin(
+    organizationId: string,
+    adminUserId: string,
+    peerUserId: string,
+  ) {
+    const customer = await this.prisma.user.findFirst({
+      where: seesAllOrganizations(organizationId)
+        ? { id: peerUserId, role: UserRole.USER, deviceId: { not: null } }
+        : {
+            id: peerUserId,
+            organizationId,
+            role: UserRole.USER,
+            deviceId: { not: null },
+          },
+    });
+    if (!customer?.deviceId) {
+      throw new NotFoundException('App user not found');
+    }
+    const thread = await this.ensureSupportThread(
+      customer.organizationId,
+      customer.id,
+      customer.deviceId,
+    );
+    const count = await this.prisma.chatMessage.count({
+      where: { threadId: thread.id },
+    });
+    if (count === 0) {
+      await this.appendSystemMessage(thread, SUPPORT_WELCOME, customer.id);
+    }
+    const unread = await this.unreadMap([thread.id], adminUserId);
+    return this.presentThread(thread, adminUserId, unread.get(thread.id) ?? 0, true);
   }
 
   async threadForAdmin(organizationId: string, userId: string, threadId: string) {
@@ -682,7 +780,7 @@ export class ChatsService {
     } else {
       await this.assertThread(organizationId, threadId);
     }
-    await this.prisma.chatMessage.updateMany({
+    const updated = await this.prisma.chatMessage.updateMany({
       where: {
         threadId,
         readAt: null,
@@ -694,10 +792,12 @@ export class ChatsService {
       where: { id: viewerUserId },
       data: { lastSeenAt: new Date() },
     });
-    this.chatGateway.emitToOrg(organizationId, 'chat.read', {
-      threadId,
-      userId: viewerUserId,
-    });
+    if (updated.count > 0) {
+      this.chatGateway.emitToOrg(organizationId, 'chat.read', {
+        threadId,
+        userId: viewerUserId,
+      });
+    }
     return { ok: true };
   }
 
@@ -903,6 +1003,7 @@ export class ChatsService {
         : null,
       reactions: this.groupReactions(item.reactions, viewerUserId),
       mine: item.senderUserId === viewerUserId,
+      system: item.senderUserId == null,
     };
   }
 
@@ -933,6 +1034,7 @@ export class ChatsService {
   private presentThread(
     thread: {
       id: string;
+      kind?: ChatThreadKind;
       lastMessageAt: Date | null;
       lastMessagePreview: string | null;
       owner: {
@@ -962,8 +1064,11 @@ export class ChatsService {
     unreadCount: number,
     audit: boolean,
   ) {
-    const counterpart =
+    let counterpart =
       thread.owner.id === viewerUserId ? thread.peer : thread.owner;
+    if (thread.kind === ChatThreadKind.SUPPORT && audit) {
+      counterpart = thread.peer;
+    }
     const deviceOnline =
       thread.device?.status === 'ONLINE' || thread.device?.status === 'STREAMING';
     const socketOnline = this.chatGateway.isUserOnline(counterpart.id);
@@ -974,6 +1079,7 @@ export class ChatsService {
     const online = socketOnline || recentlySeen || peerDeviceLive;
     return {
       id: thread.id,
+      kind: thread.kind ?? ChatThreadKind.PEER,
       lastMessagePreview: thread.lastMessagePreview,
       lastMessageAt: thread.lastMessageAt,
       owner: this.presentChatUser(thread.owner),
@@ -981,7 +1087,10 @@ export class ChatsService {
       device: thread.device,
       viewerUserId,
       unreadCount,
-      counterpartName: counterpart.name,
+      counterpartName:
+        thread.kind === ChatThreadKind.SUPPORT && !audit
+          ? CALL_CENTER_NAME
+          : counterpart.name,
       counterpartUserId: counterpart.id,
       counterpartPhone: counterpart.phone ?? null,
       counterpartHasAvatar: Boolean(counterpart.avatarKey),
@@ -1075,7 +1184,10 @@ export class ChatsService {
       where: {
         threadId: { in: threadIds },
         readAt: null,
-        senderUserId: { not: viewerUserId },
+        OR: [
+          { senderUserId: null },
+          { senderUserId: { not: viewerUserId } },
+        ],
         deletedForEveryone: false,
         hiddenFor: { none: { userId: viewerUserId } },
       },
@@ -1180,6 +1292,84 @@ export class ChatsService {
     });
     if (!thread) throw new ForbiddenException('Chat not found');
     return thread;
+  }
+
+  private callCenterEmail(organizationId: string) {
+    return `callcenter+${organizationId}@support.internal`;
+  }
+
+  private async ensureCallCenterUser(organizationId: string) {
+    const email = this.callCenterEmail(organizationId);
+    const existing = await this.prisma.user.findFirst({
+      where: { organizationId, email },
+    });
+    if (existing) return existing;
+    return this.prisma.user.create({
+      data: {
+        organizationId,
+        email,
+        name: CALL_CENTER_NAME,
+        role: UserRole.USER,
+        passwordHash: await bcrypt.hash(randomUUID(), 10),
+      },
+    });
+  }
+
+  private async ensureSupportThread(
+    organizationId: string,
+    customerUserId: string,
+    deviceId: string,
+  ) {
+    const callCenter = await this.ensureCallCenterUser(organizationId);
+    return this.prisma.chatThread.upsert({
+      where: {
+        organizationId_ownerUserId_peerUserId: {
+          organizationId,
+          ownerUserId: callCenter.id,
+          peerUserId: customerUserId,
+        },
+      },
+      update: { deviceId, kind: ChatThreadKind.SUPPORT },
+      create: {
+        organizationId,
+        ownerUserId: callCenter.id,
+        peerUserId: customerUserId,
+        deviceId,
+        kind: ChatThreadKind.SUPPORT,
+      },
+      include: threadInclude,
+    });
+  }
+
+  private async appendSystemMessage(
+    thread: ThreadRow,
+    text: string,
+    receiverUserId: string,
+  ) {
+    const message = await this.prisma.chatMessage.create({
+      data: {
+        threadId: thread.id,
+        senderUserId: null,
+        receiverUserId,
+        messageType: ChatMessageType.TEXT,
+        text,
+        deliveredAt: new Date(),
+      },
+      include: { reactions: true, replyTo: true, forwardedFrom: true },
+    });
+    await this.prisma.chatThread.update({
+      where: { id: thread.id },
+      data: {
+        lastMessageAt: message.createdAt,
+        lastMessagePreview: text.slice(0, 140),
+      },
+    });
+    const presented = this.presentMessage(message, receiverUserId, false);
+    this.chatGateway.emitToOrg(thread.organizationId, 'chat.message', {
+      threadId: thread.id,
+      message: presented,
+    });
+    return presented;
   }
 
 }

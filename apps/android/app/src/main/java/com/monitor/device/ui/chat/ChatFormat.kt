@@ -122,8 +122,9 @@ fun copyUriToCache(context: Context, uri: Uri, nameHint: String? = null): File {
 
 fun compressAvatar(context: Context, uri: Uri, size: Int = 640, quality: Int = 85): File {
     val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-    context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
-        ?: error("Cannot decode image")
+    val boundStream = context.contentResolver.openInputStream(uri) ?: error("Cannot read image")
+    boundStream.use { BitmapFactory.decodeStream(it, null, bounds) }
+    if (bounds.outWidth <= 0 || bounds.outHeight <= 0) error("Cannot decode image")
     val longest = max(bounds.outWidth, bounds.outHeight).coerceAtLeast(1)
     var sample = 1
     while (longest / sample > size * 2) sample *= 2

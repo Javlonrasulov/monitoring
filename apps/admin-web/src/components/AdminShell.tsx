@@ -50,6 +50,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   const usersActive = pathname.startsWith("/users");
   const subsActive = pathname.startsWith("/subscriptions");
   const chatsActive = pathname.startsWith("/chats");
+  const supportActive = pathname.startsWith("/support");
   const liveActive = pathname.startsWith("/live");
   const auditActive = pathname.startsWith("/audit");
 
@@ -88,6 +89,9 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
               </Link>
               <Link href="/chats" className={chatsActive ? "nav-active" : undefined}>
                 {t("navChats")}
+              </Link>
+              <Link href="/support" className={supportActive ? "nav-active" : undefined}>
+                {t("navSupport")}
               </Link>
               <Link href="/live" className={liveActive ? "nav-active" : undefined}>
                 {t("navLive")}

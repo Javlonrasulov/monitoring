@@ -23,6 +23,7 @@ import {
   SetCameraFacingDto,
   UploadAvatarDto,
   UpdateProfileDto,
+  ChangePasswordDto,
 } from './dto/devices.dto';
 import { AuditService } from '../audit/audit.service';
 import { AvatarsService } from '../avatars/avatars.service';
@@ -71,6 +72,22 @@ export class DevicesController {
     );
   }
 
+  @Patch('me/password')
+  @ApiBearerAuth()
+  @UseGuards(DeviceAuthGuard)
+  @ApiOperation({ summary: 'Change app PIN / password' })
+  changePassword(
+    @CurrentDevice()
+    device: { deviceId: string; organizationId: string },
+    @Body() dto: ChangePasswordDto,
+  ) {
+    return this.devicesService.changePassword(
+      device.deviceId,
+      device.organizationId,
+      dto,
+    );
+  }
+
   @Post('me/avatar')
   @ApiBearerAuth()
   @UseGuards(DeviceAuthGuard)
@@ -109,6 +126,22 @@ export class DevicesController {
     return this.devicesService.listLinkedForDevice(
       device.deviceId,
       device.organizationId,
+    );
+  }
+
+  @Delete('me/linked/:id')
+  @ApiBearerAuth()
+  @UseGuards(DeviceAuthGuard)
+  @ApiOperation({ summary: 'Disconnect a linked device so another can be paired' })
+  unlink(
+    @CurrentDevice()
+    device: { deviceId: string; organizationId: string },
+    @Param('id') id: string,
+  ) {
+    return this.devicesService.unlinkLinkedDevice(
+      device.deviceId,
+      device.organizationId,
+      id,
     );
   }
 

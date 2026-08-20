@@ -40,6 +40,7 @@ import androidx.compose.ui.unit.sp
 import com.monitor.device.R
 import com.monitor.device.core.api.DeviceApiClient
 import com.monitor.device.core.auth.TokenStore
+import com.monitor.device.core.model.ChatPeer
 import com.monitor.device.core.model.ChatThreadDto
 import com.monitor.device.ui.chat.formatClock
 import com.monitor.device.ui.components.EmptyState
@@ -98,7 +99,9 @@ fun ChatsListScreen(
         } else {
             LazyColumn(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 items(filtered, key = { it.id }) { thread ->
+                    val other = thread.counterpartPeer()
                     val title = thread.counterpartName
+                        ?: other?.name
                         ?: thread.owner?.name
                         ?: thread.peer?.name
                         ?: stringResource(R.string.chats_untitled)
@@ -113,14 +116,10 @@ fun ChatsListScreen(
                         Box(contentAlignment = Alignment.BottomEnd) {
                             UserAvatar(
                                 name = title,
-                                imageUrl = if (thread.counterpartHasAvatar) {
-                                    apiClient.avatarUrl(
-                                        thread.counterpartUserId,
-                                        thread.counterpartAvatarUpdatedAt,
-                                    )
-                                } else {
-                                    null
-                                },
+                                imageUrl = apiClient.avatarUrl(
+                                    thread.counterpartUserId ?: other?.id,
+                                    thread.counterpartAvatarUpdatedAt ?: other?.avatarUpdatedAt,
+                                ),
                                 imageLoader = imageLoader,
                                 size = 52.dp,
                                 online = thread.online,
@@ -175,6 +174,14 @@ fun ChatsListScreen(
                 }
             }
         }
+    }
+}
+
+private fun ChatThreadDto.counterpartPeer(): ChatPeer? {
+    return when (counterpartUserId) {
+        owner?.id -> owner
+        peer?.id -> peer
+        else -> if (viewerUserId == owner?.id) peer else owner
     }
 }
 

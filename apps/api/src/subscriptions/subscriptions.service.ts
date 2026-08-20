@@ -59,8 +59,10 @@ const PAID_PROVIDER_STATUSES = new Set([
   'confirming',
   'confirmed',
   'sending',
+  'partially_paid',
   'finished',
 ]);
+const MIN_ACCEPT_USDT = 15;
 
 @Injectable()
 export class SubscriptionsService {
@@ -292,6 +294,8 @@ export class SubscriptionsService {
       paymentId: paymentId || undefined,
       orderId: orderId || undefined,
       invoiceId: invoiceId || undefined,
+      actuallyPaid: payload.actually_paid as number | string | undefined,
+      actuallyPaidFiat: payload.actually_paid_at_fiat as number | string | undefined,
     });
     return { ok: true };
   }
@@ -326,6 +330,8 @@ export class SubscriptionsService {
             payAddress: payment.pay_address,
             payAmount: payment.pay_amount,
             payCurrency: payment.pay_currency,
+            actuallyPaid: payment.actually_paid,
+            actuallyPaidFiat: payment.actually_paid_at_fiat,
           });
         }
       } catch {
@@ -358,6 +364,8 @@ export class SubscriptionsService {
       payAddress?: string;
       payAmount?: number | string;
       payCurrency?: string;
+      actuallyPaid?: number | string;
+      actuallyPaidFiat?: number | string;
     },
   ) {
     const invoice =
@@ -402,6 +410,12 @@ export class SubscriptionsService {
       return;
     }
 
+    const enough = this.receivedEnough(extras.actuallyPaid, extras.actuallyPaidFiat);
+    if (enough) {
+      await this.activatePaidInvoice(invoice, status);
+      return;
+    }
+
     if (status === 'expired' || status === 'failed' || status === 'refunded') {
       await this.prisma.paymentInvoice.updateMany({
         where: { id: invoice.id, activatedAt: null },
@@ -424,6 +438,24 @@ export class SubscriptionsService {
       return;
     }
 
+    await this.activatePaidInvoice(invoice, status);
+  }
+
+  private receivedEnough(
+    actuallyPaid?: number | string,
+    actuallyPaidFiat?: number | string,
+  ) {
+    const crypto = Number(actuallyPaid);
+    const fiat = Number(actuallyPaidFiat);
+    if (Number.isFinite(crypto) && crypto >= MIN_ACCEPT_USDT) return true;
+    if (Number.isFinite(fiat) && fiat >= MIN_ACCEPT_USDT) return true;
+    return false;
+  }
+
+  private async activatePaidInvoice(
+    invoice: { id: string; organizationId: string; plan: SubscriptionPlan },
+    status: string,
+  ) {
     const now = new Date();
     const expiresAt = new Date(now.getTime() + PAID_DAYS * 24 * 60 * 60 * 1000);
     const claimed = await this.prisma.paymentInvoice.updateMany({
@@ -525,6 +557,28 @@ export class SubscriptionsService {
     });
     if (token) params.set('partner_api_token', token);
     return `${widget}?${params.toString()}`;
+  }
+
+  async grantManual(
+    organizationId: string,
+    plan: 'PRO' | 'PRO_PLUS',
+    days = 3650,
+  ) {
+    const nextPlan =
+      plan === 'PRO_PLUS' ? SubscriptionPlan.PRO_PLUS : SubscriptionPlan.PRO;
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
+    await this.prisma.subscription.create({
+      data: {
+        organizationId,
+        status: SubscriptionStatus.ACTIVE,
+        plan: nextPlan,
+        maxDevices: this.maxDevicesFor(nextPlan),
+        startedAt: now,
+        expiresAt,
+      },
+    });
+    return this.forOrganization(organizationId);
   }
 
   async purchase(organizationId: string, plan: 'PRO' | 'PRO_PLUS') {

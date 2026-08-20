@@ -1,11 +1,19 @@
-import { Body, Controller, Get, Param, Patch, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { AdminRoleGuard } from '../auth/admin-role.guard';
 import { CurrentUser } from '../auth/decorators';
-import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
-import { seesAllOrganizations } from '../auth/platform-org';
+import { UsersService } from './users.service';
 
 @ApiTags('users')
 @ApiBearerAuth()
@@ -13,66 +21,45 @@ import { seesAllOrganizations } from '../auth/platform-org';
 @Controller('users')
 export class UsersController {
   constructor(
-    private readonly prisma: PrismaService,
+    private readonly users: UsersService,
     private readonly audit: AuditService,
   ) {}
 
   @Get()
   async list(@CurrentUser() user: { organizationId: string; userId: string }) {
-    const users = await this.prisma.user.findMany({
-      where: seesAllOrganizations(user.organizationId)
-        ? {}
-        : { organizationId: user.organizationId },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        phone: true,
-        username: true,
-        role: true,
-        blocked: true,
-        deviceId: true,
-        lastSeenAt: true,
-        createdAt: true,
-        device: { select: { id: true, name: true, status: true, lastSeen: true } },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+    const rows = await this.users.list(user.organizationId);
     await this.audit.log({
       organizationId: user.organizationId,
       userId: user.userId,
       action: 'users.list_viewed',
       resourceType: 'User',
     });
-    return users;
+    return rows;
   }
 
   @Patch(':id/block')
-  async block(
+  block(
     @CurrentUser() user: { organizationId: string; userId: string },
     @Param('id') id: string,
     @Body() body: { blocked?: boolean },
   ) {
-    const target = await this.prisma.user.findFirst({
-      where: seesAllOrganizations(user.organizationId)
-        ? { id }
-        : { id, organizationId: user.organizationId },
-    });
-    if (!target) {
-      return { ok: false };
-    }
-    const blocked = body.blocked ?? true;
-    const updated = await this.prisma.user.update({
-      where: { id },
-      data: { blocked },
-    });
-    await this.audit.log({
-      organizationId: user.organizationId,
-      userId: user.userId,
-      action: blocked ? 'user.blocked' : 'user.activated',
-      resourceType: 'User',
-      resourceId: id,
-    });
-    return { id: updated.id, blocked: updated.blocked };
+    return this.users.setBlocked(user, id, body.blocked ?? true);
+  }
+
+  @Post(':id/subscription')
+  grantPlan(
+    @CurrentUser() user: { organizationId: string; userId: string },
+    @Param('id') id: string,
+    @Body() body: { plan?: string },
+  ) {
+    return this.users.grantPlan(user, id, body.plan ?? '');
+  }
+
+  @Delete(':id')
+  remove(
+    @CurrentUser() user: { organizationId: string; userId: string },
+    @Param('id') id: string,
+  ) {
+    return this.users.remove(user, id);
   }
 }

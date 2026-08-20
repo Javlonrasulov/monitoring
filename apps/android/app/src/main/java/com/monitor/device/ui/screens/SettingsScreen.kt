@@ -43,8 +43,10 @@ import com.monitor.device.core.model.LinkedDeviceDto
 import com.monitor.device.core.model.PairingCodeResponse
 import com.monitor.device.core.model.PaymentInvoiceDto
 import com.monitor.device.core.model.SubscriptionDto
+import com.monitor.device.ui.components.DangerButton
 import com.monitor.device.ui.components.ErrorBanner
 import com.monitor.device.ui.components.MonitorCard
+import com.monitor.device.ui.components.MonitorConfirmDialog
 import com.monitor.device.ui.components.MonitorTextField
 import com.monitor.device.ui.components.PrimaryButton
 import com.monitor.device.ui.components.ScreenContainer
@@ -77,6 +79,8 @@ fun SettingsScreen(
     var loadingCode by remember { mutableStateOf(false) }
     var loadingLink by remember { mutableStateOf(false) }
     var buying by remember { mutableStateOf<String?>(null) }
+    var unlinkTarget by remember { mutableStateOf<LinkedDeviceDto?>(null) }
+    var unlinking by remember { mutableStateOf(false) }
     var invoice by remember { mutableStateOf<PaymentInvoiceDto?>(null) }
     var pendingCheckoutUrl by remember { mutableStateOf<String?>(null) }
     var showPayGuide by remember { mutableStateOf(false) }
@@ -86,6 +90,7 @@ fun SettingsScreen(
     val copied = stringResource(R.string.settings_code_copied)
     val addressCopied = stringResource(R.string.settings_address_copied)
     val linkedOk = stringResource(R.string.settings_link_success)
+    val unlinkedOk = stringResource(R.string.settings_unlink_success)
     val paySuccess = stringResource(R.string.settings_pay_success)
 
     fun openPayGuide(url: String?) {
@@ -269,6 +274,12 @@ fun SettingsScreen(
                         text = stringResource(R.string.settings_watch_live),
                         onClick = { onWatchDevice(device.id, device.name, device.cameraFacing) },
                     )
+                    Spacer(modifier = Modifier.size(Spacing.sm))
+                    DangerButton(
+                        text = stringResource(R.string.settings_unlink),
+                        enabled = !unlinking,
+                        onClick = { unlinkTarget = device },
+                    )
                 }
                 Spacer(modifier = Modifier.size(Spacing.sm))
             }
@@ -372,6 +383,32 @@ fun SettingsScreen(
             )
         }
         Spacer(modifier = Modifier.size(Spacing.xxl))
+    }
+
+    unlinkTarget?.let { device ->
+        MonitorConfirmDialog(
+            title = stringResource(R.string.settings_unlink_title),
+            message = stringResource(R.string.settings_unlink_message, device.name),
+            confirmText = stringResource(R.string.settings_unlink_confirm),
+            dismissText = stringResource(R.string.common_cancel),
+            destructive = true,
+            onDismiss = { if (!unlinking) unlinkTarget = null },
+            onConfirm = {
+                if (unlinking) return@MonitorConfirmDialog
+                unlinking = true
+                error = null
+                scope.launch {
+                    runCatching { apiClient.unlinkDevice(device.id) }
+                        .onSuccess {
+                            info = unlinkedOk
+                            unlinkTarget = null
+                            reload()
+                        }
+                        .onFailure { error = DeviceApiClient.errorMessage(it, failGeneric) }
+                    unlinking = false
+                }
+            },
+        )
     }
 
     if (showPayGuide) {

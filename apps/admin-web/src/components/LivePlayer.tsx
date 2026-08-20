@@ -31,7 +31,7 @@ export function LivePlayer({ device }: Props) {
   const [snapshotBusy, setSnapshotBusy] = useState(false);
   const [snapshotMsg, setSnapshotMsg] = useState<string | null>(null);
   const [cameraFacing, setCameraFacing] = useState<CameraFacing>(
-    device.cameraFacing ?? "BACK",
+    device.cameraFacing ?? "FRONT",
   );
   const [cameraBusy, setCameraBusy] = useState(false);
   const [cameraMsg, setCameraMsg] = useState<string | null>(null);
@@ -148,7 +148,7 @@ export function LivePlayer({ device }: Props) {
   }
 
   async function setCamera(facing: CameraFacing) {
-    if (cameraBusy || facing === cameraFacing) return;
+    if (cameraBusy) return;
     setCameraBusy(true);
     setCameraMsg(null);
     try {
@@ -157,6 +157,9 @@ export function LivePlayer({ device }: Props) {
       });
       setCameraFacing(updated.cameraFacing ?? facing);
       setCameraMsg(t("deviceCameraHint"));
+      window.setTimeout(() => {
+        setViewerEpoch((n) => n + 1);
+      }, 2_200);
     } catch (err) {
       setCameraMsg(
         err instanceof Error ? err.message : t("deviceCameraError"),

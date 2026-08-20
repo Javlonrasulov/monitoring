@@ -45,6 +45,11 @@ enum ChatMessageType {
   VIDEO_NOTE
 }
 
+enum ChatThreadKind {
+  PEER
+  SUPPORT
+}
+
 enum DeviceAccountKind {
   OWNER
   USER
@@ -132,6 +137,7 @@ model User {
   blocked        Boolean   @default(false)
   organizationId String
   deviceId         String?   @unique
+  appPinSet        Boolean   @default(false)
   lastSeenAt       DateTime?
   avatarKey        String?
   avatarUpdatedAt  DateTime?
@@ -341,11 +347,12 @@ model PaymentInvoice {
 }
 
 model ChatThread {
-  id                  String    @id @default(cuid())
+  id                  String          @id @default(cuid())
   organizationId      String
   ownerUserId         String
   peerUserId          String
   deviceId            String?
+  kind                ChatThreadKind  @default(PEER)
   lastMessageAt       DateTime?
   lastMessagePreview  String?
   createdAt           DateTime  @default(now())

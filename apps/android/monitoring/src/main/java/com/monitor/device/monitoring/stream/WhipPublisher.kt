@@ -49,7 +49,7 @@ interface WhipPublisher {
         whipUrl: String,
         bearerToken: String,
         quality: StreamQuality,
-        facing: CameraFacing = CameraFacing.BACK,
+        facing: CameraFacing = CameraFacing.FRONT,
     )
 
     suspend fun stop()
@@ -58,7 +58,7 @@ interface WhipPublisher {
 
     fun setTargetBitrate(bitrateBps: Int)
 
-    fun setFacing(facing: CameraFacing)
+    fun setFacing(facing: CameraFacing, force: Boolean = false)
 
     fun currentFacing(): CameraFacing
 }
@@ -90,7 +90,7 @@ class WhipPublisherImpl(
     private var currentBitrateBps: Int = StreamQuality.MEDIUM.targetBitrateBps
 
     @Volatile
-    private var currentFacing: CameraFacing = CameraFacing.BACK
+    private var currentFacing: CameraFacing = CameraFacing.FRONT
 
     @Volatile
     private var switchingCamera: Boolean = false
@@ -218,19 +218,17 @@ class WhipPublisherImpl(
 
     override fun currentFacing(): CameraFacing = currentFacing
 
-    override fun setFacing(facing: CameraFacing) {
+    override fun setFacing(facing: CameraFacing, force: Boolean) {
         mainHandler.post {
             if (!publishReady.get() || !active.get()) {
+                currentFacing = facing
                 return@post
             }
-            if (currentFacing == facing || switchingCamera) {
+            if (!force && currentFacing == facing) {
                 return@post
             }
-            // In-place Camera2 swap on Samsung keeps the back sensor while
-            // reporting FRONT. Drop the peer connection so MonitoringEngine
-            // republishes with a fresh capturer for the requested lens.
             switchingCamera = true
-            Log.i(TAG, "Camera switch $currentFacing → $facing; republishing")
+            Log.i(TAG, "Camera switch $currentFacing → $facing force=$force; republishing")
             active.set(false)
             publishReady.set(false)
             switchingCamera = false
@@ -263,13 +261,13 @@ class WhipPublisherImpl(
     }
 
     /**
-     * Samsung Camera2 in-place switch often keeps the back sensor. Always open
-     * the requested lens by id, never falling back to the other camera.
+     * Open the requested lens by Camera2 id. Camera1 first often reports FRONT
+     * while capturing the back sensor on Samsung (A-series).
      */
     private fun createCameraCapturer(facing: CameraFacing): VideoCapturer? {
         logCameraInventory()
-        createCamera1Capturer(facing)?.let { return it }
         createCamera2Capturer(facing)?.let { return it }
+        createCamera1Capturer(facing)?.let { return it }
         Log.e(TAG, "No capturer available for $facing")
         return null
     }
@@ -288,20 +286,20 @@ class WhipPublisherImpl(
     }
 
     private fun createCamera2Capturer(facing: CameraFacing): VideoCapturer? {
-        val enumerator = Camera2Enumerator(appContext)
         val probeFacing = if (facing == CameraFacing.FRONT) {
             CameraCapabilityProbe.LensFacing.FRONT
         } else {
             CameraCapabilityProbe.LensFacing.BACK
         }
-        val id = cameraProbe.pickCameraId(probeFacing) ?: enumerator.deviceNames.firstOrNull { name ->
-            if (facing == CameraFacing.FRONT) enumerator.isFrontFacing(name)
-            else enumerator.isBackFacing(name)
-        } ?: return null
-        val capturer = enumerator.createCapturer(id, cameraEvents()) ?: return null
-        currentFacing = facing
-        Log.i(TAG, "Camera2 capturer $id facing=$facing")
-        return capturer
+        val enumerator = Camera2Enumerator(appContext)
+        for (id in cameraProbe.pickCameraIds(probeFacing)) {
+            val capturer = enumerator.createCapturer(id, cameraEvents()) ?: continue
+            currentFacing = facing
+            Log.i(TAG, "Camera2 capturer $id facing=$facing")
+            return capturer
+        }
+        Log.e(TAG, "No Camera2 capturer for $facing")
+        return null
     }
 
     private fun startCaptureWithFallback(capturer: VideoCapturer) {

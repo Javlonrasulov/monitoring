@@ -3,6 +3,7 @@ package com.monitor.device.core.api
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
 import com.monitor.device.core.BuildConfig
 import com.monitor.device.core.auth.TokenStore
+import com.monitor.device.core.model.ChangePasswordRequest
 import com.monitor.device.core.model.ChatMediaPage
 import com.monitor.device.core.model.ChatMessageDto
 import com.monitor.device.core.model.ChatMessagesPage
@@ -107,6 +108,15 @@ class DeviceApiClient(
         return me
     }
 
+    suspend fun changePassword(currentPassword: String, newPassword: String) {
+        authorized(unpairOnFailure = false) {
+            api.changePassword(it, ChangePasswordRequest(currentPassword, newPassword))
+        }
+    }
+
+    suspend fun openSupportChat(): ChatThreadDto =
+        authorized { api.openSupportChat(it) }
+
     suspend fun deleteAvatar(): DeviceMeResponse =
         authorized(unpairOnFailure = false) { api.deleteAvatar(it) }
 
@@ -172,6 +182,9 @@ class DeviceApiClient(
 
     suspend fun linkedDevices(): List<LinkedDeviceDto> =
         authorized(unpairOnFailure = false) { api.linkedDevices(it) }
+
+    suspend fun unlinkDevice(deviceId: String): OkResponse =
+        authorized(unpairOnFailure = false) { api.unlinkDevice(it, deviceId) }
 
     suspend fun createPairingCode(): PairingCodeResponse =
         authorized(unpairOnFailure = false) {

@@ -8,6 +8,7 @@ data class PairRequest(
     val code: String = "",
     val name: String = "",
     val phone: String? = null,
+    val password: String = "",
     val capabilities: JsonObject? = null,
     val appVersion: String? = null,
     val androidVersion: String? = null,
@@ -17,6 +18,7 @@ data class PairRequest(
 @Serializable
 data class PairStatusResponse(
     val exists: Boolean = false,
+    val requiresPassword: Boolean = false,
 )
 
 @Serializable
@@ -55,6 +57,7 @@ data class DeviceStatusResponse(
     val batteryPercent: Int? = null,
     val charging: Boolean? = null,
     val cameraFacing: String? = null,
+    val cameraFacingRev: Int = 0,
 )
 
 @Serializable
@@ -62,6 +65,7 @@ data class DeviceMeResponse(
     val id: String? = null,
     val status: String? = null,
     val cameraFacing: String? = null,
+    val cameraFacingRev: Int = 0,
     val userId: String? = null,
     val name: String? = null,
     val phone: String? = null,
@@ -78,6 +82,12 @@ data class UploadAvatarRequest(
 data class UpdateProfileRequest(
     val name: String? = null,
     val phone: String? = null,
+)
+
+@Serializable
+data class ChangePasswordRequest(
+    val currentPassword: String,
+    val newPassword: String,
 )
 
 enum class CameraFacing {

@@ -115,14 +115,6 @@ private fun TelegramDockTab(
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Box(contentAlignment = Alignment.Center) {
-            if (selected) {
-                Box(
-                    modifier = Modifier
-                        .size(width = 56.dp, height = 32.dp)
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(accent.copy(alpha = if (colors.isDark) 0.28f else 0.18f)),
-                )
-            }
             Icon(
                 imageVector = item.icon,
                 contentDescription = stringResource(item.labelRes),

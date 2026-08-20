@@ -133,6 +133,10 @@ fun MonitorNavHost(
                             chatTitle = title
                             chatThreadId = id
                         },
+                        onOpenCallCenter = { id, title ->
+                            chatTitle = title
+                            chatThreadId = id
+                        },
                         onUnpaired = {
                             MonitoringForegroundService.stop(context)
                             tokenStore.clear()

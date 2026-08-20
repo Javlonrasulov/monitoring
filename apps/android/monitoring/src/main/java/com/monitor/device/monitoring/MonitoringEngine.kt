@@ -68,13 +68,12 @@ class MonitoringEngine(
         private set
 
     @Volatile
-    private var desiredFacing: CameraFacing = CameraFacing.BACK
+    private var desiredFacing: CameraFacing = CameraFacing.FRONT
 
     @Volatile
-    private var skipFacingUntilMs: Long = 0L
+    private var lastAppliedFacingRev: Int = -1
 
-    @Volatile
-    private var skippedFacing: CameraFacing? = null
+    private val fastRepublish = AtomicBoolean(false)
 
     fun isRunning(): Boolean = running.get()
 
@@ -92,6 +91,8 @@ class MonitoringEngine(
 
         lastError = null
         lastStatus = ConnectionStatus.CONNECTING
+        lastAppliedFacingRev = -1
+        fastRepublish.set(false)
         adaptive.reset(quality)
         reconnect.reset()
 
@@ -140,26 +141,12 @@ class MonitoringEngine(
     }
 
     private suspend fun startPublisher(whipUrl: String, bearerToken: String) {
-        try {
-            whipPublisher.start(
-                whipUrl = whipUrl,
-                bearerToken = bearerToken,
-                quality = adaptive.quality,
-                facing = desiredFacing,
-            )
-            skippedFacing = null
-        } catch (error: Throwable) {
-            if (desiredFacing != CameraFacing.FRONT) throw error
-            Log.w(TAG, "FRONT camera failed (${error.message}), publishing BACK")
-            skippedFacing = CameraFacing.FRONT
-            skipFacingUntilMs = System.currentTimeMillis() + 60_000
-            whipPublisher.start(
-                whipUrl = whipUrl,
-                bearerToken = bearerToken,
-                quality = adaptive.quality,
-                facing = CameraFacing.BACK,
-            )
-        }
+        whipPublisher.start(
+            whipUrl = whipUrl,
+            bearerToken = bearerToken,
+            quality = adaptive.quality,
+            facing = desiredFacing,
+        )
     }
 
     fun isStreaming(): Boolean =
@@ -183,7 +170,6 @@ class MonitoringEngine(
                     lastStatus = ConnectionStatus.STREAMING
                     lastError = null
                     runCatching { reportStatus(ConnectionStatus.STREAMING.name) }
-                    // Keep publisher "alive"; real PeerConnection would stay open.
                     while (isActive && running.get() && whipPublisher.isActive()) {
                         val snap = statusCollector.collect()
                         val hot = snap.thermalState in setOf("SEVERE", "CRITICAL", "EMERGENCY")
@@ -194,22 +180,33 @@ class MonitoringEngine(
                         val interactive = pm.isInteractive
                         val restriction = restrictionDetector.detectCameraBackgroundRestriction(interactive)
                         if (restriction != null) {
-                            // Log only: Samsung FGS still publishes with battery
-                            // optimization on. Reporting ERROR here made 51 look
-                            // dead in admin while the app was open and streaming.
                             Log.w(TAG, restriction.message)
                         }
-                        delay(5_000)
+                        var waited = 0
+                        while (
+                            waited < 5_000 &&
+                            isActive &&
+                            running.get() &&
+                            whipPublisher.isActive()
+                        ) {
+                            delay(200)
+                            waited += 200
+                        }
                     }
 
                     if (isActive && running.get()) {
-                        val switchCamera = whipPublisher.currentFacing() != desiredFacing
-                        Log.w(TAG, "Stream dropped, republishing camera=$desiredFacing")
+                        val switchCamera =
+                            fastRepublish.getAndSet(false) ||
+                                whipPublisher.currentFacing() != desiredFacing
+                        Log.w(
+                            TAG,
+                            "Stream dropped, republishing camera=$desiredFacing fast=$switchCamera",
+                        )
                         lastStatus = ConnectionStatus.CONNECTING
                         runCatching { whipPublisher.stop() }
                         if (switchCamera) {
                             reconnect.reset()
-                            delay(500)
+                            delay(400)
                         } else {
                             reconnect.awaitNext("stream-dropped")
                         }
@@ -288,30 +285,36 @@ class MonitoringEngine(
             errorMessage = errorMessage,
         )
         val response = apiClient.updateStatus(body)
-        CameraFacing.from(response.cameraFacing)?.let { desiredFacing = it }
-        applyDesiredFacing()
+        applyCameraCommand(response.cameraFacing, response.cameraFacingRev)
     }
 
     private suspend fun refreshDesiredFacing() {
         runCatching {
             val me = apiClient.me()
-            CameraFacing.from(me.cameraFacing)?.let { desiredFacing = it }
+            applyCameraCommand(me.cameraFacing, me.cameraFacingRev)
         }.onFailure { error ->
             if (error is DeviceApiClient.Unpaired) throw error
             Log.w(TAG, "Camera facing fetch failed: ${error.message}")
         }
-        applyDesiredFacing()
     }
 
-    private fun applyDesiredFacing() {
-        if (
-            skippedFacing == desiredFacing &&
-            System.currentTimeMillis() < skipFacingUntilMs
-        ) {
+    private fun applyCameraCommand(facingValue: String?, rev: Int) {
+        val facing = CameraFacing.from(facingValue) ?: CameraFacing.FRONT
+        desiredFacing = facing
+        if (lastAppliedFacingRev < 0) {
+            lastAppliedFacingRev = rev
             return
         }
+        val force = rev != lastAppliedFacingRev
+        if (!force && whipPublisher.currentFacing() == facing) {
+            return
+        }
+        if (force) {
+            lastAppliedFacingRev = rev
+        }
         if (whipPublisher.isActive()) {
-            whipPublisher.setFacing(desiredFacing)
+            fastRepublish.set(true)
+            whipPublisher.setFacing(facing, force = true)
         }
     }
 

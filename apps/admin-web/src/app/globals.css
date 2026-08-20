@@ -1214,6 +1214,13 @@ select {
   border-bottom: 1px solid color-mix(in srgb, currentColor 12%, transparent);
   vertical-align: top;
 }
+
+.table-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  justify-content: flex-end;
+}
 .list {
   list-style: none;
   padding: 0;

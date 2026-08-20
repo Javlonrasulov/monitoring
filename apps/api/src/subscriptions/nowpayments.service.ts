@@ -10,6 +10,8 @@ export type NowPayment = {
   payment_status: string;
   pay_address?: string;
   pay_amount?: number | string;
+  actually_paid?: number | string;
+  actually_paid_at_fiat?: number | string;
   pay_currency?: string;
   network?: string;
   expiration_estimate_date?: string;
