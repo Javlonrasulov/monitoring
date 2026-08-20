@@ -13,6 +13,9 @@ curl -s -w ' [%{http_code}]\n' "$BASE/api/v1/health"
 echo "--- admin page ---"
 curl -s -o /dev/null -w '%{http_code}\n' "$BASE/"
 
+echo "--- user web (Host: app.levelapp.site) ---"
+curl -s -o /dev/null -w '%{http_code}\n' -H 'Host: app.levelapp.site' "$BASE/"
+
 echo "--- login ---"
 TOKEN=$(curl -s -X POST "$BASE/api/v1/auth/login" \
   -H 'Content-Type: application/json' \

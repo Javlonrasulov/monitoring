@@ -71,6 +71,21 @@ services:
     mem_limit: 224m
     restart: unless-stopped
 
+  user:
+    build:
+      context: ..
+      dockerfile: deploy/user-web.Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${PUBLIC_BASE_URL}/api/v1
+        NEXT_PUBLIC_WS_URL: ${PUBLIC_BASE_URL}/realtime
+        NEXT_PUBLIC_CHAT_WS_URL: ${PUBLIC_BASE_URL}/chat
+    image: monitor-user:latest
+    container_name: monitor_user
+    depends_on:
+      - api
+    mem_limit: 224m
+    restart: unless-stopped
+
   mediamtx:
     image: bluenviron/mediamtx:1.11.3
     container_name: monitor_mediamtx
@@ -96,6 +111,7 @@ services:
     depends_on:
       - api
       - admin
+      - user
     mem_limit: 48m
     restart: unless-stopped
 

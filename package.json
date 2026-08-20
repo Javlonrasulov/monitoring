@@ -5,8 +5,10 @@
   "scripts": {
     "dev:api": "npm run start:dev --prefix apps/api",
     "dev:admin": "npm run dev --prefix apps/admin-web",
+    "dev:user": "npm run dev --prefix apps/user-web",
     "build:api": "npm run build --prefix apps/api",
     "build:admin": "npm run build --prefix apps/admin-web",
+    "build:user": "npm run build --prefix apps/user-web",
     "db:generate": "npm run prisma:generate --prefix apps/api",
     "db:migrate": "npm run prisma:migrate --prefix apps/api",
     "db:seed": "npm run prisma:seed --prefix apps/api",
