@@ -3,13 +3,13 @@
 import { FormEvent, Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Download, Eye, EyeOff, Headset } from "lucide-react";
-import { isPaired, savePairSession } from "@/lib/auth";
+import { isFullAccount, savePairSession } from "@/lib/auth";
 import { ApiError } from "@/lib/api";
 import { deviceApi } from "@/lib/device-api";
 import { useI18n } from "@/lib/i18n";
 import { useToast } from "@/lib/toast";
 
-const APK_DOWNLOAD_URL = "/download/monitor.apk?v=1.2.2";
+const APK_DOWNLOAD_URL = "/download/monitor.apk?v=1.2.3";
 
 const GUEST_INSTALL_KEY = "levelapp.guestInstallId";
 
@@ -72,7 +72,7 @@ function LoginForm() {
   const canOpenSupport = !formBusy && phoneDigits.length >= 9 && pinOk;
 
   useEffect(() => {
-    if (isPaired()) router.replace("/chats");
+    if (isFullAccount()) router.replace("/chats");
   }, [router]);
 
   // Android LaunchedEffect(phoneDigits): pair-status → knownAccount
@@ -165,7 +165,7 @@ function LoginForm() {
             ? navigator.userAgent.slice(0, 80)
             : "web",
       });
-      savePairSession(res);
+      savePairSession({ ...res, guest: false });
       toast.push(t("login"), "ok");
       router.replace("/chats");
     } catch (err) {
@@ -219,7 +219,7 @@ function LoginForm() {
               ? navigator.userAgent.slice(0, 80)
               : "web",
         });
-        savePairSession(res);
+        savePairSession({ ...res, guest: false });
       } else {
         const res = await deviceApi.guestSupport({
           installId: guestInstallId(),
@@ -230,7 +230,7 @@ function LoginForm() {
               ? navigator.userAgent.slice(0, 80)
               : "web",
         });
-        savePairSession(res);
+        savePairSession({ ...res, guest: true });
       }
       const thread = await deviceApi.openSupport();
       router.replace(`/chats/${thread.id}`);

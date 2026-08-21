@@ -105,6 +105,7 @@ class DeviceApiClient(
             deviceToken = response.deviceToken,
             apiKey = response.apiKey,
             userId = response.userId,
+            guest = false,
         )
         return response
     }
@@ -119,6 +120,7 @@ class DeviceApiClient(
             deviceToken = response.deviceToken,
             apiKey = response.apiKey,
             userId = response.userId,
+            guest = true,
         )
         return response
     }

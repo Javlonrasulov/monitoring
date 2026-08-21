@@ -17,6 +17,7 @@ export type PairResponse = {
   apiKey: string;
   userId?: string | null;
   threadId?: string | null;
+  guest?: boolean;
 };
 
 export type DeviceSession = {
@@ -27,6 +28,8 @@ export type DeviceSession = {
   deviceToken: string;
   apiKey: string;
   userId: string | null;
+  /** Guest Call Center only — must not unlock chats/settings/profile. */
+  guest?: boolean;
 };
 
 export type DeviceMeResponse = {

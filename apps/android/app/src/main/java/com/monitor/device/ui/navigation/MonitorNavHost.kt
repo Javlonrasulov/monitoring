@@ -126,42 +126,46 @@ fun MonitorNavHost(
             }
         },
     ) {
-        NavHost(
-            navController = navController,
-            startDestination = start,
-            enterTransition = { forwardEnter() },
-            exitTransition = { forwardExit() },
-            popEnterTransition = { backEnter() },
-            popExitTransition = { backExit() },
-        ) {
-            composable(Routes.Pairing) {
-                PairingScreen(
-                    apiClient = apiClient,
-                    onPaired = {
-                        PushRegistrar.refresh(apiClient, tokenStore)
-                        navController.navigate(Routes.Home) {
-                            popUpTo(Routes.Pairing) { inclusive = true }
-                        }
-                    },
-                    onOpenSupport = { id, title ->
-                        PushRegistrar.refresh(apiClient, tokenStore)
-                        chatTitle = title
-                        chatThreadId = id
-                        navController.navigate(Routes.Home) {
-                            popUpTo(Routes.Pairing) { inclusive = true }
-                        }
-                    },
-                )
-            }
-            composable(Routes.Home) {
-                BackHandler {
-                    when {
-                        showSettings -> showSettings = false
-                        chatThreadId != null -> chatThreadId = null
-                        else -> (context as? Activity)?.moveTaskToBack(true)
-                    }
+        Box(modifier = Modifier.fillMaxSize()) {
+            NavHost(
+                navController = navController,
+                startDestination = start,
+                enterTransition = { forwardEnter() },
+                exitTransition = { forwardExit() },
+                popEnterTransition = { backEnter() },
+                popExitTransition = { backExit() },
+            ) {
+                composable(Routes.Pairing) {
+                    PairingScreen(
+                        apiClient = apiClient,
+                        onPaired = {
+                            PushRegistrar.refresh(apiClient, tokenStore)
+                            navController.navigate(Routes.Home) {
+                                popUpTo(Routes.Pairing) { inclusive = true }
+                            }
+                        },
+                        onOpenSupport = { id, title ->
+                            chatTitle = title
+                            chatThreadId = id
+                            if (tokenStore.isGuest()) {
+                                // Guest Call Center: stay on pairing, only show support chat.
+                                return@PairingScreen
+                            }
+                            PushRegistrar.refresh(apiClient, tokenStore)
+                            navController.navigate(Routes.Home) {
+                                popUpTo(Routes.Pairing) { inclusive = true }
+                            }
+                        },
+                    )
                 }
-                Box(modifier = Modifier.fillMaxSize()) {
+                composable(Routes.Home) {
+                    BackHandler {
+                        when {
+                            showSettings -> showSettings = false
+                            chatThreadId != null -> chatThreadId = null
+                            else -> (context as? Activity)?.moveTaskToBack(true)
+                        }
+                    }
                     MainTabsScreen(
                         apiClient = apiClient,
                         tokenStore = tokenStore,
@@ -191,44 +195,55 @@ fun MonitorNavHost(
                             navController.navigate(Routes.history(id))
                         },
                     )
-                    val threadId = chatThreadId
-                    if (threadId != null) {
-                        ChatThreadScreen(
-                            apiClient = apiClient,
-                            tokenStore = tokenStore,
-                            threadId = threadId,
-                            title = chatTitle.ifBlank { stringResource(R.string.chats_untitled) },
-                            onBack = { chatThreadId = null },
-                        )
-                    }
+                }
+                composable(
+                    route = Routes.Live,
+                    arguments = listOf(navArgument("deviceId") { type = NavType.StringType }),
+                ) { entry ->
+                    val deviceId = entry.arguments?.getString("deviceId").orEmpty()
+                    LiveWatchScreen(
+                        apiClient = apiClient,
+                        deviceId = deviceId,
+                        title = watchTitle,
+                        initialFacing = watchFacing,
+                        onBack = { navController.popBackStack() },
+                        onOpenHistory = {
+                            navController.navigate(Routes.history(deviceId))
+                        },
+                    )
+                }
+                composable(
+                    route = Routes.History,
+                    arguments = listOf(navArgument("deviceId") { type = NavType.StringType }),
+                ) { entry ->
+                    val deviceId = entry.arguments?.getString("deviceId").orEmpty()
+                    DeviceHistoryScreen(
+                        apiClient = apiClient,
+                        deviceId = deviceId,
+                        title = watchTitle,
+                        onBack = { navController.popBackStack() },
+                    )
                 }
             }
-            composable(
-                route = Routes.Live,
-                arguments = listOf(navArgument("deviceId") { type = NavType.StringType }),
-            ) { entry ->
-                val deviceId = entry.arguments?.getString("deviceId").orEmpty()
-                LiveWatchScreen(
+
+            val threadId = chatThreadId
+            if (threadId != null) {
+                ChatThreadScreen(
                     apiClient = apiClient,
-                    deviceId = deviceId,
-                    title = watchTitle,
-                    initialFacing = watchFacing,
-                    onBack = { navController.popBackStack() },
-                    onOpenHistory = {
-                        navController.navigate(Routes.history(deviceId))
+                    tokenStore = tokenStore,
+                    threadId = threadId,
+                    title = chatTitle.ifBlank { stringResource(R.string.chats_untitled) },
+                    onBack = {
+                        chatThreadId = null
+                        if (tokenStore.isGuest()) {
+                            tokenStore.clear()
+                            if (navController.currentDestination?.route != Routes.Pairing) {
+                                navController.navigate(Routes.Pairing) {
+                                    popUpTo(0) { inclusive = true }
+                                }
+                            }
+                        }
                     },
-                )
-            }
-            composable(
-                route = Routes.History,
-                arguments = listOf(navArgument("deviceId") { type = NavType.StringType }),
-            ) { entry ->
-                val deviceId = entry.arguments?.getString("deviceId").orEmpty()
-                DeviceHistoryScreen(
-                    apiClient = apiClient,
-                    deviceId = deviceId,
-                    title = watchTitle,
-                    onBack = { navController.popBackStack() },
                 )
             }
         }

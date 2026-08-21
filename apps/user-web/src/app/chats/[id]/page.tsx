@@ -28,7 +28,7 @@ import { AuthedMedia } from "@/components/AuthedMedia";
 import { VideoNoteCapture } from "@/components/VideoNoteCapture";
 import { VoiceRecorder } from "@/components/VoiceRecorder";
 import { avatarUrl } from "@/lib/api";
-import { getSession, getToken } from "@/lib/auth";
+import { clearSession, getSession, getToken, isGuestSession } from "@/lib/auth";
 import { authFileUrl, deviceApi, uploadChatFile } from "@/lib/device-api";
 import {
   clientId,
@@ -51,6 +51,7 @@ export default function ChatThreadPage() {
   const toast = useToast();
   const session = getSession();
   const token = getToken();
+  const guest = isGuestSession();
 
   const [thread, setThread] = useState<ChatThreadDto | null>(null);
   const [messages, setMessages] = useState<ChatMessageDto[]>([]);
@@ -125,7 +126,12 @@ export default function ChatThreadPage() {
         await deviceApi.markRead(threadId);
       } catch {
         toast.push(t("chatLoadFailed"), "err");
-        router.replace("/chats");
+        if (isGuestSession()) {
+          clearSession();
+          router.replace("/login");
+        } else {
+          router.replace("/chats");
+        }
       }
     })();
     return () => {
@@ -410,9 +416,23 @@ export default function ChatThreadPage() {
       >
         <header className="topbar">
           <div className="row" style={{ minWidth: 0, flex: 1 }}>
-            <Link href="/chats" className="icon-btn" aria-label={t("back")}>
-              <ArrowLeft size={18} />
-            </Link>
+            {guest ? (
+              <button
+                type="button"
+                className="icon-btn"
+                aria-label={t("back")}
+                onClick={() => {
+                  clearSession();
+                  router.replace("/login");
+                }}
+              >
+                <ArrowLeft size={18} />
+              </button>
+            ) : (
+              <Link href="/chats" className="icon-btn" aria-label={t("back")}>
+                <ArrowLeft size={18} />
+              </Link>
+            )}
             <button
               type="button"
               className="row"

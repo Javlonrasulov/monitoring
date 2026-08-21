@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { AppearanceSheet } from "@/components/AppearanceSheet";
-import { isPaired } from "@/lib/auth";
+import { isFullAccount, isGuestSession, clearSession } from "@/lib/auth";
 import { deviceApi } from "@/lib/device-api";
 import { useI18n } from "@/lib/i18n";
 import { useTheme } from "@/lib/theme";
@@ -65,15 +65,26 @@ export function AppShell({
   const [showAppearance, setShowAppearance] = useState(false);
 
   useEffect(() => {
-    if (!isPaired()) {
+    const full = isFullAccount();
+    const guest = isGuestSession();
+    if (!full && !guest) {
       router.replace("/login");
       return;
     }
+    // Guest Call Center: only the support thread page — nowhere else in the app.
+    if (guest) {
+      const onSupportThread = /^\/chats\/[^/]+\/?$/.test(pathname);
+      if (!onSupportThread) {
+        clearSession();
+        router.replace("/login");
+        return;
+      }
+    }
     setReady(true);
-  }, [router]);
+  }, [router, pathname]);
 
   useEffect(() => {
-    if (!ready) return;
+    if (!ready || isGuestSession()) return;
     let cancelled = false;
 
     const load = async () => {

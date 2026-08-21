@@ -19,11 +19,28 @@ export function getToken(): string | null {
   return getSession()?.deviceToken ?? null;
 }
 
+/** True only for a real phone login — unlocks the full app. */
 export function isPaired(): boolean {
+  return isFullAccount();
+}
+
+export function isGuestSession(): boolean {
+  return Boolean(getSession()?.guest);
+}
+
+export function isFullAccount(): boolean {
+  const session = getSession();
+  return Boolean(session?.deviceToken && session.deviceId && !session.guest);
+}
+
+/** Any device token (full account or guest Call Center). */
+export function hasDeviceSession(): boolean {
   return Boolean(getToken());
 }
 
-export function savePairSession(res: PairResponse): DeviceSession {
+export function savePairSession(
+  res: PairResponse & { guest?: boolean },
+): DeviceSession {
   const session: DeviceSession = {
     deviceId: res.deviceId,
     deviceName: res.name,
@@ -32,9 +49,12 @@ export function savePairSession(res: PairResponse): DeviceSession {
     deviceToken: res.deviceToken,
     apiKey: res.apiKey,
     userId: res.userId ?? null,
+    guest: Boolean(res.guest),
   };
   localStorage.setItem(SESSION_KEY, JSON.stringify(session));
-  void import("./push").then((m) => m.registerWebPush());
+  if (!session.guest) {
+    void import("./push").then((m) => m.registerWebPush());
+  }
   return session;
 }
 

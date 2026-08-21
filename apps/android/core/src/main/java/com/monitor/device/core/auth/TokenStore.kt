@@ -17,7 +17,45 @@ class TokenStore(context: Context) {
     @Volatile private var prefs: SharedPreferences = openPrefs(preferEncrypted = true)
     @Volatile private var usingFallback = prefs === fallbackPrefs()
 
+    fun saveSession(
+        deviceId: String,
+        deviceName: String,
+        organizationId: String,
+        branchId: String,
+        deviceToken: String,
+        apiKey: String,
+        userId: String? = null,
+        guest: Boolean = false,
+    ) {
+        rehydrate()
+        prefs.edit()
+            .putString(KEY_DEVICE_ID, deviceId)
+            .putString(KEY_DEVICE_NAME, deviceName)
+            .putString(KEY_ORG_ID, organizationId)
+            .putString(KEY_BRANCH_ID, branchId)
+            .putString(KEY_DEVICE_TOKEN, deviceToken)
+            .putString(KEY_API_KEY, apiKey)
+            .putBoolean(KEY_GUEST, guest)
+            .apply {
+                if (!userId.isNullOrBlank()) putString(KEY_USER_ID, userId)
+            }
+            .apply()
+    }
+
+    fun isGuest(): Boolean {
+        rehydrate()
+        return prefs.getBoolean(KEY_GUEST, false)
+    }
+
+    /** Full phone login — unlocks home tabs. Guest Call Center is not paired. */
     fun isPaired(): Boolean {
+        rehydrate()
+        return !deviceToken().isNullOrBlank() &&
+            !deviceId().isNullOrBlank() &&
+            !isGuest()
+    }
+
+    fun hasSession(): Boolean {
         rehydrate()
         return !deviceToken().isNullOrBlank() && !deviceId().isNullOrBlank()
     }
@@ -73,29 +111,6 @@ class TokenStore(context: Context) {
 
     fun saveDeviceName(name: String) {
         prefs.edit().putString(KEY_DEVICE_NAME, name).apply()
-    }
-
-    fun saveSession(
-        deviceId: String,
-        deviceName: String,
-        organizationId: String,
-        branchId: String,
-        deviceToken: String,
-        apiKey: String,
-        userId: String? = null,
-    ) {
-        rehydrate()
-        prefs.edit()
-            .putString(KEY_DEVICE_ID, deviceId)
-            .putString(KEY_DEVICE_NAME, deviceName)
-            .putString(KEY_ORG_ID, organizationId)
-            .putString(KEY_BRANCH_ID, branchId)
-            .putString(KEY_DEVICE_TOKEN, deviceToken)
-            .putString(KEY_API_KEY, apiKey)
-            .apply {
-                if (!userId.isNullOrBlank()) putString(KEY_USER_ID, userId)
-            }
-            .apply()
     }
 
     fun clear() {
@@ -156,6 +171,7 @@ class TokenStore(context: Context) {
             .putString(KEY_DEVICE_TOKEN, from.getString(KEY_DEVICE_TOKEN, null))
             .putString(KEY_API_KEY, from.getString(KEY_API_KEY, null))
             .putString(KEY_USER_ID, from.getString(KEY_USER_ID, null))
+            .putBoolean(KEY_GUEST, from.getBoolean(KEY_GUEST, false))
             .putBoolean(KEY_AUTO_START, from.getBoolean(KEY_AUTO_START, true))
             .apply()
     }
@@ -170,6 +186,7 @@ class TokenStore(context: Context) {
         private const val KEY_DEVICE_TOKEN = "device_token"
         private const val KEY_API_KEY = "api_key"
         private const val KEY_USER_ID = "user_id"
+        private const val KEY_GUEST = "guest_session"
         private const val KEY_AUTO_START = "auto_start_enabled"
     }
 }
