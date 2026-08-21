@@ -727,6 +727,8 @@ export class DevicesService {
       requiresPassword: Boolean(existing),
       trialBlocked: trial.trialBlocked && !existing,
       trialEnded: trial.trialEnded && !existing,
+      existingPhone: existing ? null : trial.existingPhone,
+      existingName: existing ? null : trial.existingName,
       message: existing ? null : trial.message,
     };
   }

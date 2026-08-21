@@ -3,6 +3,8 @@ export type PairStatusResponse = {
   requiresPassword: boolean;
   trialBlocked?: boolean;
   trialEnded?: boolean;
+  existingPhone?: string | null;
+  existingName?: string | null;
   message?: string | null;
 };
 

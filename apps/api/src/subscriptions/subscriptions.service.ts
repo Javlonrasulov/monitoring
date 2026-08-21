@@ -10,6 +10,7 @@ import {
   PaymentInvoiceStatus,
   SubscriptionPlan,
   SubscriptionStatus,
+  UserRole,
 } from '../generated/prisma';
 import { PrismaService } from '../prisma/prisma.service';
 import { seesAllOrganizations } from '../auth/platform-org';
@@ -191,13 +192,10 @@ export class SubscriptionsService {
     if (!claim) {
       return { installId: keys[0], claim: null };
     }
-    if (claim.expiresAt <= new Date()) {
-      throw new BadRequestException(
-        'Trial ended on this phone. Buy Pro or Pro+ to continue.',
-      );
-    }
+    const status = await this.trialStatusForInstall(rawInstallId, rawSignals);
     throw new BadRequestException(
-      'Free trial already used on this phone. Sign in with your existing account.',
+      status.message ??
+        'Free trial already used on this phone. Sign in with your existing account.',
     );
   }
 
@@ -218,13 +216,10 @@ export class SubscriptionsService {
     }
     const existing = await this.findTrialClaim(keys);
     if (existing && existing.organizationId !== organizationId) {
-      if (existing.expiresAt <= new Date()) {
-        throw new BadRequestException(
-          'Trial ended on this phone. Buy Pro or Pro+ to continue.',
-        );
-      }
+      const status = await this.trialStatusForInstall(rawInstallId, rawSignals);
       throw new BadRequestException(
-        'Free trial already used on this phone. Sign in with your existing account.',
+        status.message ??
+          'Free trial already used on this phone. Sign in with your existing account.',
       );
     }
     await this.upsertTrialClaims(keys, organizationId, expiresAt);
@@ -264,25 +259,53 @@ export class SubscriptionsService {
       return {
         trialBlocked: false,
         trialEnded: false,
+        existingPhone: null as string | null,
+        existingName: null as string | null,
         message: null as string | null,
       };
     }
     const claim = await this.findTrialClaim(keys);
     if (!claim) {
-      return { trialBlocked: false, trialEnded: false, message: null };
+      return {
+        trialBlocked: false,
+        trialEnded: false,
+        existingPhone: null,
+        existingName: null,
+        message: null,
+      };
     }
+    const owner = this.prisma.user
+      ? await this.prisma.user.findFirst({
+          where: {
+            organizationId: claim.organizationId,
+            role: UserRole.USER,
+            blocked: false,
+          },
+          orderBy: { createdAt: 'asc' },
+          select: { phone: true, name: true },
+        })
+      : null;
+    const existingPhone = owner?.phone ?? null;
+    const existingName = owner?.name ?? null;
     if (claim.expiresAt <= new Date()) {
       return {
         trialBlocked: true,
         trialEnded: true,
-        message: 'Trial ended on this phone. Buy Pro or Pro+ to continue.',
+        existingPhone,
+        existingName,
+        message: existingPhone
+          ? `Trial ended on this phone. Sign in as ${existingPhone}. Buy Pro or Pro+ for live video.`
+          : 'Trial ended on this phone. Buy Pro or Pro+ to continue.',
       };
     }
     return {
       trialBlocked: true,
       trialEnded: false,
-      message:
-        'Free trial already used on this phone. Sign in with your existing account.',
+      existingPhone,
+      existingName,
+      message: existingPhone
+        ? `Free trial already used on this phone. Sign in as ${existingPhone}.`
+        : 'Free trial already used on this phone. Sign in with your existing account.',
     };
   }
 

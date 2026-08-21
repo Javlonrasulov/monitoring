@@ -53,9 +53,13 @@ const dict = {
     pairPasswordWrong: "Wrong password for this phone number",
     pairPhoneRequired: "Phone number is required",
     pairTrialEnded:
+      "Free trial ended on this phone. Sign in as {phone} — live needs Pro or Pro+.",
+    pairTrialEndedGeneric:
       "Free trial ended on this phone. Buy Pro or Pro+ to continue.",
     pairTrialUsed:
-      "Free trial already used on this phone. Sign in with your existing account.",
+      "Demo already used on this phone. Sign in as {phone} — password only. Live needs Pro after the demo.",
+    pairTrialUsedGeneric:
+      "Demo already used on this phone. Sign in with your existing account.",
     returningAccountHint:
       "This number is already registered — only password is needed.",
     downloadApp: "Download app",
@@ -202,8 +206,12 @@ const dict = {
     pairPasswordWrong: "Неверный пароль для этого номера",
     pairPhoneRequired: "Укажите номер телефона",
     pairTrialEnded:
+      "На этом телефоне демо закончилось. Войдите как {phone} — для эфира нужен Pro или Pro+.",
+    pairTrialEndedGeneric:
       "На этом телефоне бесплатный период закончился. Купите Pro или Pro+, чтобы продолжить.",
     pairTrialUsed:
+      "На этом телефоне демо уже использовано. Войдите как {phone} — нужен только пароль. Эфир после демо — только с Pro.",
+    pairTrialUsedGeneric:
       "На этом телефоне бесплатный период уже использован. Войдите в существующий аккаунт.",
     returningAccountHint:
       "Этот номер уже зарегистрирован — нужен только пароль.",

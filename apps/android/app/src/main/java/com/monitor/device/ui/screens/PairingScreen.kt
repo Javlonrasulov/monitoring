@@ -97,8 +97,10 @@ fun PairingScreen(
     val nameRequired = stringResource(R.string.pair_name_required)
     val badPassword = stringResource(R.string.pair_password_wrong)
     val passwordFormat = stringResource(R.string.pair_password_invalid)
-    val trialEndedMessage = stringResource(R.string.pair_trial_ended)
-    val trialUsedMessage = stringResource(R.string.pair_trial_used)
+    val trialEndedMessage = stringResource(R.string.pair_trial_ended_generic)
+    val trialUsedMessage = stringResource(R.string.pair_trial_used_generic)
+    val trialEndedWithPhone = stringResource(R.string.pair_trial_ended)
+    val trialUsedWithPhone = stringResource(R.string.pair_trial_used)
     val phoneDigits = phone.filter { it.isDigit() }
     val pinOk = password.length >= 4 && password.all { it.isDigit() }
     val returningUser = knownAccount == true
@@ -120,13 +122,34 @@ fun PairingScreen(
         knownAccount = status?.exists
         if (status?.exists == true) {
             code = ""
+            trialBlocked = false
+            if (error.value != null &&
+                (error.value == trialUsedMessage ||
+                    error.value == trialEndedMessage ||
+                    error.value?.contains(trialUsedWithPhone.take(20)) == true)
+            ) {
+                error.value = null
+            }
+            return@LaunchedEffect
         }
         val blocked = status?.trialBlocked == true && status.exists != true
         trialBlocked = blocked
         if (blocked) {
+            val existing = status.existingPhone?.filter { it.isDigit()}.orEmpty()
+            if (existing.length >= 9 && existing != phoneDigits) {
+                // Switch to the account that already owns this phone's demo.
+                phone = existing
+                displayName = ""
+                code = ""
+                return@LaunchedEffect
+            }
+            val label = status.existingPhone?.takeIf { it.isNotBlank() }
+                ?: status.existingName?.takeIf { it.isNotBlank() }
             error.value = when {
-                status?.trialEnded == true -> trialEndedMessage
-                !status?.message.isNullOrBlank() -> status?.message
+                status.trialEnded && !label.isNullOrBlank() ->
+                    trialEndedWithPhone.format(label)
+                status.trialEnded -> trialEndedMessage
+                !label.isNullOrBlank() -> trialUsedWithPhone.format(label)
                 else -> trialUsedMessage
             }
         }
@@ -164,8 +187,26 @@ fun PairingScreen(
                 loading = false
                 val api = err.apiErrorMessage()
                 error.value = when {
-                    api.contains("Trial ended", ignoreCase = true) -> trialEndedMessage
-                    api.contains("Free trial already used", ignoreCase = true) -> trialUsedMessage
+                    api.contains("Trial ended", ignoreCase = true) -> {
+                        val phoneHint = Regex("""Sign in as\s+(\+?\d{9,})""")
+                            .find(api)?.groupValues?.getOrNull(1)
+                        if (!phoneHint.isNullOrBlank()) {
+                            phone = phoneHint.filter { it.isDigit() }
+                            trialEndedWithPhone.format(phoneHint)
+                        } else {
+                            trialEndedMessage
+                        }
+                    }
+                    api.contains("Free trial already used", ignoreCase = true) -> {
+                        val phoneHint = Regex("""Sign in as\s+(\+?\d{9,})""")
+                            .find(api)?.groupValues?.getOrNull(1)
+                        if (!phoneHint.isNullOrBlank()) {
+                            phone = phoneHint.filter { it.isDigit() }
+                            trialUsedWithPhone.format(phoneHint)
+                        } else {
+                            trialUsedMessage
+                        }
+                    }
                     api.contains("Device id required", ignoreCase = true) -> trialEndedMessage
                     api.contains("limit", ignoreCase = true) -> limitMessage
                     api.contains("Invalid pairing", ignoreCase = true) -> invalidCode

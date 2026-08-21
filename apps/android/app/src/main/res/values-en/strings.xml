@@ -51,8 +51,10 @@
     <string name="pair_password_wrong">Wrong password for this phone number</string>
     <string name="pair_password_show">Show password</string>
     <string name="pair_password_hide">Hide password</string>
-    <string name="pair_trial_ended">Free trial ended on this phone. Buy Pro or Pro+ to continue.</string>
-    <string name="pair_trial_used">Free trial already used on this phone. Sign in with your existing account.</string>
+    <string name="pair_trial_ended">Free trial ended on this phone. Sign in as %1$s — live video requires Pro or Pro+.</string>
+    <string name="pair_trial_ended_generic">Free trial ended on this phone. Buy Pro or Pro+ to continue.</string>
+    <string name="pair_trial_used">Demo already used on this phone. Sign in as %1$s — password only. Live needs Pro after the demo.</string>
+    <string name="pair_trial_used_generic">Demo already used on this phone. Sign in with your existing account.</string>
     <string name="pair_code_label">Code</string>
     <string name="pair_code_placeholder">Code</string>
     <string name="pair_code_helper">Only for first link to another account</string>

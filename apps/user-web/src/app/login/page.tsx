@@ -9,7 +9,7 @@ import { deviceApi } from "@/lib/device-api";
 import { useI18n } from "@/lib/i18n";
 import { useToast } from "@/lib/toast";
 
-const APK_DOWNLOAD_URL = "/download/monitor.apk?v=1.1.8";
+const APK_DOWNLOAD_URL = "/download/monitor.apk?v=1.1.9";
 
 /**
  * Login UX mirrors Android PairingScreen exactly:
@@ -82,11 +82,27 @@ function LoginForm() {
           const blocked = Boolean(status.trialBlocked) && !status.exists;
           setTrialBlocked(blocked);
           if (blocked) {
-            setError(
-              status.trialEnded
-                ? t("pairTrialEnded")
-                : status.message || t("pairTrialUsed"),
-            );
+            const existing = (status.existingPhone || "").replace(/\D/g, "");
+            if (existing.length >= 9 && existing !== phoneDigits) {
+              setPhone(existing);
+              setDisplayName("");
+              setCode("");
+              return;
+            }
+            const label = status.existingPhone || status.existingName || "";
+            if (status.trialEnded) {
+              setError(
+                label
+                  ? t("pairTrialEnded").replace("{phone}", label)
+                  : t("pairTrialEndedGeneric"),
+              );
+            } else {
+              setError(
+                label
+                  ? t("pairTrialUsed").replace("{phone}", label)
+                  : t("pairTrialUsedGeneric"),
+              );
+            }
           }
         })
         .catch(() => {
@@ -135,9 +151,20 @@ function LoginForm() {
       router.replace("/chats");
     } catch (err) {
       let msg = err instanceof ApiError ? err.message : t("pairFailed");
-      if (/trial ended/i.test(msg)) msg = t("pairTrialEnded");
-      else if (/free trial already used/i.test(msg)) msg = t("pairTrialUsed");
-      else if (/invalid password/i.test(msg)) msg = t("pairPasswordWrong");
+      if (/trial ended/i.test(msg)) {
+        const m = msg.match(/Sign in as\s+(\+?\d{9,})/i);
+        msg = m?.[1]
+          ? t("pairTrialEnded").replace("{phone}", m[1])
+          : t("pairTrialEndedGeneric");
+      } else if (/free trial already used/i.test(msg)) {
+        const m = msg.match(/Sign in as\s+(\+?\d{9,})/i);
+        if (m?.[1]) {
+          setPhone(m[1].replace(/\D/g, ""));
+          msg = t("pairTrialUsed").replace("{phone}", m[1]);
+        } else {
+          msg = t("pairTrialUsedGeneric");
+        }
+      } else if (/invalid password/i.test(msg)) msg = t("pairPasswordWrong");
       else if (/at least 4 digits/i.test(msg)) msg = t("pairPasswordInvalid");
       else if (/invalid pairing|invalid.*code|already used/i.test(msg)) {
         msg = t("pairInvalidCode");

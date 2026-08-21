@@ -16,6 +16,12 @@ describe('trial device claim', () => {
         create: jest.fn(),
       },
       device: { count: jest.fn() },
+      user: {
+        findFirst: jest.fn().mockResolvedValue({
+          phone: '998901112233',
+          name: 'Owner',
+        }),
+      },
       paymentInvoice: { findFirst: jest.fn(), create: jest.fn() },
     };
     const service = new SubscriptionsService(

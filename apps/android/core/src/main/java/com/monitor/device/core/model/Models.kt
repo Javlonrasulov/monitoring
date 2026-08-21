@@ -23,6 +23,8 @@ data class PairStatusResponse(
     val requiresPassword: Boolean = false,
     val trialBlocked: Boolean = false,
     val trialEnded: Boolean = false,
+    val existingPhone: String? = null,
+    val existingName: String? = null,
     val message: String? = null,
 )
 
