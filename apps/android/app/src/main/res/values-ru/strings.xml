@@ -168,7 +168,7 @@
     <string name="profile_call_center_failed">Не удалось открыть Call Center</string>
     <string name="limit_reached">Лимит устройств исчерпан. Отключите старое устройство и попробуйте снова.</string>
     <string name="settings_link_section">Подключение устройства</string>
-    <string name="settings_share_hint">Создайте код и отправьте его на другой телефон. Кто введёт код, подключится к вам — чат и эфир бесплатны 24 часа.</string>
+    <string name="settings_share_hint">Создайте код и отправьте его на другой телефон. Кто введёт код, подключится к вам — чат и эфир бесплатны 72 часа.</string>
     <string name="settings_generate_code">Создать код</string>
     <string name="settings_copy_code">Скопировать код</string>
     <string name="settings_code_copied">Код скопирован</string>
@@ -206,9 +206,9 @@
     <string name="history_download">Скачать</string>
     <string name="history_retention">Срок хранения: 3 дня</string>
     <string name="settings_watch_not_publishing">Устройство сейчас не в эфире. Проверьте, что на втором телефоне включён мониторинг.</string>
-    <string name="settings_watch_upgrade">24 часа истекли. Чтобы смотреть дальше, купите Pro или Pro+.</string>
+    <string name="settings_watch_upgrade">72 часа истекли. Чтобы смотреть дальше, купите Pro или Pro+.</string>
     <string name="settings_plans_section">Подписка</string>
-    <string name="settings_trial_message">Пробный период: 24 часа видео. Затем нужен Pro или Pro+.</string>
+    <string name="settings_trial_message">Пробный период: 72 часа видео. Затем нужен Pro или Pro+.</string>
     <string name="settings_plan_status">Статус: %1$s · до: %2$s</string>
     <string name="settings_plan_pro">Pro</string>
     <string name="settings_plan_pro_body">Видеоэфир. Одна пара приложений.</string>

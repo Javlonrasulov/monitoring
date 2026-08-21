@@ -433,7 +433,7 @@ export class DevicesService {
             target.organizationId,
           );
           const expiresAt =
-            trial.expiresAt ?? new Date(Date.now() + 24 * 60 * 60 * 1000);
+            trial.expiresAt ?? new Date(Date.now() + 72 * 60 * 60 * 1000);
           await this.subscriptions.claimTrialForInstall(
             dto.installId,
             target.organizationId,
@@ -653,7 +653,7 @@ export class DevicesService {
     try {
       const trial = await this.subscriptions.ensureTrial(target.organizationId);
       const expiresAt =
-        trial.expiresAt ?? new Date(Date.now() + 24 * 60 * 60 * 1000);
+        trial.expiresAt ?? new Date(Date.now() + 72 * 60 * 60 * 1000);
       await this.subscriptions.claimTrialForInstall(
         dto.installId,
         target.organizationId,
@@ -801,7 +801,7 @@ export class DevicesService {
       const trial = await this.subscriptions.ensureTrial(params.organizationId);
       const expiresAt =
         trial.expiresAt ??
-        new Date(Date.now() + 24 * 60 * 60 * 1000);
+        new Date(Date.now() + 72 * 60 * 60 * 1000);
       await this.subscriptions.claimTrialForInstall(
         installId,
         params.organizationId,

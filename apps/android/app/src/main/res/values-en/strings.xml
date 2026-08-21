@@ -168,7 +168,7 @@
     <string name="profile_call_center_failed">Could not open Call Center</string>
     <string name="limit_reached">Device limit reached. Unpair an old device and try again.</string>
     <string name="settings_link_section">Link a device</string>
-    <string name="settings_share_hint">Generate a code and send it to another phone. Whoever enters it is linked to you — chat and live video are free for 24 hours.</string>
+    <string name="settings_share_hint">Generate a code and send it to another phone. Whoever enters it is linked to you — chat and live video are free for 72 hours.</string>
     <string name="settings_generate_code">Generate link code</string>
     <string name="settings_copy_code">Copy code</string>
     <string name="settings_code_copied">Code copied</string>
@@ -206,9 +206,9 @@
     <string name="history_download">Download</string>
     <string name="history_retention">Retention: 3 days</string>
     <string name="settings_watch_not_publishing">The device is not broadcasting right now. Check that monitoring is on on the other phone.</string>
-    <string name="settings_watch_upgrade">The 24-hour trial ended. Buy Pro or Pro+ to keep watching.</string>
+    <string name="settings_watch_upgrade">The 72-hour trial ended. Buy Pro or Pro+ to keep watching.</string>
     <string name="settings_plans_section">Subscription</string>
-    <string name="settings_trial_message">Free trial: 24 hours of live video. Then Pro or Pro+ is required.</string>
+    <string name="settings_trial_message">Free trial: 72 hours of live video. Then Pro or Pro+ is required.</string>
     <string name="settings_plan_status">Status: %1$s · expires: %2$s</string>
     <string name="settings_plan_pro">Pro</string>
     <string name="settings_plan_pro_body">Live video. One linked pair of apps.</string>

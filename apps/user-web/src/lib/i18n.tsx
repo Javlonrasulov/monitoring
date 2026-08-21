@@ -95,7 +95,7 @@ const dict = {
     copy: "Copy",
     copied: "Copied",
     noDevices: "No linked devices",
-    trialHint: "24h trial live video on first link",
+    trialHint: "72h trial live video on first link",
     switchCamera: "Switch camera",
     back: "Back",
     attach: "Attach",
@@ -134,7 +134,7 @@ const dict = {
     proBody: "Live video. One linked pair of apps.",
     proPlusBody: "Video + audio + recordings. Link two apps.",
     proPlusLocked: "Pay for Pro first. Then Pro+ unlocks.",
-    trialMessage: "Free trial: 24 hours of live video. Then Pro or Pro+ is required.",
+    trialMessage: "Free trial: 72 hours of live video. Then Pro or Pro+ is required.",
     planStatus: "Status: %1 · expires: %2",
     shareHint: "Share a code to link another phone, or enter a code you received.",
     active: "Active",
@@ -145,7 +145,7 @@ const dict = {
     historyHint: "Last 3 days of recordings (Pro+)",
     historyEmpty: "No recordings yet",
     historyLoadFailed: "Could not load history",
-    watchUpgrade: "The 24-hour trial ended. Buy Pro or Pro+ to keep watching.",
+    watchUpgrade: "The 72-hour trial ended. Buy Pro or Pro+ to keep watching.",
     audioProPlusOnly: "Audio is available on Pro+.",
     payGuideTitle: "Read this before paying",
     payGuideBody:
@@ -244,7 +244,7 @@ const dict = {
     copy: "Копировать",
     copied: "Скопировано",
     noDevices: "Нет связанных устройств",
-    trialHint: "24ч пробного видео при первой привязке",
+    trialHint: "72ч пробного видео при первой привязке",
     switchCamera: "Камера",
     back: "Назад",
     attach: "Файл",
@@ -284,7 +284,7 @@ const dict = {
     proPlusBody: "Видео + звук + записи. Можно связать два приложения.",
     proPlusLocked: "Сначала оплатите Pro — затем откроется Pro+.",
     trialMessage:
-      "Пробный период: 24 часа видео. Затем нужен Pro или Pro+.",
+      "Пробный период: 72 часа видео. Затем нужен Pro или Pro+.",
     planStatus: "Статус: %1 · до: %2",
     shareHint:
       "Поделитесь кодом, чтобы связать другой телефон, или введите полученный код.",
@@ -297,7 +297,7 @@ const dict = {
     historyEmpty: "Записей пока нет",
     historyLoadFailed: "Не удалось загрузить историю",
     watchUpgrade:
-      "24-часовой пробный период закончился. Купите Pro или Pro+, чтобы смотреть дальше.",
+      "72-часовой пробный период закончился. Купите Pro или Pro+, чтобы смотреть дальше.",
     audioProPlusOnly: "Звук доступен на Pro+.",
     payGuideTitle: "Прочитайте перед оплатой",
     payGuideBody:

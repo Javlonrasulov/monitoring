@@ -52,7 +52,7 @@ export type SubscriptionView = {
 
 const PRO_PRICE = 25;
 const PRO_PLUS_PRICE = 25;
-const TRIAL_HOURS = 24;
+const TRIAL_HOURS = 72;
 const PAID_DAYS = 365;
 
 const PAID_PROVIDER_STATUSES = new Set([
