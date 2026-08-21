@@ -20,6 +20,10 @@ Thumbs.db
 local.properties
 *.apk
 *.aab
+*.jks
+*.keystore
+keystore.properties
+apps/android/keystore/
 deploy/public/
 .vercel
 apps/android/app/google-services.json

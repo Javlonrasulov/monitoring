@@ -9,7 +9,7 @@ import { deviceApi } from "@/lib/device-api";
 import { useI18n } from "@/lib/i18n";
 import { useToast } from "@/lib/toast";
 
-const APK_DOWNLOAD_URL = "/download/monitor.apk?v=1.1.7";
+const APK_DOWNLOAD_URL = "/download/monitor.apk?v=1.1.8";
 
 /**
  * Login UX mirrors Android PairingScreen exactly:
