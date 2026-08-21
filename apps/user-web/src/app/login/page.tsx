@@ -9,7 +9,7 @@ import { deviceApi } from "@/lib/device-api";
 import { useI18n } from "@/lib/i18n";
 import { useToast } from "@/lib/toast";
 
-const APK_DOWNLOAD_URL = "/download/monitor.apk?v=1.1.9";
+const APK_DOWNLOAD_URL = "/download/monitor.apk?v=1.2.0";
 
 /**
  * Login UX mirrors Android PairingScreen exactly:
@@ -89,16 +89,16 @@ function LoginForm() {
               setCode("");
               return;
             }
-            const label = status.existingPhone || status.existingName || "";
+            const label = (status.existingPhone || "").replace(/\D/g, "");
             if (status.trialEnded) {
               setError(
-                label
+                label.length >= 9
                   ? t("pairTrialEnded").replace("{phone}", label)
                   : t("pairTrialEndedGeneric"),
               );
             } else {
               setError(
-                label
+                label.length >= 9
                   ? t("pairTrialUsed").replace("{phone}", label)
                   : t("pairTrialUsedGeneric"),
               );

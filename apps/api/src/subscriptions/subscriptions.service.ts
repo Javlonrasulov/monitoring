@@ -280,12 +280,23 @@ export class SubscriptionsService {
             organizationId: claim.organizationId,
             role: UserRole.USER,
             blocked: false,
+            AND: [
+              { phone: { not: null } },
+              { NOT: { phone: '' } },
+              {
+                NOT: [
+                  { email: { startsWith: 'callcenter+' } },
+                  { email: { endsWith: '@support.internal' } },
+                  { name: { equals: 'Call Center' } },
+                ],
+              },
+            ],
           },
           orderBy: { createdAt: 'asc' },
           select: { phone: true, name: true },
         })
       : null;
-    const existingPhone = owner?.phone ?? null;
+    const existingPhone = owner?.phone?.replace(/\D/g, '') || null;
     const existingName = owner?.name ?? null;
     if (claim.expiresAt <= new Date()) {
       return {

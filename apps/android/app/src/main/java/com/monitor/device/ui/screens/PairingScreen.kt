@@ -143,8 +143,9 @@ fun PairingScreen(
                 code = ""
                 return@LaunchedEffect
             }
-            val label = status.existingPhone?.takeIf { it.isNotBlank() }
-                ?: status.existingName?.takeIf { it.isNotBlank() }
+            // Never show names like "Call Center" — login is always the phone number.
+            val label = existing.takeIf { it.length >= 9 }
+                ?: status.existingPhone?.filter { it.isDigit() }?.takeIf { it.length >= 9 }
             error.value = when {
                 status.trialEnded && !label.isNullOrBlank() ->
                     trialEndedWithPhone.format(label)
