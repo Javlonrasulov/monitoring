@@ -10,7 +10,7 @@ import {
   type ReactNode,
 } from "react";
 
-export type Locale = "uz" | "ru" | "en";
+export type Locale = "ru" | "en";
 
 const STORAGE_KEY = "monitor.locale";
 
@@ -535,7 +535,7 @@ const en: { [K in keyof typeof uz]: string } = {
   auditEmpty: "No entries",
 };
 
-const dictionaries = { uz, ru, en } as const;
+const dictionaries = { ru, en } as const;
 
 export type MessageKey = keyof typeof uz;
 
@@ -548,13 +548,15 @@ type I18nContextValue = {
 const I18nContext = createContext<I18nContextValue | null>(null);
 
 function readStoredLocale(): Locale {
-  if (typeof window === "undefined") return "uz";
+  if (typeof window === "undefined") return "ru";
   const stored = window.localStorage.getItem(STORAGE_KEY);
-  return stored === "ru" || stored === "uz" || stored === "en" ? stored : "uz";
+  if (stored === "ru" || stored === "en") return stored;
+  // Former default was Uzbek — map to Russian.
+  return "ru";
 }
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
-  const [locale, setLocaleState] = useState<Locale>("uz");
+  const [locale, setLocaleState] = useState<Locale>("ru");
 
   useEffect(() => {
     setLocaleState(readStoredLocale());
@@ -590,5 +592,5 @@ export function useI18n() {
 }
 
 export function localeTag(locale: Locale) {
-  return locale === "ru" ? "ru-RU" : locale === "en" ? "en-US" : "uz-UZ";
+  return locale === "ru" ? "ru-RU" : "en-US";
 }

@@ -2,8 +2,7 @@
 
 import { useI18n, type Locale } from "@/lib/i18n";
 
-const OPTIONS: { id: Locale; labelKey: "langUz" | "langRu" | "langEn" }[] = [
-  { id: "uz", labelKey: "langUz" },
+const OPTIONS: { id: Locale; labelKey: "langRu" | "langEn" }[] = [
   { id: "ru", labelKey: "langRu" },
   { id: "en", labelKey: "langEn" },
 ];
