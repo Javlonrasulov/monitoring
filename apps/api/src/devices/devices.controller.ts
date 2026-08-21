@@ -18,6 +18,7 @@ import { CurrentDevice, CurrentUser } from '../auth/decorators';
 import {
   CreatePairingCodeDto,
   DeviceStatusDto,
+  GuestSupportDto,
   LinkDeviceDto,
   PairDeviceDto,
   SetCameraFacingDto,
@@ -210,6 +211,14 @@ export class DevicesController {
   @ApiOperation({ summary: 'Pair device with pairing code (device endpoint)' })
   pair(@Body() dto: PairDeviceDto) {
     return this.devicesService.pairDevice(dto);
+  }
+
+  @Post('guest-support')
+  @ApiOperation({
+    summary: 'Open Call Center without login (guest session by install id)',
+  })
+  guestSupport(@Body() dto: GuestSupportDto) {
+    return this.devicesService.openGuestSupport(dto);
   }
 
   @Post('pairing-codes')

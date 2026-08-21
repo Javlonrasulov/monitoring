@@ -37,6 +37,19 @@ export const deviceApi = {
   }) =>
     api.post<PairResponse>("/devices/pair", body, { auth: false }),
 
+  guestSupport: (body: {
+    installId: string;
+    name?: string;
+    appVersion?: string;
+    deviceModel?: string;
+    installSignals?: string[];
+  }) =>
+    api.post<PairResponse & { guest?: boolean }>(
+      "/devices/guest-support",
+      body,
+      { auth: false },
+    ),
+
   me: () => api.get<DeviceMeResponse>("/devices/me"),
 
   updateProfile: (body: { name?: string; phone?: string }) =>

@@ -9,7 +9,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { DeviceStatus, NetworkType, Prisma, UserRole } from '../generated/prisma';
 import * as bcrypt from 'bcrypt';
-import { randomBytes } from 'crypto';
+import { randomBytes, createHash } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { EventsGateway } from '../events/events.gateway';
 import { AuditService } from '../audit/audit.service';
@@ -19,6 +19,7 @@ import { ChatsService } from '../chats/chats.service';
 import {
   CreatePairingCodeDto,
   DeviceStatusDto,
+  GuestSupportDto,
   PairDeviceDto,
 } from './dto/devices.dto';
 import { platformOrgId, seesAllOrganizations } from '../auth/platform-org';
@@ -730,6 +731,217 @@ export class DevicesService {
       existingPhone: existing ? null : trial.existingPhone,
       existingName: existing ? null : trial.existingName,
       message: existing ? null : trial.message,
+    };
+  }
+
+  /**
+   * Open Call Center without phone/password (login problems).
+   * Reuses a guest device keyed by installId so the same browser/phone
+   * keeps one support thread.
+   */
+  async openGuestSupport(dto: GuestSupportDto) {
+    const primary =
+      this.subscriptions.normalizeInstallId(dto.installId) ??
+      this.subscriptions.collectInstallKeys(dto.installId, dto.installSignals)[0];
+    if (!primary) {
+      throw new BadRequestException('Device id required');
+    }
+
+    const guestEmail = `guest-${createHash('sha256')
+      .update(primary)
+      .digest('hex')
+      .slice(0, 24)}@guest.local`;
+    const displayName = (dto.name?.trim() || 'Guest').slice(0, 48);
+
+    let user = await this.prisma.user.findFirst({
+      where: { email: guestEmail, role: UserRole.USER, blocked: false },
+      include: { device: true },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    if (user?.device?.disabled) {
+      await this.prisma.device.update({
+        where: { id: user.device.id },
+        data: { disabled: false, status: DeviceStatus.ONLINE },
+      });
+      user = await this.prisma.user.findFirst({
+        where: { id: user.id },
+        include: { device: true },
+      });
+    }
+
+    if (user?.device) {
+      const session = await this.issueGuestSession(user.device, user.id, dto, primary);
+      const thread = await this.chats.openSupportForDevice(
+        user.organizationId,
+        user.device.id,
+      );
+      return { ...session, threadId: thread.id, guest: true };
+    }
+
+    if (user && !user.deviceId) {
+      const branch = await this.prisma.branch.findFirst({
+        where: { organizationId: user.organizationId },
+        orderBy: { createdAt: 'asc' },
+      });
+      if (!branch) {
+        throw new BadRequestException('Branch not found');
+      }
+      const apiKey = randomBytes(32).toString('hex');
+      const apiKeyHash = await bcrypt.hash(apiKey, 10);
+      const device = await this.prisma.device.create({
+        data: {
+          name: displayName,
+          organizationId: user.organizationId,
+          branchId: branch.id,
+          status: DeviceStatus.ONLINE,
+          lastSeen: new Date(),
+          apiKeyHash,
+          appVersion: dto.appVersion,
+          androidVersion: dto.androidVersion,
+          deviceModel: dto.deviceModel,
+          installId: primary,
+          capabilitiesJson: {
+            cameraFacing: 'FRONT',
+            cameraFacingRev: 1,
+            guest: true,
+          } as Prisma.InputJsonValue,
+        },
+      });
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: {
+          deviceId: device.id,
+          name: displayName,
+          username: displayName,
+          lastSeenAt: new Date(),
+        },
+      });
+      const deviceToken = await this.signDeviceToken(device);
+      const thread = await this.chats.openSupportForDevice(
+        user.organizationId,
+        device.id,
+      );
+      return {
+        deviceId: device.id,
+        name: device.name,
+        organizationId: device.organizationId,
+        branchId: device.branchId,
+        deviceToken,
+        apiKey,
+        userId: user.id,
+        threadId: thread.id,
+        guest: true,
+      };
+    }
+
+    const org = await this.prisma.organization.create({
+      data: {
+        name: `Guest ${primary.slice(0, 10)}`,
+        branches: { create: { name: 'Main' } },
+      },
+      include: { branches: { orderBy: { createdAt: 'asc' }, take: 1 } },
+    });
+    const branch = org.branches[0];
+    if (!branch) {
+      throw new BadRequestException('Branch not found');
+    }
+
+    const apiKey = randomBytes(32).toString('hex');
+    const apiKeyHash = await bcrypt.hash(apiKey, 10);
+    const device = await this.prisma.device.create({
+      data: {
+        name: displayName,
+        organizationId: org.id,
+        branchId: branch.id,
+        status: DeviceStatus.ONLINE,
+        lastSeen: new Date(),
+        apiKeyHash,
+        appVersion: dto.appVersion,
+        androidVersion: dto.androidVersion,
+        deviceModel: dto.deviceModel,
+        installId: primary,
+        capabilitiesJson: {
+          cameraFacing: 'FRONT',
+          cameraFacingRev: 1,
+          guest: true,
+        } as Prisma.InputJsonValue,
+      },
+    });
+
+    const createdUser = await this.prisma.user.create({
+      data: {
+        email: guestEmail,
+        passwordHash: await bcrypt.hash(randomBytes(16).toString('hex'), 10),
+        appPinSet: false,
+        name: displayName,
+        username: displayName,
+        phone: null,
+        role: UserRole.USER,
+        organizationId: org.id,
+        deviceId: device.id,
+        lastSeenAt: new Date(),
+      },
+    });
+
+    await this.audit.log({
+      organizationId: org.id,
+      action: 'device.guest_support',
+      resourceType: 'Device',
+      resourceId: device.id,
+      metadata: { installId: primary, userId: createdUser.id },
+    });
+
+    const deviceToken = await this.signDeviceToken(device);
+    const thread = await this.chats.openSupportForDevice(org.id, device.id);
+    return {
+      deviceId: device.id,
+      name: device.name,
+      organizationId: device.organizationId,
+      branchId: device.branchId,
+      deviceToken,
+      apiKey,
+      userId: createdUser.id,
+      threadId: thread.id,
+      guest: true,
+    };
+  }
+
+  private async issueGuestSession(
+    device: {
+      id: string;
+      name: string;
+      organizationId: string;
+      branchId: string;
+    },
+    userId: string,
+    dto: GuestSupportDto,
+    installId: string,
+  ) {
+    const apiKey = randomBytes(32).toString('hex');
+    const apiKeyHash = await bcrypt.hash(apiKey, 10);
+    await this.prisma.device.update({
+      where: { id: device.id },
+      data: {
+        lastSeen: new Date(),
+        apiKeyHash,
+        appVersion: dto.appVersion ?? undefined,
+        androidVersion: dto.androidVersion ?? undefined,
+        deviceModel: dto.deviceModel ?? undefined,
+        installId,
+        status: DeviceStatus.ONLINE,
+      },
+    });
+    const deviceToken = await this.signDeviceToken(device);
+    return {
+      deviceId: device.id,
+      name: device.name,
+      organizationId: device.organizationId,
+      branchId: device.branchId,
+      deviceToken,
+      apiKey,
+      userId,
+      threadId: null as string | null,
     };
   }
 

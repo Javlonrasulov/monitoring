@@ -18,6 +18,16 @@ data class PairRequest(
 )
 
 @Serializable
+data class GuestSupportRequest(
+    val name: String = "Guest",
+    val appVersion: String? = null,
+    val androidVersion: String? = null,
+    val deviceModel: String? = null,
+    val installId: String? = null,
+    val installSignals: List<String> = emptyList(),
+)
+
+@Serializable
 data class PairStatusResponse(
     val exists: Boolean = false,
     val requiresPassword: Boolean = false,
@@ -38,6 +48,7 @@ data class PairResponse(
     val apiKey: String,
     val userId: String? = null,
     val threadId: String? = null,
+    val guest: Boolean = false,
 )
 
 @Serializable

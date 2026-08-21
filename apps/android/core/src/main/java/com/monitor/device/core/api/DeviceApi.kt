@@ -19,6 +19,7 @@ import com.monitor.device.core.model.LinkedDeviceDto
 import com.monitor.device.core.model.OkResponse
 import com.monitor.device.core.model.PairingCodeResponse
 import com.monitor.device.core.model.PairRequest
+import com.monitor.device.core.model.GuestSupportRequest
 import com.monitor.device.core.model.PairResponse
 import com.monitor.device.core.model.PairStatusResponse
 import com.monitor.device.core.model.PublisherTokenResponse
@@ -56,6 +57,9 @@ interface DeviceApi {
 
     @POST("devices/pair")
     suspend fun pair(@Body request: PairRequest): PairResponse
+
+    @POST("devices/guest-support")
+    suspend fun guestSupport(@Body request: GuestSupportRequest): PairResponse
 
     @GET("devices/me")
     suspend fun me(

@@ -88,6 +88,40 @@ export class PairDeviceDto {
   installSignals?: string[];
 }
 
+export class GuestSupportDto {
+  @ApiPropertyOptional({
+    description: 'Stable install/browser id so guest can resume the same chat',
+  })
+  @IsOptional()
+  @IsString()
+  installId?: string;
+
+  @ApiPropertyOptional({ type: [String] })
+  @IsOptional()
+  @IsString({ each: true })
+  installSignals?: string[];
+
+  @ApiPropertyOptional({ example: 'Guest' })
+  @IsOptional()
+  @IsString()
+  name?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  appVersion?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  androidVersion?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  deviceModel?: string;
+}
+
 export class UploadAvatarDto {
   @ApiProperty({ description: 'JPEG image as base64' })
   @IsString()

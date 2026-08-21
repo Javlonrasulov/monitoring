@@ -9,7 +9,22 @@ import { deviceApi } from "@/lib/device-api";
 import { useI18n } from "@/lib/i18n";
 import { useToast } from "@/lib/toast";
 
-const APK_DOWNLOAD_URL = "/download/monitor.apk?v=1.2.1";
+const APK_DOWNLOAD_URL = "/download/monitor.apk?v=1.2.2";
+
+const GUEST_INSTALL_KEY = "levelapp.guestInstallId";
+
+function guestInstallId(): string {
+  if (typeof window === "undefined") return `web:${Date.now()}`;
+  try {
+    const existing = localStorage.getItem(GUEST_INSTALL_KEY);
+    if (existing && existing.length >= 8) return existing;
+    const id = `web:${crypto.randomUUID()}`;
+    localStorage.setItem(GUEST_INSTALL_KEY, id);
+    return id;
+  } catch {
+    return `web:${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  }
+}
 
 /**
  * Login UX mirrors Android PairingScreen exactly:
@@ -182,45 +197,48 @@ function LoginForm() {
   }
 
   async function openCallCenter() {
-    if (!canOpenSupport) {
-      const msg = t("callCenterNeedCreds");
-      setError(msg);
-      toast.push(msg, "err");
-      return;
-    }
     setError(null);
     setSupportBusy(true);
     try {
-      const cleanedCode = returningUser
-        ? ""
-        : code
-            .replace(/^MONITOR:/i, "")
-            .replace(/\s+/g, "")
-            .trim()
-            .toUpperCase();
-      const res = await deviceApi.pair({
-        phone: phone.trim() || phoneDigits,
-        password,
-        name: returningUser ? "" : displayName.trim(),
-        code: cleanedCode,
-        appVersion: "user-web/0.1.0",
-        deviceModel:
-          typeof navigator !== "undefined"
-            ? navigator.userAgent.slice(0, 80)
-            : "web",
-      });
-      savePairSession(res);
+      if (canOpenSupport) {
+        const cleanedCode = returningUser
+          ? ""
+          : code
+              .replace(/^MONITOR:/i, "")
+              .replace(/\s+/g, "")
+              .trim()
+              .toUpperCase();
+        const res = await deviceApi.pair({
+          phone: phone.trim() || phoneDigits,
+          password,
+          name: returningUser ? "" : displayName.trim(),
+          code: cleanedCode,
+          appVersion: "user-web/0.1.0",
+          deviceModel:
+            typeof navigator !== "undefined"
+              ? navigator.userAgent.slice(0, 80)
+              : "web",
+        });
+        savePairSession(res);
+      } else {
+        const res = await deviceApi.guestSupport({
+          installId: guestInstallId(),
+          name: displayName.trim() || "Guest",
+          appVersion: "user-web/0.1.0",
+          deviceModel:
+            typeof navigator !== "undefined"
+              ? navigator.userAgent.slice(0, 80)
+              : "web",
+        });
+        savePairSession(res);
+      }
       const thread = await deviceApi.openSupport();
       router.replace(`/chats/${thread.id}`);
     } catch (err) {
       let msg = err instanceof ApiError ? err.message : t("callCenterFailed");
       if (/invalid password/i.test(msg)) msg = t("pairPasswordWrong");
       else if (/name is required/i.test(msg)) msg = t("pairNameRequired");
-      else if (/trial ended|free trial already used/i.test(msg)) {
-        msg = t("callCenterNeedCreds");
-      } else {
-        msg = t("callCenterFailed");
-      }
+      else msg = t("callCenterFailed");
       setError(msg);
       toast.push(msg, "err");
     } finally {

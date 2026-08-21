@@ -21,6 +21,7 @@ import com.monitor.device.core.model.LinkedDeviceDto
 import com.monitor.device.core.model.OkResponse
 import com.monitor.device.core.model.PairingCodeResponse
 import com.monitor.device.core.model.PairRequest
+import com.monitor.device.core.model.GuestSupportRequest
 import com.monitor.device.core.model.PairResponse
 import com.monitor.device.core.model.PairStatusResponse
 import com.monitor.device.core.model.PublisherTokenResponse
@@ -96,6 +97,20 @@ class DeviceApiClient(
 
     suspend fun pair(request: PairRequest): PairResponse {
         val response = api.pair(request)
+        tokenStore.saveSession(
+            deviceId = response.deviceId,
+            deviceName = response.name,
+            organizationId = response.organizationId,
+            branchId = response.branchId,
+            deviceToken = response.deviceToken,
+            apiKey = response.apiKey,
+            userId = response.userId,
+        )
+        return response
+    }
+
+    suspend fun guestSupport(request: GuestSupportRequest): PairResponse {
+        val response = api.guestSupport(request)
         tokenStore.saveSession(
             deviceId = response.deviceId,
             deviceName = response.name,

@@ -57,6 +57,7 @@ import com.monitor.device.BuildConfig
 import com.monitor.device.R
 import com.monitor.device.core.api.DeviceApiClient
 import com.monitor.device.core.auth.InstallId
+import com.monitor.device.core.model.GuestSupportRequest
 import com.monitor.device.core.model.PairRequest
 import com.monitor.device.ui.components.ErrorBanner
 import com.monitor.device.ui.components.MonitorCard
@@ -106,7 +107,6 @@ fun PairingScreen(
     val trialEndedWithPhone = stringResource(R.string.pair_trial_ended)
     val trialUsedWithPhone = stringResource(R.string.pair_trial_used)
     val callCenterTitle = stringResource(R.string.profile_call_center)
-    val callCenterNeedCreds = stringResource(R.string.pair_call_center_need_creds)
     val callCenterFailed = stringResource(R.string.profile_call_center_failed)
     val phoneDigits = phone.filter { it.isDigit() }
     val pinOk = password.length >= 4 && password.all { it.isDigit() }
@@ -231,33 +231,42 @@ fun PairingScreen(
     }
 
     fun openCallCenter() {
-        if (!canOpenSupport) {
-            error.value = callCenterNeedCreds
-            return
-        }
         keyboard?.hide()
         focusManager.clearFocus()
         supportBusy = true
         error.value = null
         scope.launch {
             runCatching {
-                apiClient.pair(
-                    PairRequest(
-                        code = if (returningUser) {
-                            ""
-                        } else {
-                            code.replace("MONITOR:", "", ignoreCase = true).trim()
-                        },
-                        name = if (returningUser) "" else displayName.trim(),
-                        phone = phone.trim().ifBlank { null },
-                        password = password,
-                        appVersion = BuildConfig.VERSION_NAME,
-                        androidVersion = Build.VERSION.RELEASE,
-                        deviceModel = "${Build.MANUFACTURER} ${Build.MODEL}",
-                        installId = installId,
-                        installSignals = installSignals,
-                    ),
-                )
+                if (canOpenSupport) {
+                    apiClient.pair(
+                        PairRequest(
+                            code = if (returningUser) {
+                                ""
+                            } else {
+                                code.replace("MONITOR:", "", ignoreCase = true).trim()
+                            },
+                            name = if (returningUser) "" else displayName.trim(),
+                            phone = phone.trim().ifBlank { null },
+                            password = password,
+                            appVersion = BuildConfig.VERSION_NAME,
+                            androidVersion = Build.VERSION.RELEASE,
+                            deviceModel = "${Build.MANUFACTURER} ${Build.MODEL}",
+                            installId = installId,
+                            installSignals = installSignals,
+                        ),
+                    )
+                } else {
+                    apiClient.guestSupport(
+                        GuestSupportRequest(
+                            name = displayName.trim().ifBlank { "Guest" },
+                            appVersion = BuildConfig.VERSION_NAME,
+                            androidVersion = Build.VERSION.RELEASE,
+                            deviceModel = "${Build.MANUFACTURER} ${Build.MODEL}",
+                            installId = installId,
+                            installSignals = installSignals,
+                        ),
+                    )
+                }
                 apiClient.openSupportChat()
             }.onSuccess { thread ->
                 supportBusy = false
@@ -268,8 +277,6 @@ fun PairingScreen(
                 val msg = when {
                     api.contains("Invalid password", ignoreCase = true) -> badPassword
                     api.contains("Name is required", ignoreCase = true) -> nameRequired
-                    api.contains("Free trial already used", ignoreCase = true) ||
-                        api.contains("Trial ended", ignoreCase = true) -> callCenterNeedCreds
                     else -> DeviceApiClient.errorMessage(err, callCenterFailed)
                 }
                 error.value = msg
