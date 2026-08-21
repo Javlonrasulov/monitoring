@@ -132,10 +132,10 @@ fun PairingScreen(
             }
             return@LaunchedEffect
         }
-        val blocked = status?.trialBlocked == true && status.exists != true
+        val blocked = status != null && status.trialBlocked && !status.exists
         trialBlocked = blocked
-        if (blocked) {
-            val existing = status.existingPhone?.filter { it.isDigit()}.orEmpty()
+        if (blocked && status != null) {
+            val existing = status.existingPhone?.filter { it.isDigit() }.orEmpty()
             if (existing.length >= 9 && existing != phoneDigits) {
                 // Switch to the account that already owns this phone's demo.
                 phone = existing
