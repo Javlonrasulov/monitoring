@@ -746,6 +746,43 @@ img {
   margin: 0;
 }
 
+.thread-top {
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  z-index: 2;
+}
+
+.thread-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px 10px;
+}
+
+.thread-search input {
+  flex: 1;
+  min-width: 0;
+  min-height: 40px;
+  border-radius: 10px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface-muted);
+  padding: 0 12px;
+  outline: none;
+}
+
+.thread-search input:focus {
+  border-color: var(--teal-600);
+}
+
+.thread-search-hits {
+  max-height: 160px;
+  overflow: auto;
+  padding: 4px 8px 10px;
+  border-top: 1px solid var(--border);
+}
+
 @media (min-width: 900px) {
   .thread-layout {
     border-left: 1px solid var(--border);

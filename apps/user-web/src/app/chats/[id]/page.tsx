@@ -414,6 +414,7 @@ export default function ChatThreadPage() {
           if (file) void uploadFile(file);
         }}
       >
+        <div className="thread-top">
         <header className="topbar">
           <div className="row" style={{ minWidth: 0, flex: 1 }}>
             {guest ? (
@@ -481,8 +482,17 @@ export default function ChatThreadPage() {
           <button
             type="button"
             className="icon-btn"
-            onClick={() => setSearchOpen((v) => !v)}
+            onClick={() => {
+              setSearchOpen((v) => {
+                if (v) {
+                  setSearchHits([]);
+                  setSearchQ("");
+                }
+                return !v;
+              });
+            }}
             aria-label={t("search")}
+            aria-pressed={searchOpen}
           >
             <Search size={18} />
           </button>
@@ -497,22 +507,27 @@ export default function ChatThreadPage() {
         </header>
 
         {searchOpen ? (
-          <div className="row" style={{ padding: "8px 12px", gap: 8, background: "var(--surface)" }}>
+          <div className="thread-search">
             <input
               value={searchQ}
               onChange={(e) => setSearchQ(e.target.value)}
               placeholder={t("search")}
-              style={{ flex: 1, minHeight: 40, borderRadius: 10, border: "1px solid var(--border-strong)", padding: "0 12px" }}
+              autoFocus
               onKeyDown={(e) => e.key === "Enter" && void runSearch()}
             />
-            <button type="button" className="btn btn-secondary" style={{ minHeight: 40 }} onClick={() => void runSearch()}>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              style={{ minHeight: 40, flexShrink: 0, padding: "0 14px" }}
+              onClick={() => void runSearch()}
+            >
               {t("search")}
             </button>
           </div>
         ) : null}
 
         {searchHits.length > 0 ? (
-          <div className="card" style={{ margin: 8, maxHeight: 160, overflow: "auto", padding: 8 }}>
+          <div className="thread-search-hits">
             {searchHits.map((h) => (
               <button
                 key={h.id}
@@ -521,6 +536,7 @@ export default function ChatThreadPage() {
                 style={{ width: "100%", border: 0, background: "transparent", textAlign: "left" }}
                 onClick={() => {
                   setSearchOpen(false);
+                  setSearchHits([]);
                   document.getElementById(`msg-${h.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
                 }}
               >
@@ -532,6 +548,7 @@ export default function ChatThreadPage() {
             ))}
           </div>
         ) : null}
+        </div>
 
         <div
           className="messages"
