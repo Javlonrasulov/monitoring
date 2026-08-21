@@ -28,6 +28,7 @@ fun rememberMonitoringSession(
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event != Lifecycle.Event.ON_RESUME) return@LifecycleEventObserver
+            tokenStore.rehydrate()
             when {
                 !tokenStore.isPaired() -> onUnpaired()
                 tokenStore.isAutoStartEnabled() &&

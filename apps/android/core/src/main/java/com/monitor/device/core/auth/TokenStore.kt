@@ -8,11 +8,44 @@ import androidx.security.crypto.MasterKey
 /**
  * Secure storage for device pairing credentials.
  * Uses EncryptedSharedPreferences when available; falls back to private prefs.
+ *
+ * After reboot, Keystore can be briefly unavailable. We keep retrying encrypted
+ * prefs so a temporary failure never looks like a permanent logout.
  */
 class TokenStore(context: Context) {
-    private val prefs: SharedPreferences = createPrefs(context.applicationContext)
+    private val appContext = context.applicationContext
+    @Volatile private var prefs: SharedPreferences = openPrefs(preferEncrypted = true)
+    @Volatile private var usingFallback = prefs === fallbackPrefs()
 
-    fun isPaired(): Boolean = !deviceToken().isNullOrBlank() && !deviceId().isNullOrBlank()
+    fun isPaired(): Boolean {
+        rehydrate()
+        return !deviceToken().isNullOrBlank() && !deviceId().isNullOrBlank()
+    }
+
+    /** Retry encrypted store (e.g. on resume after unlock). */
+    fun rehydrate() {
+        if (!usingFallback) return
+        val encrypted = openEncryptedOrNull() ?: return
+        val fallback = fallbackPrefs()
+        val encToken = encrypted.getString(KEY_DEVICE_TOKEN, null)
+        val fbToken = fallback.getString(KEY_DEVICE_TOKEN, null)
+        when {
+            !encToken.isNullOrBlank() -> {
+                prefs = encrypted
+                usingFallback = false
+            }
+            !fbToken.isNullOrBlank() -> {
+                copySession(fallback, encrypted)
+                prefs = encrypted
+                usingFallback = false
+                fallback.edit().clear().apply()
+            }
+            else -> {
+                prefs = encrypted
+                usingFallback = false
+            }
+        }
+    }
 
     fun deviceId(): String? = prefs.getString(KEY_DEVICE_ID, null)
 
@@ -51,6 +84,7 @@ class TokenStore(context: Context) {
         apiKey: String,
         userId: String? = null,
     ) {
+        rehydrate()
         prefs.edit()
             .putString(KEY_DEVICE_ID, deviceId)
             .putString(KEY_DEVICE_NAME, deviceName)
@@ -66,19 +100,30 @@ class TokenStore(context: Context) {
 
     fun clear() {
         prefs.edit().clear().apply()
+        // Also clear the other store so a stale copy cannot resurrect a deleted session.
+        runCatching {
+            if (usingFallback) openEncryptedOrNull()?.edit()?.clear()?.apply()
+            else fallbackPrefs().edit().clear().apply()
+        }
     }
 
-    private fun createPrefs(context: Context): SharedPreferences {
-        // After reboot, Keystore / CE storage can be briefly unavailable. Retry
-        // before falling back — a different prefs file would look "unpaired".
+    private fun openPrefs(preferEncrypted: Boolean): SharedPreferences {
+        if (preferEncrypted) {
+            openEncryptedOrNull()?.let { return it }
+        }
+        android.util.Log.w("TokenStore", "Using fallback prefs; will retry encrypted later")
+        return fallbackPrefs()
+    }
+
+    private fun openEncryptedOrNull(): SharedPreferences? {
         var lastError: Exception? = null
-        repeat(3) { attempt ->
+        repeat(5) { attempt ->
             try {
-                val masterKey = MasterKey.Builder(context)
+                val masterKey = MasterKey.Builder(appContext)
                     .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
                     .build()
                 return EncryptedSharedPreferences.create(
-                    context,
+                    appContext,
                     PREFS_NAME,
                     masterKey,
                     EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
@@ -86,21 +131,33 @@ class TokenStore(context: Context) {
                 )
             } catch (e: Exception) {
                 lastError = e
-                if (attempt < 2) {
+                if (attempt < 4) {
                     try {
-                        Thread.sleep(80L * (attempt + 1))
+                        Thread.sleep(120L * (attempt + 1))
                     } catch (_: InterruptedException) {
                         Thread.currentThread().interrupt()
                     }
                 }
             }
         }
-        android.util.Log.w(
-            "TokenStore",
-            "Encrypted prefs unavailable after retries; using fallback",
-            lastError,
-        )
-        return context.getSharedPreferences(PREFS_FALLBACK, Context.MODE_PRIVATE)
+        android.util.Log.w("TokenStore", "Encrypted prefs unavailable", lastError)
+        return null
+    }
+
+    private fun fallbackPrefs(): SharedPreferences =
+        appContext.getSharedPreferences(PREFS_FALLBACK, Context.MODE_PRIVATE)
+
+    private fun copySession(from: SharedPreferences, to: SharedPreferences) {
+        to.edit()
+            .putString(KEY_DEVICE_ID, from.getString(KEY_DEVICE_ID, null))
+            .putString(KEY_DEVICE_NAME, from.getString(KEY_DEVICE_NAME, null))
+            .putString(KEY_ORG_ID, from.getString(KEY_ORG_ID, null))
+            .putString(KEY_BRANCH_ID, from.getString(KEY_BRANCH_ID, null))
+            .putString(KEY_DEVICE_TOKEN, from.getString(KEY_DEVICE_TOKEN, null))
+            .putString(KEY_API_KEY, from.getString(KEY_API_KEY, null))
+            .putString(KEY_USER_ID, from.getString(KEY_USER_ID, null))
+            .putBoolean(KEY_AUTO_START, from.getBoolean(KEY_AUTO_START, true))
+            .apply()
     }
 
     companion object {

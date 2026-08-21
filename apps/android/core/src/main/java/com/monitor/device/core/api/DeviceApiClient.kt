@@ -39,6 +39,7 @@ import com.monitor.device.core.model.RecordingPlaybackRequest
 import com.monitor.device.core.model.RecordingPlaybackResponse
 import com.monitor.device.core.model.ViewerTokenResponse
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
@@ -411,13 +412,30 @@ class DeviceApiClient(
         return try {
             call(bearer())
         } catch (e: HttpException) {
-            // Only a real auth failure should unpair. Chat 403/404 (missing thread,
-            // expired upload) must not send the user back to login.
+            // Only a confirmed permanent auth failure should unpair. A single 401
+            // during API restart / brief JWT glitch must not wipe the session.
             if (unpairOnFailure && e.code() == 401) {
-                tokenStore.clear()
-                throw Unpaired(e)
+                if (confirmUnauthorized()) {
+                    tokenStore.clear()
+                    throw Unpaired(e)
+                }
             }
             throw e
+        }
+    }
+
+    /**
+     * Re-check /devices/me after a short delay. Network errors keep the session.
+     */
+    private suspend fun confirmUnauthorized(): Boolean {
+        delay(500)
+        return try {
+            api.me(bearer())
+            false
+        } catch (e: HttpException) {
+            e.code() == 401
+        } catch (_: Exception) {
+            false
         }
     }
 

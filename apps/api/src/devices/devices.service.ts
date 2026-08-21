@@ -608,11 +608,35 @@ export class DevicesService {
       return this.issueDeviceSession(existing.device, existing.id, dto);
     }
     if (existing?.device?.disabled) {
-      throw new BadRequestException('Device disabled');
+      await this.assertOrSetAppPin(existing, pin);
+      await this.prisma.device.update({
+        where: { id: existing.device.id },
+        data: { disabled: false, status: DeviceStatus.ONLINE },
+      });
+      return this.issueDeviceSession(existing.device, existing.id, dto);
     }
 
+    // Phone account kept after device delete — recreate device, do not wipe user.
     if (existing && !existing.deviceId) {
-      await this.purgePhoneAccount(existing.id, existing.organizationId);
+      await this.assertOrSetAppPin(existing, pin);
+      const displayName =
+        dto.name?.trim() || existing.name?.trim() || phone;
+      const homeBranch = await this.prisma.branch.findFirst({
+        where: { organizationId: existing.organizationId },
+        orderBy: { createdAt: 'asc' },
+      });
+      if (!homeBranch) {
+        throw new BadRequestException('Branch not found');
+      }
+      return this.createPairedDevice({
+        organizationId: existing.organizationId,
+        branchId: homeBranch.id,
+        displayName,
+        dto,
+        phone,
+        existingUserId: existing.id,
+        skipOrgDeviceLimit: true,
+      });
     }
 
     const displayName = dto.name?.trim();
@@ -963,7 +987,7 @@ export class DevicesService {
       {
         secret: this.config.getOrThrow<string>('DEVICE_JWT_SECRET'),
         expiresIn: (this.config.get<string>('DEVICE_JWT_EXPIRES_IN') ??
-          '30d') as `${number}d`,
+          '365d') as `${number}d`,
       },
     );
   }
@@ -1051,13 +1075,18 @@ export class DevicesService {
       metadata: {
         name: device.name,
         phone: linkedUser?.phone ?? null,
-        purgedUserId: linkedUser?.id ?? null,
+        // Keep phone login — only the device row is removed.
+        preservedUserId: linkedUser?.id ?? null,
         deviceOrganizationId: device.organizationId,
       },
     });
 
+    // Detach user first so ON DELETE SET NULL is explicit; never wipe the account.
     if (linkedUser) {
-      await this.prisma.user.delete({ where: { id: linkedUser.id } });
+      await this.prisma.user.update({
+        where: { id: linkedUser.id },
+        data: { deviceId: null },
+      });
     }
     await this.prisma.device.delete({ where: { id: device.id } });
     await this.deleteOrgIfEmpty(device.organizationId);
@@ -1072,11 +1101,6 @@ export class DevicesService {
     }
 
     return { ok: true };
-  }
-
-  private async purgePhoneAccount(userId: string, organizationId: string) {
-    await this.prisma.user.delete({ where: { id: userId } });
-    await this.deleteOrgIfEmpty(organizationId);
   }
 
   private async deleteOrgIfEmpty(organizationId: string) {

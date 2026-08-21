@@ -18,7 +18,37 @@ type RequestOpts = {
   auth?: boolean;
   headers?: Record<string, string>;
   signal?: AbortSignal;
+  /** Internal: skip logout-on-401 while probing session. */
+  skipAuthClear?: boolean;
 };
+
+let authProbe: Promise<boolean> | null = null;
+
+/** True only when /devices/me also returns 401 (session really dead). */
+async function confirmUnauthorized(): Promise<boolean> {
+  const token = getToken();
+  if (!token) return true;
+  if (!authProbe) {
+    authProbe = (async () => {
+      await new Promise((r) => setTimeout(r, 400));
+      try {
+        const res = await fetch(`${API_URL}/devices/me`, {
+          headers: {
+            Accept: "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        return res.status === 401;
+      } catch {
+        // Network / restart — keep session.
+        return false;
+      } finally {
+        authProbe = null;
+      }
+    })();
+  }
+  return authProbe;
+}
 
 async function request<T>(
   method: string,
@@ -53,10 +83,16 @@ async function request<T>(
     signal: opts.signal,
   });
 
-  if (res.status === 401 && opts.auth !== false) {
-    clearSession();
-    if (typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
-      window.location.href = "/login";
+  if (res.status === 401 && opts.auth !== false && !opts.skipAuthClear) {
+    const dead = await confirmUnauthorized();
+    if (dead) {
+      clearSession();
+      if (
+        typeof window !== "undefined" &&
+        !window.location.pathname.startsWith("/login")
+      ) {
+        window.location.href = "/login";
+      }
     }
   }
 
