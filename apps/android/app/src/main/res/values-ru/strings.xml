@@ -55,6 +55,7 @@
     <string name="pair_trial_ended_generic">На этом телефоне бесплатный период закончился. Купите Pro или Pro+, чтобы продолжить.</string>
     <string name="pair_trial_used">На этом телефоне демо уже использовано. Войдите как %1$s — нужен только пароль. Эфир после демо — только с Pro.</string>
     <string name="pair_trial_used_generic">На этом телефоне бесплатный период уже использован. Войдите в существующий аккаунт.</string>
+    <string name="pair_call_center_need_creds">Чтобы открыть Call Center, введите телефон и пароль.</string>
     <string name="pair_code_label">Код</string>
     <string name="pair_code_placeholder">Код</string>
     <string name="pair_code_helper">Только при первой привязке к другому аккаунту</string>

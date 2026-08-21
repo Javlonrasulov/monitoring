@@ -2,14 +2,14 @@
 
 import { FormEvent, Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Download, Eye, EyeOff } from "lucide-react";
+import { Download, Eye, EyeOff, Headset } from "lucide-react";
 import { isPaired, savePairSession } from "@/lib/auth";
 import { ApiError } from "@/lib/api";
 import { deviceApi } from "@/lib/device-api";
 import { useI18n } from "@/lib/i18n";
 import { useToast } from "@/lib/toast";
 
-const APK_DOWNLOAD_URL = "/download/monitor.apk?v=1.2.0";
+const APK_DOWNLOAD_URL = "/download/monitor.apk?v=1.2.1";
 
 /**
  * Login UX mirrors Android PairingScreen exactly:
@@ -36,6 +36,7 @@ function LoginForm() {
   const [knownAccount, setKnownAccount] = useState<boolean | null>(null);
   const [trialBlocked, setTrialBlocked] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [supportBusy, setSupportBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const phoneDigits = phone.replace(/\D/g, "");
@@ -44,13 +45,16 @@ function LoginForm() {
   const returningUser = knownAccount === true;
   // Android: name + code visible when !returningUser
   const showNameAndCode = !returningUser;
+  const formBusy = busy || supportBusy;
 
   const canSubmit = useMemo(() => {
-    if (busy || phoneDigits.length < 9 || !pinOk) return false;
+    if (formBusy || phoneDigits.length < 9 || !pinOk) return false;
     // Android: returningUser || (displayName.isNotBlank() && !trialBlocked)
     if (returningUser) return true;
     return displayName.trim().length > 0 && !trialBlocked;
-  }, [busy, phoneDigits, pinOk, returningUser, displayName, trialBlocked]);
+  }, [formBusy, phoneDigits, pinOk, returningUser, displayName, trialBlocked]);
+
+  const canOpenSupport = !formBusy && phoneDigits.length >= 9 && pinOk;
 
   useEffect(() => {
     if (isPaired()) router.replace("/chats");
@@ -177,6 +181,53 @@ function LoginForm() {
     }
   }
 
+  async function openCallCenter() {
+    if (!canOpenSupport) {
+      const msg = t("callCenterNeedCreds");
+      setError(msg);
+      toast.push(msg, "err");
+      return;
+    }
+    setError(null);
+    setSupportBusy(true);
+    try {
+      const cleanedCode = returningUser
+        ? ""
+        : code
+            .replace(/^MONITOR:/i, "")
+            .replace(/\s+/g, "")
+            .trim()
+            .toUpperCase();
+      const res = await deviceApi.pair({
+        phone: phone.trim() || phoneDigits,
+        password,
+        name: returningUser ? "" : displayName.trim(),
+        code: cleanedCode,
+        appVersion: "user-web/0.1.0",
+        deviceModel:
+          typeof navigator !== "undefined"
+            ? navigator.userAgent.slice(0, 80)
+            : "web",
+      });
+      savePairSession(res);
+      const thread = await deviceApi.openSupport();
+      router.replace(`/chats/${thread.id}`);
+    } catch (err) {
+      let msg = err instanceof ApiError ? err.message : t("callCenterFailed");
+      if (/invalid password/i.test(msg)) msg = t("pairPasswordWrong");
+      else if (/name is required/i.test(msg)) msg = t("pairNameRequired");
+      else if (/trial ended|free trial already used/i.test(msg)) {
+        msg = t("callCenterNeedCreds");
+      } else {
+        msg = t("callCenterFailed");
+      }
+      setError(msg);
+      toast.push(msg, "err");
+    } finally {
+      setSupportBusy(false);
+    }
+  }
+
   return (
     <div className="auth-page">
       <form className="auth-card stack" onSubmit={onSubmit}>
@@ -201,6 +252,23 @@ function LoginForm() {
           </div>
         </div>
 
+        {error ? (
+          <div
+            style={{
+              padding: "10px 12px",
+              borderRadius: 12,
+              background: "color-mix(in srgb, var(--danger) 12%, transparent)",
+              color: "var(--danger)",
+              fontSize: "0.9rem",
+            }}
+          >
+            <strong style={{ display: "block", marginBottom: 4 }}>
+              {t("pairErrorTitle")}
+            </strong>
+            {error}
+          </div>
+        ) : null}
+
         <div className="field">
           <label htmlFor="phone">{t("phone")}</label>
           <input
@@ -216,7 +284,7 @@ function LoginForm() {
             }}
             placeholder={t("phonePlaceholder")}
             required
-            disabled={busy}
+            disabled={formBusy}
           />
           <span className="muted" style={{ fontSize: "0.78rem" }}>
             {t("phoneHelper")}
@@ -240,7 +308,7 @@ function LoginForm() {
               placeholder={t("passwordPlaceholder")}
               required
               minLength={4}
-              disabled={busy}
+              disabled={formBusy}
             />
             <button
               type="button"
@@ -273,7 +341,7 @@ function LoginForm() {
                 }}
                 autoComplete="name"
                 placeholder={t("namePlaceholder")}
-                disabled={busy || trialBlocked}
+                disabled={formBusy || trialBlocked}
               />
               <span className="muted" style={{ fontSize: "0.78rem" }}>
                 {t("nameHelper")}
@@ -296,7 +364,7 @@ function LoginForm() {
                   if (error) setError(null);
                 }}
                 placeholder={t("codePlaceholder")}
-                disabled={busy || trialBlocked}
+                disabled={formBusy || trialBlocked}
                 autoCapitalize="characters"
               />
               <span className="muted" style={{ fontSize: "0.78rem" }}>
@@ -312,29 +380,23 @@ function LoginForm() {
           </p>
         ) : null}
 
-        {error ? (
-          <div
-            style={{
-              padding: "10px 12px",
-              borderRadius: 12,
-              background: "color-mix(in srgb, var(--danger) 12%, transparent)",
-              color: "var(--danger)",
-              fontSize: "0.9rem",
-            }}
-          >
-            <strong style={{ display: "block", marginBottom: 4 }}>
-              {t("pairErrorTitle")}
-            </strong>
-            {error}
-          </div>
-        ) : null}
-
         <button
           className="btn btn-primary"
           type="submit"
           disabled={!canSubmit}
         >
           {busy ? t("loading") : t("continue")}
+        </button>
+
+        <button
+          className="btn btn-primary"
+          type="button"
+          disabled={formBusy}
+          onClick={() => void openCallCenter()}
+          style={{ gap: 8 }}
+        >
+          <Headset size={18} aria-hidden />
+          {supportBusy ? t("loading") : t("callCenter")}
         </button>
 
         <p className="muted" style={{ margin: 0, fontSize: "0.8rem" }}>

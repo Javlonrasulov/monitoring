@@ -55,6 +55,7 @@
     <string name="pair_trial_ended_generic">Free trial ended on this phone. Buy Pro or Pro+ to continue.</string>
     <string name="pair_trial_used">Demo already used on this phone. Sign in as %1$s — password only. Live needs Pro after the demo.</string>
     <string name="pair_trial_used_generic">Demo already used on this phone. Sign in with your existing account.</string>
+    <string name="pair_call_center_need_creds">Enter your phone and password to open Call Center.</string>
     <string name="pair_code_label">Code</string>
     <string name="pair_code_placeholder">Code</string>
     <string name="pair_code_helper">Only for first link to another account</string>

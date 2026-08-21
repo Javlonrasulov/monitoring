@@ -1,6 +1,7 @@
 package com.monitor.device.ui.screens
 
 import android.os.Build
+import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
@@ -19,6 +20,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.HeadsetMic
 import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Person
@@ -72,6 +74,7 @@ import kotlinx.coroutines.launch
 fun PairingScreen(
     apiClient: DeviceApiClient,
     onPaired: () -> Unit,
+    onOpenSupport: (threadId: String, title: String) -> Unit = { _, _ -> },
 ) {
     var displayName by remember { mutableStateOf("") }
     var code by remember { mutableStateOf("") }
@@ -79,6 +82,7 @@ fun PairingScreen(
     var password by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
     var loading by remember { mutableStateOf(false) }
+    var supportBusy by remember { mutableStateOf(false) }
     var knownAccount by remember { mutableStateOf<Boolean?>(null) }
     var trialBlocked by remember { mutableStateOf(false) }
     val error: MutableState<String?> = remember { mutableStateOf(null) }
@@ -101,13 +105,18 @@ fun PairingScreen(
     val trialUsedMessage = stringResource(R.string.pair_trial_used_generic)
     val trialEndedWithPhone = stringResource(R.string.pair_trial_ended)
     val trialUsedWithPhone = stringResource(R.string.pair_trial_used)
+    val callCenterTitle = stringResource(R.string.profile_call_center)
+    val callCenterNeedCreds = stringResource(R.string.pair_call_center_need_creds)
+    val callCenterFailed = stringResource(R.string.profile_call_center_failed)
     val phoneDigits = phone.filter { it.isDigit() }
     val pinOk = password.length >= 4 && password.all { it.isDigit() }
     val returningUser = knownAccount == true
-    val canSubmit = !loading &&
+    val busy = loading || supportBusy
+    val canSubmit = !busy &&
         phoneDigits.length >= 9 &&
         pinOk &&
         (returningUser || (displayName.isNotBlank() && !trialBlocked))
+    val canOpenSupport = !busy && phoneDigits.length >= 9 && pinOk
 
     LaunchedEffect(phoneDigits, installId, installSignals) {
         if (phoneDigits.length < 9) {
@@ -221,6 +230,54 @@ fun PairingScreen(
         }
     }
 
+    fun openCallCenter() {
+        if (!canOpenSupport) {
+            error.value = callCenterNeedCreds
+            return
+        }
+        keyboard?.hide()
+        focusManager.clearFocus()
+        supportBusy = true
+        error.value = null
+        scope.launch {
+            runCatching {
+                apiClient.pair(
+                    PairRequest(
+                        code = if (returningUser) {
+                            ""
+                        } else {
+                            code.replace("MONITOR:", "", ignoreCase = true).trim()
+                        },
+                        name = if (returningUser) "" else displayName.trim(),
+                        phone = phone.trim().ifBlank { null },
+                        password = password,
+                        appVersion = BuildConfig.VERSION_NAME,
+                        androidVersion = Build.VERSION.RELEASE,
+                        deviceModel = "${Build.MANUFACTURER} ${Build.MODEL}",
+                        installId = installId,
+                        installSignals = installSignals,
+                    ),
+                )
+                apiClient.openSupportChat()
+            }.onSuccess { thread ->
+                supportBusy = false
+                onOpenSupport(thread.id, callCenterTitle)
+            }.onFailure { err ->
+                supportBusy = false
+                val api = err.apiErrorMessage()
+                val msg = when {
+                    api.contains("Invalid password", ignoreCase = true) -> badPassword
+                    api.contains("Name is required", ignoreCase = true) -> nameRequired
+                    api.contains("Free trial already used", ignoreCase = true) ||
+                        api.contains("Trial ended", ignoreCase = true) -> callCenterNeedCreds
+                    else -> DeviceApiClient.errorMessage(err, callCenterFailed)
+                }
+                error.value = msg
+                Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
     RequestCapturePermissions()
 
     ScreenContainer {
@@ -271,7 +328,7 @@ fun PairingScreen(
                 label = stringResource(R.string.pair_phone_label),
                 placeholder = stringResource(R.string.pair_phone_placeholder),
                 helperText = stringResource(R.string.pair_phone_helper),
-                enabled = !loading,
+                enabled = !busy,
                 leadingIcon = Icons.Rounded.Phone,
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Phone,
@@ -297,7 +354,7 @@ fun PairingScreen(
                 } else {
                     stringResource(R.string.pair_password_helper)
                 },
-                enabled = !loading,
+                enabled = !busy,
                 leadingIcon = Icons.Rounded.Lock,
                 trailingIcon = if (passwordVisible) {
                     Icons.Rounded.Visibility
@@ -339,7 +396,7 @@ fun PairingScreen(
                         label = stringResource(R.string.pair_name_label),
                         placeholder = stringResource(R.string.pair_name_placeholder),
                         helperText = stringResource(R.string.pair_name_helper),
-                        enabled = !loading,
+                        enabled = !busy,
                         leadingIcon = Icons.Rounded.Person,
                         keyboardOptions = KeyboardOptions(
                             capitalization = KeyboardCapitalization.Words,
@@ -368,7 +425,7 @@ fun PairingScreen(
                         label = stringResource(R.string.pair_code_label),
                         placeholder = stringResource(R.string.pair_code_placeholder),
                         helperText = stringResource(R.string.pair_code_helper),
-                        enabled = !loading,
+                        enabled = !busy,
                         leadingIcon = Icons.Rounded.VpnKey,
                         keyboardOptions = KeyboardOptions(
                             capitalization = KeyboardCapitalization.Characters,
@@ -387,6 +444,16 @@ fun PairingScreen(
             onClick = { submit() },
             enabled = canSubmit,
             loading = loading,
+        )
+
+        Spacer(modifier = Modifier.size(Spacing.sm))
+
+        PrimaryButton(
+            text = stringResource(R.string.profile_call_center),
+            onClick = { openCallCenter() },
+            enabled = !busy,
+            loading = supportBusy,
+            icon = Icons.Rounded.HeadsetMic,
         )
 
         Spacer(modifier = Modifier.size(Spacing.lg))

@@ -143,6 +143,14 @@ fun MonitorNavHost(
                             popUpTo(Routes.Pairing) { inclusive = true }
                         }
                     },
+                    onOpenSupport = { id, title ->
+                        PushRegistrar.refresh(apiClient, tokenStore)
+                        chatTitle = title
+                        chatThreadId = id
+                        navController.navigate(Routes.Home) {
+                            popUpTo(Routes.Pairing) { inclusive = true }
+                        }
+                    },
                 )
             }
             composable(Routes.Home) {
