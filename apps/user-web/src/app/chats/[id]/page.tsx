@@ -442,11 +442,14 @@ export default function ChatThreadPage() {
                 background: "transparent",
                 padding: 0,
                 minWidth: 0,
+                flex: 1,
+                gap: 10,
+                overflow: "visible",
                 textAlign: "left",
               }}
               onClick={() => void openPeer()}
             >
-              <div className="avatar" style={{ width: 36, height: 36, fontSize: 14 }}>
+              <div className="avatar" style={{ width: 40, height: 40, fontSize: 14 }}>
                 {hasAvatar && peerId ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
@@ -462,9 +465,10 @@ export default function ChatThreadPage() {
                 )}
                 {thread?.online ? <span className="online-dot" /> : null}
               </div>
-              <div style={{ minWidth: 0 }}>
+              <div style={{ minWidth: 0, flex: 1, overflow: "hidden" }}>
                 <h1
                   style={{
+                    margin: 0,
                     fontSize: "1rem",
                     overflow: "hidden",
                     textOverflow: "ellipsis",
@@ -479,31 +483,33 @@ export default function ChatThreadPage() {
               </div>
             </button>
           </div>
-          <button
-            type="button"
-            className="icon-btn"
-            onClick={() => {
-              setSearchOpen((v) => {
-                if (v) {
-                  setSearchHits([]);
-                  setSearchQ("");
-                }
-                return !v;
-              });
-            }}
-            aria-label={t("search")}
-            aria-pressed={searchOpen}
-          >
-            <Search size={18} />
-          </button>
-          <button
-            type="button"
-            className="icon-btn"
-            onClick={() => void openPeer()}
-            aria-label={t("profile")}
-          >
-            <UserRound size={18} />
-          </button>
+          <div className="topbar-actions">
+            <button
+              type="button"
+              className="icon-btn"
+              onClick={() => {
+                setSearchOpen((v) => {
+                  if (v) {
+                    setSearchHits([]);
+                    setSearchQ("");
+                  }
+                  return !v;
+                });
+              }}
+              aria-label={t("search")}
+              aria-pressed={searchOpen}
+            >
+              <Search size={18} />
+            </button>
+            <button
+              type="button"
+              className="icon-btn"
+              onClick={() => void openPeer()}
+              aria-label={t("profile")}
+            >
+              <UserRound size={18} />
+            </button>
+          </div>
         </header>
 
         {searchOpen ? (
@@ -670,61 +676,63 @@ export default function ChatThreadPage() {
           <div ref={bottomRef} />
         </div>
 
-        {(replyTo || editing || forwarding) && (
-          <div className="composer-banner">
-            <span className="muted" style={{ fontSize: "0.85rem" }}>
-              {editing ? t("edit") : forwarding ? t("forward") : t("reply")}:{" "}
-              {(editing || replyTo || forwarding)?.text || "…"}
-            </span>
-            <button type="button" className="icon-btn" onClick={() => { setReplyTo(null); setEditing(null); setForwarding(null); setText(""); }}>×</button>
-          </div>
-        )}
+        <div className="thread-footer">
+          {(replyTo || editing || forwarding) ? (
+            <div className="composer-banner">
+              <span className="muted composer-banner-text">
+                {editing ? t("edit") : forwarding ? t("forward") : t("reply")}:{" "}
+                {(editing || replyTo || forwarding)?.text || "…"}
+              </span>
+              <button type="button" className="icon-btn" onClick={() => { setReplyTo(null); setEditing(null); setForwarding(null); setText(""); }}>×</button>
+            </div>
+          ) : null}
 
-        <form className="composer" onSubmit={sendText}>
-          <input
-            ref={fileRef}
-            type="file"
-            className="sr-only"
-            accept="image/*,video/*,audio/*,*/*"
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) void uploadFile(f);
-            }}
-          />
-          <button type="button" className="icon-btn" aria-label={t("attach")} onClick={() => setAttachOpen((v) => !v)} disabled={busy}>
-            <Paperclip size={18} />
-          </button>
-          <VoiceRecorder
-            disabled={busy}
-            onRecorded={(file, meta) => void uploadFile(file, "VOICE", meta)}
-            onError={(msg) => toast.push(msg, "err")}
-          />
-          <button type="button" className="icon-btn" onClick={() => setVideoNoteOpen(true)} disabled={busy} aria-label="Video note">
-            <Video size={18} />
-          </button>
-          <textarea
-            value={text}
-            onChange={(e) => onTextChange(e.target.value)}
-            placeholder={t("typeMessage")}
-            rows={1}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                void sendText();
-              }
-            }}
-          />
-          <button className="send-btn" type="submit" disabled={busy || (!text.trim() && !forwarding)}>
-            {editing ? <Smile size={18} /> : <SendHorizontal size={18} />}
-          </button>
-        </form>
+          <form className="composer" onSubmit={sendText}>
+            <input
+              ref={fileRef}
+              type="file"
+              className="sr-only"
+              accept="image/*,video/*,audio/*,*/*"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) void uploadFile(f);
+              }}
+            />
+            <button type="button" className="icon-btn" aria-label={t("attach")} onClick={() => setAttachOpen((v) => !v)} disabled={busy}>
+              <Paperclip size={18} />
+            </button>
+            <VoiceRecorder
+              disabled={busy}
+              onRecorded={(file, meta) => void uploadFile(file, "VOICE", meta)}
+              onError={(msg) => toast.push(msg, "err")}
+            />
+            <button type="button" className="icon-btn" onClick={() => setVideoNoteOpen(true)} disabled={busy} aria-label="Video note">
+              <Video size={18} />
+            </button>
+            <textarea
+              value={text}
+              onChange={(e) => onTextChange(e.target.value)}
+              placeholder={t("typeMessage")}
+              rows={1}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  void sendText();
+                }
+              }}
+            />
+            <button className="send-btn" type="submit" disabled={busy || (!text.trim() && !forwarding)}>
+              {editing ? <Smile size={18} /> : <SendHorizontal size={18} />}
+            </button>
+          </form>
 
-        {attachOpen ? (
-          <div className="attach-sheet">
-            <button type="button" className="btn btn-secondary" onClick={() => { fileRef.current?.click(); }}>{t("attach")}</button>
-            <button type="button" className="btn btn-secondary" onClick={() => { setAttachOpen(false); setVideoNoteOpen(true); }}>{t("videoNote")}</button>
-          </div>
-        ) : null}
+          {attachOpen ? (
+            <div className="attach-sheet">
+              <button type="button" className="btn btn-secondary" onClick={() => { fileRef.current?.click(); }}>{t("attach")}</button>
+              <button type="button" className="btn btn-secondary" onClick={() => { setAttachOpen(false); setVideoNoteOpen(true); }}>{t("videoNote")}</button>
+            </div>
+          ) : null}
+        </div>
       </div>
 
       <VideoNoteCapture
