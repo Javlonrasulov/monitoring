@@ -170,6 +170,7 @@ function LoginForm() {
         msg = t("pairInvalidCode");
       } else if (/name is required/i.test(msg)) msg = t("pairNameRequired");
       setError(msg);
+      // One toast at the top — do not stack duplicates on repeat submits.
       toast.push(msg, "err");
     } finally {
       setBusy(false);
