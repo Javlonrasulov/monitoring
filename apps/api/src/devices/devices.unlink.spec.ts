@@ -6,6 +6,7 @@ describe('device link and unlink', () => {
     const prisma = {
       device: {
         findFirst: jest.fn(),
+        findMany: jest.fn(),
         update: jest.fn(),
         delete: jest.fn(),
         count: jest.fn(),
@@ -50,14 +51,45 @@ describe('device link and unlink', () => {
     return { prisma, events, subscriptions, chats, service };
   }
 
+  it('lists mutual peers for the invitee as well as the issuer', async () => {
+    const { prisma, service } = setup();
+    prisma.device.findFirst
+      .mockResolvedValueOnce({
+        id: 'user-2',
+        linkedFromDeviceId: 'user-1',
+      })
+      .mockResolvedValueOnce({
+        id: 'user-1',
+        name: 'Issuer',
+        status: 'ONLINE',
+        lastSeen: new Date('2026-01-01'),
+        deviceModel: 'Pixel',
+        capabilitiesJson: {},
+        disabled: false,
+      });
+    prisma.device.findMany.mockResolvedValue([]);
+
+    const list = await service.listLinkedForDevice('user-2', 'org-2');
+    expect(list).toEqual([
+      expect.objectContaining({ id: 'user-1', name: 'Issuer' }),
+    ]);
+  });
+
   it('unlinks without deleting so admin can still see the device', async () => {
     const { prisma, service } = setup();
-    prisma.device.findFirst.mockResolvedValue({
-      id: 'user-2',
-      organizationId: 'org-1',
-      linkedFromDeviceId: 'user-1',
-      name: 'Qul',
-    });
+    prisma.device.findFirst
+      .mockResolvedValueOnce({
+        id: 'user-1',
+        organizationId: 'org-1',
+        linkedFromDeviceId: null,
+        name: 'Issuer',
+      })
+      .mockResolvedValueOnce({
+        id: 'user-2',
+        organizationId: 'org-1',
+        linkedFromDeviceId: 'user-1',
+        name: 'Qul',
+      });
     prisma.user.findFirst.mockResolvedValue({ id: 'viewer-user' });
     prisma.device.update.mockResolvedValue({ id: 'user-2' });
 
@@ -178,6 +210,33 @@ describe('device link and unlink', () => {
     await expect(service.linkExistingDevice('user-1', 'SELF01')).rejects.toBeInstanceOf(
       BadRequestException,
     );
+  });
+
+  it('allows the invitee to unlink the issuer (mutual live pair)', async () => {
+    const { prisma, service } = setup();
+    prisma.device.findFirst
+      .mockResolvedValueOnce({
+        id: 'user-2',
+        organizationId: 'org-2',
+        linkedFromDeviceId: 'user-1',
+        name: 'Invitee',
+      })
+      .mockResolvedValueOnce({
+        id: 'user-1',
+        organizationId: 'org-1',
+        linkedFromDeviceId: null,
+        name: 'Issuer',
+      });
+    prisma.user.findFirst.mockResolvedValue({ id: 'viewer-user' });
+    prisma.device.update.mockResolvedValue({ id: 'user-2' });
+
+    await expect(
+      service.unlinkLinkedDevice('user-2', 'org-2', 'user-1'),
+    ).resolves.toEqual({ ok: true });
+    expect(prisma.device.update).toHaveBeenCalledWith({
+      where: { id: 'user-2' },
+      data: { linkedFromDeviceId: null },
+    });
   });
 
   it('forbids unlinking someone else’s device', async () => {

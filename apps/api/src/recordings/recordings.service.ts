@@ -198,14 +198,20 @@ export class RecordingsService implements OnModuleDestroy {
   }
 
   private async requireLinkedTarget(viewerDeviceId: string, targetDeviceId: string) {
-    const target = await this.prisma.device.findFirst({
-      where: {
-        id: targetDeviceId,
-        linkedFromDeviceId: viewerDeviceId,
-        disabled: false,
-      },
-    });
-    if (!target) {
+    if (viewerDeviceId === targetDeviceId) {
+      throw new BadRequestException('Cannot target own device');
+    }
+    const [viewer, target] = await Promise.all([
+      this.prisma.device.findFirst({ where: { id: viewerDeviceId } }),
+      this.prisma.device.findFirst({ where: { id: targetDeviceId } }),
+    ]);
+    if (!viewer || !target || target.disabled) {
+      throw new ForbiddenException('Device is not linked to this account');
+    }
+    const linked =
+      target.linkedFromDeviceId === viewerDeviceId ||
+      viewer.linkedFromDeviceId === targetDeviceId;
+    if (!linked) {
       throw new ForbiddenException('Device is not linked to this account');
     }
     return target;

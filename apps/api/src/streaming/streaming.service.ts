@@ -1,5 +1,6 @@
 import {
   Injectable,
+  BadRequestException,
   ForbiddenException,
   NotFoundException,
   Logger,
@@ -144,17 +145,21 @@ export class StreamingService {
     organizationId: string,
     targetDeviceId: string,
   ) {
-    const target = await this.prisma.device.findFirst({
-      where: {
-        id: targetDeviceId,
-        linkedFromDeviceId: viewerDeviceId,
-      },
-    });
-    if (!target) {
+    if (viewerDeviceId === targetDeviceId) {
+      throw new BadRequestException('Cannot watch own device');
+    }
+    const [viewer, target] = await Promise.all([
+      this.prisma.device.findFirst({ where: { id: viewerDeviceId } }),
+      this.prisma.device.findFirst({ where: { id: targetDeviceId } }),
+    ]);
+    if (!viewer || !target || target.disabled) {
       throw new ForbiddenException('Device is not linked to this account');
     }
-    if (target.disabled) {
-      throw new ForbiddenException('Device disabled');
+    const linked =
+      target.linkedFromDeviceId === viewerDeviceId ||
+      viewer.linkedFromDeviceId === targetDeviceId;
+    if (!linked) {
+      throw new ForbiddenException('Device is not linked to this account');
     }
 
     const allowed = await this.subscriptions.assertCanWatch(

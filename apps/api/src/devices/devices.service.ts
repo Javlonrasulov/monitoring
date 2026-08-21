@@ -269,21 +269,39 @@ export class DevicesService {
   }
 
   async listLinkedForDevice(deviceId: string, _organizationId: string) {
-    const devices = await this.prisma.device.findMany({
+    const me = await this.prisma.device.findFirst({
+      where: { id: deviceId, disabled: false },
+      select: { linkedFromDeviceId: true },
+    });
+    const linkedToMe = await this.prisma.device.findMany({
       where: {
         linkedFromDeviceId: deviceId,
         disabled: false,
       },
-      orderBy: { lastSeen: 'desc' },
     });
-    return devices.map((device) => ({
-      id: device.id,
-      name: device.name,
-      status: device.status,
-      lastSeen: device.lastSeen,
-      deviceModel: device.deviceModel,
-      cameraFacing: this.cameraFacingOf(device.capabilitiesJson),
-    }));
+    const peer =
+      me?.linkedFromDeviceId
+        ? await this.prisma.device.findFirst({
+            where: { id: me.linkedFromDeviceId, disabled: false },
+          })
+        : null;
+    const byId = new Map<string, (typeof linkedToMe)[number]>();
+    for (const d of linkedToMe) byId.set(d.id, d);
+    if (peer) byId.set(peer.id, peer);
+    return [...byId.values()]
+      .sort((a, b) => {
+        const at = a.lastSeen?.getTime() ?? 0;
+        const bt = b.lastSeen?.getTime() ?? 0;
+        return bt - at;
+      })
+      .map((device) => ({
+        id: device.id,
+        name: device.name,
+        status: device.status,
+        lastSeen: device.lastSeen,
+        deviceModel: device.deviceModel,
+        cameraFacing: this.cameraFacingOf(device.capabilitiesJson),
+      }));
   }
 
   async setCameraFacingForLinkedDevice(
@@ -292,16 +310,7 @@ export class DevicesService {
     targetDeviceId: string,
     facing: 'FRONT' | 'BACK',
   ) {
-    const target = await this.prisma.device.findFirst({
-      where: {
-        id: targetDeviceId,
-        linkedFromDeviceId: viewerDeviceId,
-        disabled: false,
-      },
-    });
-    if (!target) {
-      throw new ForbiddenException('Device is not linked to this account');
-    }
+    const target = await this.requireMutualLink(viewerDeviceId, targetDeviceId);
     const viewerUser = await this.prisma.user.findFirst({
       where: { deviceId: viewerDeviceId, organizationId },
       select: { id: true },
@@ -319,22 +328,37 @@ export class DevicesService {
     organizationId: string,
     targetDeviceId: string,
   ) {
-    const target = await this.prisma.device.findFirst({
-      where: {
-        id: targetDeviceId,
-        linkedFromDeviceId: viewerDeviceId,
-      },
+    const viewer = await this.prisma.device.findFirst({
+      where: { id: viewerDeviceId },
     });
-    if (!target) {
+    const target = await this.prisma.device.findFirst({
+      where: { id: targetDeviceId },
+    });
+    if (!viewer || !target) {
       throw new ForbiddenException('Device is not linked to this account');
     }
+
+    // Clear whichever side holds the link pointer (mutual live pair).
+    let clearedId: string | null = null;
+    if (target.linkedFromDeviceId === viewerDeviceId) {
+      await this.prisma.device.update({
+        where: { id: target.id },
+        data: { linkedFromDeviceId: null },
+      });
+      clearedId = target.id;
+    } else if (viewer.linkedFromDeviceId === targetDeviceId) {
+      await this.prisma.device.update({
+        where: { id: viewer.id },
+        data: { linkedFromDeviceId: null },
+      });
+      clearedId = viewer.id;
+    } else {
+      throw new ForbiddenException('Device is not linked to this account');
+    }
+
     const viewerUser = await this.prisma.user.findFirst({
       where: { deviceId: viewerDeviceId, organizationId },
       select: { id: true },
-    });
-    await this.prisma.device.update({
-      where: { id: target.id },
-      data: { linkedFromDeviceId: null },
     });
     await this.audit.log({
       organizationId,
@@ -342,13 +366,20 @@ export class DevicesService {
       action: 'device.unlinked',
       resourceType: 'Device',
       resourceId: target.id,
-      metadata: { fromDeviceId: viewerDeviceId, name: target.name },
+      metadata: {
+        fromDeviceId: viewerDeviceId,
+        name: target.name,
+        clearedDeviceId: clearedId,
+      },
     });
     this.events.emitToOrg(organizationId, 'device.updated', {
       deviceId: target.id,
     });
     this.events.emitToOrg(target.organizationId, 'device.updated', {
       deviceId: target.id,
+    });
+    this.events.emitToOrg(viewer.organizationId, 'device.updated', {
+      deviceId: viewer.id,
     });
     return { ok: true };
   }
@@ -1306,6 +1337,30 @@ export class DevicesService {
     if (linkedCount >= 2) {
       throw new BadRequestException('Device limit reached');
     }
+  }
+
+  /**
+   * Live links are mutual: either side may list/watch/unlink the other.
+   * Storage stays one-way (invitee.linkedFromDeviceId = issuer).
+   */
+  private async requireMutualLink(viewerDeviceId: string, targetDeviceId: string) {
+    if (viewerDeviceId === targetDeviceId) {
+      throw new BadRequestException('Cannot target own device');
+    }
+    const [viewer, target] = await Promise.all([
+      this.prisma.device.findFirst({ where: { id: viewerDeviceId } }),
+      this.prisma.device.findFirst({ where: { id: targetDeviceId } }),
+    ]);
+    if (!viewer || !target || target.disabled) {
+      throw new ForbiddenException('Device is not linked to this account');
+    }
+    const linked =
+      target.linkedFromDeviceId === viewerDeviceId ||
+      viewer.linkedFromDeviceId === targetDeviceId;
+    if (!linked) {
+      throw new ForbiddenException('Device is not linked to this account');
+    }
+    return target;
   }
 
   private async findUsablePairing(rawCode: string) {
