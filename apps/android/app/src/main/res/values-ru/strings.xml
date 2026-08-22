@@ -30,7 +30,7 @@
     <string name="setup_permission_battery">Батарея (без ограничений)</string>
     <string name="setup_permission_autostart">Автозапуск после перезагрузки</string>
     <string name="setup_autostart_message">Разрешите Monitor запускаться после перезагрузки телефона, чтобы мониторинг возобновлялся без открытия приложения. Включите Monitor на следующем экране.</string>
-    <string name="setup_autostart_message_samsung">Откроется страница Monitoring Telegram. Нажмите «Батарея» → «Разрешить работу в фоновом режиме». Не добавляйте приложение в «Режим сна».</string>
+    <string name="setup_autostart_message_samsung">Откроется страница Monitoring Telegram. Нажмите «Батарея» → «Разрешить работу в фоновом режиме». Также добавьте в «Приложения, которые не будут переводиться в спящий режим» (Обслуживание устройства → Батарея → Фоновые ограничения).</string>
     <string name="setup_skip">Пропустить</string>
     <string name="setup_progress">%1$d из %2$d</string>
     <string name="setup_requesting">Запрос разрешения…</string>

@@ -6,4 +6,8 @@
     <string name="monitoring_notification_text">Camera and microphone active</string>
     <string name="monitoring_action_stop">Stop</string>
     <string name="monitoring_action_open">Open app</string>
+    <string name="boot_recovery_channel_name">Monitoring resume</string>
+    <string name="boot_recovery_channel_desc">Reminder to restart monitoring after phone reboot.</string>
+    <string name="boot_recovery_title">Monitoring paused</string>
+    <string name="boot_recovery_text">Tap to resume camera monitoring after reboot.</string>
 </resources>

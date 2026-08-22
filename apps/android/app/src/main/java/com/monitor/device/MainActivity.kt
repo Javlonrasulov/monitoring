@@ -44,6 +44,12 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         val app = application as MonitorApp
         PushRegistrar.refresh(app.apiClient, app.tokenStore)
+        if (!Emulator.isEmulator &&
+            app.tokenStore.isPaired() &&
+            app.tokenStore.isAutoStartEnabled()
+        ) {
+            MonitoringForegroundService.ensureStarted(this)
+        }
 
         setContent {
             var themeMode by remember { mutableStateOf(AppSettings.themeMode(this)) }

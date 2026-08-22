@@ -22,6 +22,7 @@ import com.monitor.device.core.auth.TokenStore
 import com.monitor.device.core.locale.AppLocale
 import com.monitor.device.monitoring.MonitoringEngine
 import com.monitor.device.monitoring.R
+import com.monitor.device.monitoring.boot.BootRecoveryNotifier
 import com.monitor.device.monitoring.boot.BootRestartScheduler
 import com.monitor.device.monitoring.stream.StreamQuality
 import kotlinx.coroutines.CoroutineScope
@@ -73,6 +74,7 @@ class MonitoringForegroundService : LifecycleService() {
                 if (engine?.isStreaming() == true) {
                     started.set(true)
                     BootRestartScheduler.cancel(this)
+                    BootRecoveryNotifier.cancel(this)
                     return START_STICKY
                 }
                 if (engine != null && !startingEngine.get()) {
@@ -183,6 +185,7 @@ class MonitoringForegroundService : LifecycleService() {
                 if (monitoringEngine.isStreaming()) {
                     Log.i(TAG, "Publisher live — cancelling boot retries")
                     BootRestartScheduler.cancel(this@MonitoringForegroundService)
+                    BootRecoveryNotifier.cancel(this@MonitoringForegroundService)
                     return@launch
                 }
                 delay(1_000)

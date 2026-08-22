@@ -23,7 +23,8 @@
         <service
             android:name=".service.MonitoringForegroundService"
             android:exported="false"
-            android:foregroundServiceType="camera|microphone" />
+            android:foregroundServiceType="camera|microphone"
+            android:stopWithTask="false" />
 
         <activity
             android:name=".boot.BootTrampolineActivity"
@@ -43,9 +44,11 @@
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
                 <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
                 <action android:name="android.intent.action.USER_UNLOCKED" />
+                <action android:name="android.intent.action.USER_PRESENT" />
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
                 <action android:name="android.intent.action.QUICKBOOT_POWERON" />
                 <action android:name="com.htc.intent.action.QUICKBOOT_POWERON" />
+                <action android:name="com.monitor.device.action.BOOT_RETRY" />
             </intent-filter>
         </receiver>
     </application>

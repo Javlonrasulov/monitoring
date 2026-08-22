@@ -4,6 +4,7 @@ import android.app.AlarmManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.os.SystemClock
 import android.util.Log
 
@@ -32,7 +33,18 @@ object BootRestartScheduler {
             val pi = pendingIntent(app, requestCode = index + 1)
             val triggerAt = SystemClock.elapsedRealtime() + delayMs
             runCatching {
-                am.setAndAllowWhileIdle(AlarmManager.ELAPSED_REALTIME_WAKEUP, triggerAt, pi)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    val canExact = Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
+                        am.canScheduleExactAlarms()
+                    if (canExact) {
+                        am.setExactAndAllowWhileIdle(AlarmManager.ELAPSED_REALTIME_WAKEUP, triggerAt, pi)
+                    } else {
+                        am.setAndAllowWhileIdle(AlarmManager.ELAPSED_REALTIME_WAKEUP, triggerAt, pi)
+                    }
+                } else {
+                    @Suppress("DEPRECATION")
+                    am.set(AlarmManager.ELAPSED_REALTIME_WAKEUP, triggerAt, pi)
+                }
             }.onFailure {
                 Log.w(TAG, "Could not schedule boot retry #$index", it)
             }
