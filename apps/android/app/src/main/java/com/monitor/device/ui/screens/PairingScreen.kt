@@ -285,8 +285,6 @@ fun PairingScreen(
         }
     }
 
-    RequestCapturePermissions()
-
     ScreenContainer {
         Spacer(modifier = Modifier.size(Spacing.md))
 

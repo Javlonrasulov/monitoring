@@ -27,6 +27,10 @@
     <string name="setup_permission_camera">Камера</string>
     <string name="setup_permission_microphone">Микрофон</string>
     <string name="setup_permission_notifications">Уведомления</string>
+    <string name="setup_permission_battery">Батарея (без ограничений)</string>
+    <string name="setup_permission_autostart">Автозапуск после перезагрузки</string>
+    <string name="setup_autostart_message">Разрешите Monitor запускаться после перезагрузки телефона, чтобы мониторинг возобновлялся без открытия приложения. Включите Monitor на следующем экране.</string>
+    <string name="setup_skip">Пропустить</string>
     <string name="setup_progress">%1$d из %2$d</string>
     <string name="setup_requesting">Запрос разрешения…</string>
     <string name="setup_denied_title">Разрешение не выдано</string>

@@ -27,6 +27,10 @@
     <string name="setup_permission_camera">Camera</string>
     <string name="setup_permission_microphone">Microphone</string>
     <string name="setup_permission_notifications">Notifications</string>
+    <string name="setup_permission_battery">Battery (no restrictions)</string>
+    <string name="setup_permission_autostart">Auto-start after reboot</string>
+    <string name="setup_autostart_message">Allow Monitor to start automatically after the phone restarts so live monitoring resumes without opening the app. Enable Monitor in the next screen.</string>
+    <string name="setup_skip">Skip</string>
     <string name="setup_progress">%1$d of %2$d</string>
     <string name="setup_requesting">Requesting permission…</string>
     <string name="setup_denied_title">Permission not granted</string>

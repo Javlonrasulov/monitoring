@@ -47,6 +47,7 @@ import com.monitor.device.ui.screens.DeviceHistoryScreen
 import com.monitor.device.ui.screens.LiveWatchScreen
 import com.monitor.device.ui.screens.MainTabsScreen
 import com.monitor.device.ui.screens.PairingScreen
+import com.monitor.device.ui.screens.RequestSetupPermissions
 
 object Routes {
     const val Pairing = "pairing"
@@ -86,6 +87,8 @@ fun MonitorNavHost(
     var watchFacing by remember { mutableStateOf<String?>(null) }
     val onSubPage = currentRoute == Routes.Live || currentRoute == Routes.History
     val showTopBar = chatThreadId == null && !onSubPage
+
+    RequestSetupPermissions()
 
     LaunchedEffect(openChatThreadId) {
         val id = openChatThreadId?.takeIf { it.isNotBlank() } ?: return@LaunchedEffect
