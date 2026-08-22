@@ -94,11 +94,7 @@ describe('linked viewer recordings (Pro+ history)', () => {
       'target-1',
     );
     expect(prisma.device.findFirst).toHaveBeenCalledWith({
-      where: {
-        id: 'target-1',
-        linkedFromDeviceId: 'viewer-1',
-        disabled: false,
-      },
+      where: { id: 'target-1' },
     });
     expect(result.items).toHaveLength(1);
     const whereArg = prisma.recordingSegment.findMany.mock.calls[0][0].where;

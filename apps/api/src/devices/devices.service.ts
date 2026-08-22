@@ -134,7 +134,7 @@ export class DevicesService {
     await this.prisma.$transaction([
       this.prisma.user.update({
         where: { id: user.id },
-        data: {
+      data: {
           name: nextName,
           username: nextName,
           ...(phone ? { phone } : {}),
@@ -208,7 +208,7 @@ export class DevicesService {
     };
     const updated = await this.prisma.device.update({
       where: { id: device.id },
-      data: {
+        data: {
         capabilitiesJson: updatedCaps as Prisma.InputJsonValue,
       },
       include: { branch: true },
@@ -270,26 +270,13 @@ export class DevicesService {
   }
 
   async listLinkedForDevice(deviceId: string, _organizationId: string) {
-    const me = await this.prisma.device.findFirst({
-      where: { id: deviceId, disabled: false },
-      select: { linkedFromDeviceId: true },
-    });
     const linkedToMe = await this.prisma.device.findMany({
       where: {
         linkedFromDeviceId: deviceId,
         disabled: false,
       },
     });
-    const peer =
-      me?.linkedFromDeviceId
-        ? await this.prisma.device.findFirst({
-            where: { id: me.linkedFromDeviceId, disabled: false },
-          })
-        : null;
-    const byId = new Map<string, (typeof linkedToMe)[number]>();
-    for (const d of linkedToMe) byId.set(d.id, d);
-    if (peer) byId.set(peer.id, peer);
-    return [...byId.values()]
+    return linkedToMe
       .sort((a, b) => {
         const at = a.lastSeen?.getTime() ?? 0;
         const bt = b.lastSeen?.getTime() ?? 0;
@@ -339,7 +326,7 @@ export class DevicesService {
       throw new ForbiddenException('Device is not linked to this account');
     }
 
-    // Clear whichever side holds the link pointer (mutual live pair).
+    // Issuer clears invitee link; invitee can disconnect from issuer.
     let clearedId: string | null = null;
     if (target.linkedFromDeviceId === viewerDeviceId) {
       await this.prisma.device.update({
@@ -1554,24 +1541,20 @@ export class DevicesService {
   }
 
   /**
-   * Live links are mutual: either side may list/watch/unlink the other.
-   * Storage stays one-way (invitee.linkedFromDeviceId = issuer).
+   * Live visibility is one-way: only the pairing-code issuer may watch linked devices.
+   * Storage: invitee.linkedFromDeviceId = issuer.
    */
   private async requireMutualLink(viewerDeviceId: string, targetDeviceId: string) {
     if (viewerDeviceId === targetDeviceId) {
       throw new BadRequestException('Cannot target own device');
     }
-    const [viewer, target] = await Promise.all([
-      this.prisma.device.findFirst({ where: { id: viewerDeviceId } }),
-      this.prisma.device.findFirst({ where: { id: targetDeviceId } }),
-    ]);
-    if (!viewer || !target || target.disabled) {
+    const target = await this.prisma.device.findFirst({
+      where: { id: targetDeviceId },
+    });
+    if (!target || target.disabled) {
       throw new ForbiddenException('Device is not linked to this account');
     }
-    const linked =
-      target.linkedFromDeviceId === viewerDeviceId ||
-      viewer.linkedFromDeviceId === targetDeviceId;
-    if (!linked) {
+    if (target.linkedFromDeviceId !== viewerDeviceId) {
       throw new ForbiddenException('Device is not linked to this account');
     }
     return target;

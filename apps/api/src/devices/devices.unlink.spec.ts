@@ -51,28 +51,38 @@ describe('device link and unlink', () => {
     return { prisma, events, subscriptions, chats, service };
   }
 
-  it('lists mutual peers for the invitee as well as the issuer', async () => {
+  it('lists only devices that accepted the viewer pairing code', async () => {
     const { prisma, service } = setup();
-    prisma.device.findFirst
-      .mockResolvedValueOnce({
+    prisma.device.findMany.mockResolvedValue([
+      {
         id: 'user-2',
-        linkedFromDeviceId: 'user-1',
-      })
-      .mockResolvedValueOnce({
-        id: 'user-1',
-        name: 'Issuer',
+        name: 'Invitee',
         status: 'ONLINE',
         lastSeen: new Date('2026-01-01'),
         deviceModel: 'Pixel',
         capabilitiesJson: {},
         disabled: false,
-      });
+      },
+    ]);
+
+    const list = await service.listLinkedForDevice('user-1', 'org-1');
+    expect(list).toEqual([
+      expect.objectContaining({ id: 'user-2', name: 'Invitee' }),
+    ]);
+    expect(prisma.device.findMany).toHaveBeenCalledWith({
+      where: { linkedFromDeviceId: 'user-1', disabled: false },
+    });
+  });
+
+  it('does not list the issuer for an invitee who accepted their code', async () => {
+    const { prisma, service } = setup();
     prisma.device.findMany.mockResolvedValue([]);
 
     const list = await service.listLinkedForDevice('user-2', 'org-2');
-    expect(list).toEqual([
-      expect.objectContaining({ id: 'user-1', name: 'Issuer' }),
-    ]);
+    expect(list).toEqual([]);
+    expect(prisma.device.findMany).toHaveBeenCalledWith({
+      where: { linkedFromDeviceId: 'user-2', disabled: false },
+    });
   });
 
   it('unlinks without deleting so admin can still see the device', async () => {
@@ -212,7 +222,7 @@ describe('device link and unlink', () => {
     );
   });
 
-  it('allows the invitee to unlink the issuer (mutual live pair)', async () => {
+  it('allows the invitee to disconnect from the issuer', async () => {
     const { prisma, service } = setup();
     prisma.device.findFirst
       .mockResolvedValueOnce({
