@@ -32,6 +32,54 @@ describe('trial device claim', () => {
     return { prisma, service };
   }
 
+  it('allows pairing code generation before watcher trial exists', () => {
+    const { service } = setup();
+    expect(() =>
+      service.assertMayIssuePairingCode({
+        id: null,
+        status: 'NONE',
+        plan: 'NONE',
+        maxDevices: 2,
+        deviceCount: 1,
+        devicesUsed: '1 / 2',
+        expiresAt: null,
+        startedAt: null,
+        active: false,
+        trial: false,
+        canWatchVideo: false,
+        canWatchAudio: false,
+        canRecordings: false,
+        canLinkTwoApps: false,
+        priceProUsd: 25,
+        priceProPlusUsd: 25,
+      }),
+    ).not.toThrow();
+  });
+
+  it('blocks pairing code generation when subscription is expired', () => {
+    const { service } = setup();
+    expect(() =>
+      service.assertMayIssuePairingCode({
+        id: 'sub-1',
+        status: 'EXPIRED',
+        plan: 'TRIAL',
+        maxDevices: 2,
+        deviceCount: 1,
+        devicesUsed: '1 / 2',
+        expiresAt: new Date(Date.now() - 60_000).toISOString(),
+        startedAt: null,
+        active: false,
+        trial: false,
+        canWatchVideo: false,
+        canWatchAudio: false,
+        canRecordings: false,
+        canLinkTwoApps: false,
+        priceProUsd: 25,
+        priceProPlusUsd: 25,
+      }),
+    ).toThrow(BadRequestException);
+  });
+
   it('blocks a new account after trial ended on the same phone', async () => {
     const { prisma, service } = setup();
     prisma.trialDeviceClaim.findFirst.mockResolvedValue({

@@ -448,17 +448,6 @@ export class DevicesService {
         );
         const target = await this.createAccountForPhone(phone, displayName);
         try {
-          const trial = await this.subscriptions.ensureTrial(
-            target.organizationId,
-          );
-          const expiresAt =
-            trial.expiresAt ?? new Date(Date.now() + 72 * 60 * 60 * 1000);
-          await this.subscriptions.claimTrialForInstall(
-            dto.installId,
-            target.organizationId,
-            expiresAt,
-            dto.installSignals,
-          );
           return this.createPairedDevice({
             organizationId: target.organizationId,
             branchId: target.branchId,
@@ -1021,7 +1010,7 @@ export class DevicesService {
         params.organizationId,
       );
       this.throwIfPairBlocked(allowed);
-    } else {
+    } else if (!params.linkedFromDeviceId) {
       await this.subscriptions.ensureTrial(params.organizationId);
     }
 
@@ -1378,11 +1367,9 @@ export class DevicesService {
     issuerUserId?: string;
     ttlMs: number;
   }) {
-    await this.subscriptions.ensureTrial(params.organizationId);
-    const view = await this.subscriptions.forOrganization(params.organizationId);
-    if (!view.active) {
-      throw new BadRequestException('Subscription is not active');
-    }
+    await this.subscriptions.assertMayIssuePairingCode(
+      await this.subscriptions.forOrganization(params.organizationId),
+    );
 
     const branch =
       (params.branchId
@@ -1518,7 +1505,7 @@ export class DevicesService {
     if (!issuer) {
       throw new BadRequestException('Invalid pairing code');
     }
-    await this.subscriptions.ensureTrial(issuer.organizationId);
+    await this.subscriptions.ensureWatcherTrial(issuer.organizationId);
     const view = await this.subscriptions.forOrganization(
       issuer.organizationId,
     );

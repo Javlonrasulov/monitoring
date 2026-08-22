@@ -25,7 +25,11 @@ describe('device link and unlink', () => {
     const audit = { log: jest.fn().mockResolvedValue(undefined) };
     const subscriptions = {
       ensureTrial: jest.fn().mockResolvedValue({}),
+      ensureWatcherTrial: jest.fn().mockResolvedValue({
+        expiresAt: new Date(Date.now() + 72 * 60 * 60 * 1000),
+      }),
       forOrganization: jest.fn().mockResolvedValue({ active: true }),
+      assertMayIssuePairingCode: jest.fn(),
       assertCanPair: jest.fn(),
     };
     const chats = {
@@ -145,6 +149,46 @@ describe('device link and unlink', () => {
     );
     expect(subscriptions.assertCanPair).not.toHaveBeenCalled();
     expect(prisma.device.update).not.toHaveBeenCalled();
+  });
+
+  it('starts watcher trial for the issuer when an invitee links', async () => {
+    const { prisma, subscriptions, service } = setup();
+    prisma.devicePairingCode.findUnique.mockResolvedValue({
+      id: 'code-2',
+      code: 'XYZ789',
+      organizationId: 'org-1',
+      branchId: 'b1',
+      issuerDeviceId: 'user-1',
+      issuerUserId: 'u1',
+      usedAt: null,
+      expiresAt: new Date(Date.now() + 60_000),
+    });
+    prisma.device.findFirst
+      .mockResolvedValueOnce({
+        id: 'user-3',
+        name: 'New',
+        organizationId: 'org-x',
+        branchId: 'bx',
+        disabled: false,
+      })
+      .mockResolvedValueOnce({
+        id: 'user-1',
+        organizationId: 'org-1',
+        disabled: false,
+      });
+    prisma.device.count.mockResolvedValue(1);
+    prisma.device.update.mockResolvedValue({
+      id: 'user-3',
+      name: 'New',
+      organizationId: 'org-x',
+      branchId: 'bx',
+      linkedFromDeviceId: 'user-1',
+    });
+    prisma.user.findFirst.mockResolvedValue({ id: 'peer-3' });
+
+    await service.linkExistingDevice('user-3', 'XYZ789');
+    expect(subscriptions.ensureWatcherTrial).toHaveBeenCalledWith('org-1');
+    expect(subscriptions.ensureTrial).not.toHaveBeenCalled();
   });
 
   it('allows linking another phone after unlink even if org already has two devices', async () => {

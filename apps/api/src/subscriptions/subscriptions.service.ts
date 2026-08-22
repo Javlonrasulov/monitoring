@@ -172,6 +172,21 @@ export class SubscriptionsService {
   }
 
   /**
+   * 72h live-view demo for the pairing-code issuer. Starts when someone accepts
+   * their code (not when they join as an invitee on someone else's code).
+   */
+  async ensureWatcherTrial(organizationId: string) {
+    return this.ensureTrial(organizationId);
+  }
+
+  /** Pairing codes can be generated before the watcher trial starts. */
+  assertMayIssuePairingCode(view: SubscriptionView) {
+    if (view.active) return;
+    if (view.status === 'NONE') return;
+    throw new BadRequestException('Subscription is not active');
+  }
+
+  /**
    * One free trial per physical phone. Matches ANY known signal
    * (fingerprint hash, ANDROID_ID, Widevine id).
    */
