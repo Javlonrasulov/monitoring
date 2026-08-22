@@ -36,6 +36,7 @@
     <string name="setup_denied_title">Permission not granted</string>
     <string name="setup_denied_message">Monitoring cannot run without the camera and microphone. Open settings, enable them, and come back here.</string>
     <string name="setup_open_settings">Open settings</string>
+    <string name="setup_autostart_open_failed">Could not open settings automatically. Open Settings → Apps → Monitoring Telegram → Battery and allow background activity.</string>
 
     <!-- Pairing -->
     <string name="pair_title">Pair device</string>

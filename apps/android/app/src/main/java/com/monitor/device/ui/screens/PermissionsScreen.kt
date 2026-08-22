@@ -1,8 +1,10 @@
 package com.monitor.device.ui.screens
 
 import android.Manifest
+import android.content.ActivityNotFoundException
 import android.content.pm.PackageManager
 import android.os.Build
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material3.AlertDialog
@@ -65,6 +67,29 @@ fun RequestSetupPermissions() {
         promptAutostartOrDone()
     }
 
+    val autostartLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult(),
+    ) {
+        finishBackgroundSetup()
+    }
+
+    fun openAutostartSettings() {
+        for (intent in BackgroundRunPermissions.autostartSettingsIntents(context)) {
+            try {
+                autostartLauncher.launch(intent)
+                return
+            } catch (_: ActivityNotFoundException) {
+                continue
+            }
+        }
+        Toast.makeText(
+            context,
+            context.getString(R.string.setup_autostart_open_failed),
+            Toast.LENGTH_LONG,
+        ).show()
+        finishBackgroundSetup()
+    }
+
     val runtimeLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions(),
     ) {
@@ -107,9 +132,8 @@ fun RequestSetupPermissions() {
             confirmButton = {
                 TextButton(
                     onClick = {
-                        BackgroundRunPermissions.openAutostartSettings(context)
                         showAutostartDialog = false
-                        finishBackgroundSetup()
+                        openAutostartSettings()
                     },
                 ) {
                     Text(stringResource(R.string.setup_open_settings))

@@ -36,6 +36,7 @@
     <string name="setup_denied_title">Разрешение не выдано</string>
     <string name="setup_denied_message">Без камеры и микрофона мониторинг не работает. Откройте настройки, включите разрешения и вернитесь сюда.</string>
     <string name="setup_open_settings">Открыть настройки</string>
+    <string name="setup_autostart_open_failed">Не удалось открыть настройки автоматически. Откройте Настройки → Приложения → Monitoring Telegram → Батарея и разрешите работу в фоне.</string>
 
     <!-- Pairing -->
     <string name="pair_title">Привязка устройства</string>
