@@ -78,42 +78,70 @@ export class ChatsService {
     peerUserId: string;
     ownerUserId?: string | null;
   }) {
-    const owner =
-      (params.ownerUserId
+    let owner =
+      params.ownerUserId
         ? await this.prisma.user.findFirst({
             where: {
               id: params.ownerUserId,
-              organizationId: params.organizationId,
               blocked: false,
             },
           })
-        : null) ??
-      (await this.prisma.user.findFirst({
+        : null;
+    if (!owner) {
+      owner = await this.prisma.user.findFirst({
         where: {
           organizationId: params.organizationId,
           role: { in: [UserRole.ADMIN, UserRole.OWNER] },
           blocked: false,
         },
         orderBy: { createdAt: 'asc' },
-      }));
+      });
+    }
     if (!owner) return null;
+
+    const organizationId = owner.organizationId;
 
     return this.prisma.chatThread.upsert({
       where: {
         organizationId_ownerUserId_peerUserId: {
-          organizationId: params.organizationId,
+          organizationId,
           ownerUserId: owner.id,
           peerUserId: params.peerUserId,
         },
       },
       update: { deviceId: params.deviceId },
       create: {
-        organizationId: params.organizationId,
+        organizationId,
         ownerUserId: owner.id,
         peerUserId: params.peerUserId,
         deviceId: params.deviceId,
       },
     });
+  }
+
+  /** Creates missing peer chat threads when the issuer opens the chat list. */
+  private async ensurePeerThreadsForIssuerDevice(
+    issuerDeviceId: string,
+    ownerUserId: string,
+  ) {
+    const linked = await this.prisma.device.findMany({
+      where: { linkedFromDeviceId: issuerDeviceId, disabled: false },
+      select: { id: true, name: true },
+    });
+    for (const device of linked) {
+      const peer = await this.prisma.user.findFirst({
+        where: { deviceId: device.id, blocked: false },
+        select: { id: true },
+      });
+      if (!peer) continue;
+      await this.ensureThreadForPairedDevice({
+        organizationId: '',
+        deviceId: device.id,
+        deviceName: device.name,
+        peerUserId: peer.id,
+        ownerUserId,
+      });
+    }
   }
 
   async listForAdmin(organizationId: string, userId: string) {
@@ -141,6 +169,7 @@ export class ChatsService {
 
   async listForDevice(organizationId: string, deviceId: string) {
     const viewer = await this.deviceUser(organizationId, deviceId);
+    await this.ensurePeerThreadsForIssuerDevice(deviceId, viewer.id);
     await this.prisma.user.updateMany({
       where: { id: viewer.id },
       data: { lastSeenAt: new Date() },

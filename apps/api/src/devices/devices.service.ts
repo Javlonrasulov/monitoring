@@ -1103,8 +1103,18 @@ export class DevicesService {
         });
 
     const deviceToken = await this.signDeviceToken(device);
+    let threadOrgId = device.organizationId;
+    if (params.linkedFromDeviceId) {
+      const issuerDevice = await this.prisma.device.findFirst({
+        where: { id: params.linkedFromDeviceId },
+        select: { organizationId: true },
+      });
+      if (issuerDevice) {
+        threadOrgId = issuerDevice.organizationId;
+      }
+    }
     const thread = await this.chats.ensureThreadForPairedDevice({
-      organizationId: device.organizationId,
+      organizationId: threadOrgId,
       deviceId: device.id,
       deviceName: device.name,
       peerUserId: linkedUser.id,
