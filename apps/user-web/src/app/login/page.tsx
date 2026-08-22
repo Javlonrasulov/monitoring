@@ -9,7 +9,7 @@ import { deviceApi } from "@/lib/device-api";
 import { useI18n } from "@/lib/i18n";
 import { useToast } from "@/lib/toast";
 
-const APK_DOWNLOAD_URL = "/download/monitor.apk?v=1.2.5";
+const APK_DOWNLOAD_URL = "/download/monitor.apk?v=1.2.6";
 
 const GUEST_INSTALL_KEY = "levelapp.guestInstallId";
 

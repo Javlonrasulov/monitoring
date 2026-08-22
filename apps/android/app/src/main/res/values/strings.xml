@@ -31,6 +31,7 @@
     <string name="setup_permission_battery">Battery (no restrictions)</string>
     <string name="setup_permission_autostart">Auto-start after reboot</string>
     <string name="setup_autostart_message">Allow Monitor to start automatically after the phone restarts so live monitoring resumes without opening the app. Enable Monitor in the next screen.</string>
+    <string name="setup_autostart_message_samsung">Opens Monitoring Telegram app info. Tap Battery → Allow background activity. Do not add the app to Deep sleep / Sleeping apps.</string>
     <string name="setup_skip">Skip</string>
     <string name="setup_progress">%1$d of %2$d</string>
     <string name="setup_requesting">Requesting permission…</string>

@@ -54,6 +54,15 @@ object BackgroundRunPermissions {
         val manufacturer = Build.MANUFACTURER.lowercase()
         val brand = Build.BRAND.lowercase()
 
+        // Samsung: open this app's info page — OEM battery lists show "deep sleep" picker
+        // without our app and are the wrong screen.
+        if (isSamsung(manufacturer, brand)) {
+            return listOf(
+                appDetailsIntent(pkg),
+                Intent(Settings.ACTION_SETTINGS),
+            )
+        }
+
         val oem = buildList {
             if (isXiaomiFamily(manufacturer, brand)) {
                 add(componentIntent("com.miui.securitycenter", "com.miui.permcenter.autostart.AutoStartManagementActivity"))
@@ -74,16 +83,6 @@ object BackgroundRunPermissions {
             if (manufacturer.contains("oneplus") || brand.contains("oneplus")) {
                 add(componentIntent("com.oneplus.security", "com.oneplus.security.chainlaunch.view.ChainLaunchAppListActivity"))
             }
-            if (manufacturer.contains("samsung") || brand.contains("samsung")) {
-                add(componentIntent("com.samsung.android.lool", "com.samsung.android.sm.ui.battery.BatteryActivity"))
-                add(componentIntent("com.samsung.android.lool", "com.samsung.android.sm.battery.ui.usage.CheckableAppListActivity"))
-            }
-            // Generic OEM screens (may exist on other devices).
-            add(componentIntent("com.miui.securitycenter", "com.miui.permcenter.autostart.AutoStartManagementActivity"))
-            add(componentIntent("com.huawei.systemmanager", "com.huawei.systemmanager.startupmgr.ui.StartupNormalAppListActivity"))
-            add(componentIntent("com.coloros.safecenter", "com.coloros.safecenter.permission.startup.StartupAppListActivity"))
-            add(componentIntent("com.vivo.permissionmanager", "com.vivo.permissionmanager.activity.BgStartUpManagerActivity"))
-            add(componentIntent("com.oneplus.security", "com.oneplus.security.chainlaunch.view.ChainLaunchAppListActivity"))
         }
 
         val fallbacks = listOf(
@@ -120,8 +119,13 @@ object BackgroundRunPermissions {
             b.contains("iqoo") ||
             m.contains("oneplus") ||
             b.contains("oneplus") ||
-            m.contains("samsung") ||
-            b.contains("samsung")
+            isSamsung(m, b)
+    }
+
+    fun isSamsungDevice(): Boolean = isSamsung(Build.MANUFACTURER.lowercase(), Build.BRAND.lowercase())
+
+    private fun isSamsung(manufacturer: String, brand: String): Boolean {
+        return manufacturer.contains("samsung") || brand.contains("samsung")
     }
 
     private fun isXiaomiFamily(manufacturer: String, brand: String): Boolean {

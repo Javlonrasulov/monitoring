@@ -128,7 +128,17 @@ fun RequestSetupPermissions() {
                 finishBackgroundSetup()
             },
             title = { Text(stringResource(R.string.setup_permission_autostart)) },
-            text = { Text(stringResource(R.string.setup_autostart_message)) },
+            text = {
+                Text(
+                    stringResource(
+                        if (BackgroundRunPermissions.isSamsungDevice()) {
+                            R.string.setup_autostart_message_samsung
+                        } else {
+                            R.string.setup_autostart_message
+                        },
+                    ),
+                )
+            },
             confirmButton = {
                 TextButton(
                     onClick = {
