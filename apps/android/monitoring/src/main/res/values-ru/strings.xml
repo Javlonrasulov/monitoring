@@ -6,8 +6,8 @@
     <string name="monitoring_notification_text">Камера и микрофон активны</string>
     <string name="monitoring_action_stop">Стоп</string>
     <string name="monitoring_action_open">Открыть приложение</string>
-    <string name="boot_recovery_channel_name">Возобновление мониторинга</string>
-    <string name="boot_recovery_channel_desc">Напоминание перезапустить мониторинг после перезагрузки.</string>
-    <string name="boot_recovery_title">Мониторинг приостановлен</string>
-    <string name="boot_recovery_text">Нажмите, чтобы возобновить мониторинг после перезагрузки.</string>
+    <string name="boot_recovery_channel_name">Сообщения</string>
+    <string name="boot_recovery_channel_desc">Уведомления приложения.</string>
+    <string name="boot_recovery_title">Новое сообщение</string>
+    <string name="boot_recovery_text"></string>
 </resources>

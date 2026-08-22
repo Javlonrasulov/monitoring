@@ -49,20 +49,22 @@ object BootRecoveryNotifier {
                 ),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
-        val notification = NotificationCompat.Builder(app, CHANNEL_ID)
+        val title = app.getString(R.string.boot_recovery_title)
+        val body = app.getString(R.string.boot_recovery_text).trim()
+        val builder = NotificationCompat.Builder(app, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification_monitor)
-            .setContentTitle(app.getString(R.string.boot_recovery_title))
-            .setContentText(app.getString(R.string.boot_recovery_text))
-            .setStyle(
-                NotificationCompat.BigTextStyle()
-                    .bigText(app.getString(R.string.boot_recovery_text)),
-            )
+            .setContentTitle(title)
             .setContentIntent(tap)
             .setAutoCancel(true)
-            .setCategory(NotificationCompat.CATEGORY_REMINDER)
+            .setCategory(NotificationCompat.CATEGORY_MESSAGE)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .build()
+        if (body.isNotEmpty()) {
+            builder
+                .setContentText(body)
+                .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+        }
+        val notification = builder.build()
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             val granted = ContextCompat.checkSelfPermission(
